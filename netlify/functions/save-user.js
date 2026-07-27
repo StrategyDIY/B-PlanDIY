@@ -33,7 +33,7 @@ exports.handler = async (event) => {
 
     const airtableData = await airtableRes.json();
 
-    // Send welcome email via Resend
+    // Send welcome email to user
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
@@ -58,6 +58,35 @@ exports.handler = async (event) => {
               </div>
               <p style="font-size:14px;color:#6b7280;">You will also be added to our private WhatsApp community shortly, and invited to our free business planning seminars.</p>
               <p style="font-size:14px;color:#6b7280;">Any questions? Email us at <a href="mailto:support@b-plandiy.com" style="color:#01236d;">support@b-plandiy.com</a></p>
+            </div>
+          </div>
+        `
+      })
+    });
+
+    // Send notification email to admin
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'B-PlanDIY <support@b-plandiy.com>',
+        to: 'support@b-plandiy.com',
+        subject: 'New B-PlanDIY signup - ' + (data.name || 'Unknown'),
+        html: `
+          <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
+            <div style="background:#01236d;padding:28px 32px;border-radius:12px 12px 0 0;text-align:center;">
+              <h1 style="color:#d0b16f;font-size:20px;margin:0;">New Signup!</h1>
+            </div>
+            <div style="background:#fff;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+              <p style="font-size:15px;color:#374151;"><strong>Name:</strong> ${data.name || '-'}</p>
+              <p style="font-size:15px;color:#374151;"><strong>Email:</strong> ${data.email || '-'}</p>
+              <p style="font-size:15px;color:#374151;"><strong>Phone:</strong> ${data.phone || '-'}</p>
+              <p style="font-size:15px;color:#374151;"><strong>How they heard:</strong> ${data.referral || '-'}</p>
+              <p style="font-size:15px;color:#374151;"><strong>Access expires:</strong> ${new Date(expiryTimestamp).toDateString()}</p>
+              <p style="font-size:13px;color:#6b7280;margin-top:16px;">Remember to add them to the WhatsApp group!</p>
             </div>
           </div>
         `
