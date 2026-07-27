@@ -1,0 +1,33 @@
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[functions."anthropic"]
+  timeout = 26
+
+[functions."save-user"]
+  timeout = 26
+
+[functions."verify-user"]
+  timeout = 10
+
+[functions."send-reminders"]
+  schedule = "@daily"
+
+[[redirects]]
+  from = "/api/anthropic"
+  to = "/.netlify/functions/anthropic"
+  status = 200
+
+[[redirects]]
+  from = "/api/save-user"
+  to = "/.netlify/functions/save-user"
+  status = 200
+
+[[redirects]]
+  from = "/api/verify-user"
+  to = "/.netlify/functions/verify-user"
+  status = 200

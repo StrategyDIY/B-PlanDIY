@@ -1,0 +1,1510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/favicon-192.png">
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>B-PlanDIY - Business Plan Generator</title>
+<style>
+#loading{display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#01236d;font-size:18px;flex-direction:column;gap:12px;}
+.spinner{width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #01236d;border-radius:50%;animation:spin 0.8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="console.warn('xlsx CDN failed')"></script>
+</head>
+<body>
+<div id="loading"><div class="spinner"></div><div>Loading B-PlanDIY...</div></div>
+<div id="root"></div>
+<script id="logo-data" type="text/plain">
+const LOGO_SRC="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAEAAAAAAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCANIA0gDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKYsqNIYw6mQAEqDyAehxT6ACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACkdgqlicAc0tZXie6+yaLcODhmGxfqeKipNQi5PoOKu7HHabqxHis3W47J5TG2R/Ceg/QV6NXjvuOCDkH3r1fTLxL6xhuE/jUEj0PcfnmvPy+tzc0X6nTiIKNrFuiiivTOUKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKrSX9rGxWS4hRh1DOAalyUd2FizRVI6nZ5/4+7f8A7+Cl/tOy/wCfu3/7+Cl7SPcfKy5XD+Pb4SXUNkh/1Y3v9T0H6frXT3Gs2EEZd7uDA9HBJ/AV5nf3TXd9cTsTiRywz2Hb9AK4cfXSp8sXub0KbbuyGuz8A3u6G4tGPKHzFHsev6/zri81o+G7wWGrwzOcRHKOfQH/AOvivNw1T2VRSOutHngep5oqkNTsP+fy3/7+Cl/tOx/5/Lf/AL+CvoPaR7nm2fYuUVT/ALTsf+fy3/7+CnR39rKwWK5hdj2VwTR7SPcLMtUUUVYgooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK898SeGZbFWuLLdNb5JZP4k/wAa9Co61hXoRrKzLp1HB3R4xijFd74h8LLcs1xp+I5jy0Z4Vj7ehrhZY3ikaOVSrqcFT1FeHXoTpOzO+lNTV0MxRilorA02YlFLRQNiUYpaktrea6mEVvG0kh6Af54o30QtiLFdV4c8MSXBS5vw0UQ5VBw5Pr7D9a19B8Mw2Yjnuz5tyBwD91D7e/vXTAV62GwP2qn3HJVr392IUUUV6hyBRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFZOvaLb6tBiRQsy/ckA5Ht9K1qy/El4LLR55M4dhsT3J4rKsouD5ti6bakrHlpGHZf7pxRSUtfNM9MKKKKCiazgFxcxRFxGHcLuPbJxXqGj6TbaXAUtl+ZvvuerV5SCQQR1HIr1fRbz7bpttODu8xASffvXpZbyuTvucmJvbTYv0UUV7BxBRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABXGfEG5H+iWwPrKR+g/r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RRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAHn/jmxS2vo7lBtWfdvx03DH881zNejeOLbztCdwMtC6uPpnB/Q15zXgY2moVNOp6OHleIUUUVyG4UUUUAFFFFABRRRQAV63pUS2+nW8SfdWNQPyrySvZIxtRR7V6eWrWTOPFvRIdRRRXrnGFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAFfUIBc2U8DdJI2T8xXkJGCRXsxryXWoFtdXu4VGFWQkfjz/WvKzGO0jrwstWinRRRXlHaFFFFABRRRQAUUUUAWtJj87VLSIn5WlXP5j/69eudq8t8Lf8AIwWWP7xP4bTXqXevYyxe42cOKd2kFFFFekcgUUUUDCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACvNPGq48QTHP3lU/pivS64L4gxqt/bOB8zRkE/Q/wD164cwV6VzfDO0zlqKKK8M7wooooKCiiigAooooA6TwJCr6u8jjIjjOPqSB/jXoOK474dxgxXsv8LFAPwB/wAa7KvewKtRR5td++FFFFdZiFFFFMAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigArhfiH/wAfdn/uN/Ou6rhPiF/x92f+438648e7UWbUP4iOUooorwT0tgooooAKKKKACiiigD0TwPE0WhgsMb5GYfTp/SuhFZ3h6D7NollGRhhGCfqeT/OtLvX0mHjy04o8mbvJsKKKK2JCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigArgPiAc6rbj0hH/oRrv68z8Zyl/EE69kVVH5VwZg7UrG+HV53MWiiivDZ6AUUUUxhRRRQAVY0+Fri/toR0kkCn6VXrf8EW/na4jkZWJGbPv0H860ow55pEVJcquejgAAAdBRRRX0x5QUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABXlPiWUTa9euhyu/aD9BivVXO1GPoM1445DOzY+8xNeZmU7RjHudWFWrYyloorxjtCiiiqGFFFFABXY/DyFt95KV4+VQfwJP8xXHV6b4Rt/s2hW6sMO48w++en6YruwEOarfsc+IlaBs0UUV7h54UUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAGd4hlaHRbx0+8Imx+WK8rr0TxxceTorRg4aZgv4dT/KvO68TMZXmkd2G+ESiiiuA6gooooAKKKKAJbSBrm5igT70jBR+Jr16FBHEiAABVAGK888EWvnax53aBCfxPAr0YV7GXQtFy7nBiXqkFFFFekcwUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAHDfEGcPdWkA6orOfxOB/I1yda3iqYTa7dENkK3l/TAGf1zWTXzeKnz1Wz0qUeWKEooorE2CiiigAoop9vE088cSffdgqj3NAm7Hd+BLIwWMtw64aZ+P90cfzzXUVFaQrbW0UKfdRQoqWvpaNNUoKKPKnLmdwooorUkKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACorqbyLaWXbu2IW2jqcCpaDQB447M7MzHLMck+ppp6V6+beI9YkP4UfZYP8AnjH+VeS8sv8Aa/A61ifI8eNJXsYtof8Ankn/AHzR9mh/55J/3zR/Zf8Ae/Af1vyPHKK9j+zQ/wDPJP8Avmj7ND/zyT/vmj+y/wC9+AfW/I8eroPBdhJc6slwY/3MHzbv9og8V6D9nh/55J/3yKlAAGAMCtKWXqElJu5MsTdWSCiiivSOUKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/9k="
+</script>
+<script type="module">
+import React from 'https://esm.sh/react@18.2.0';
+import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
+import * as Recharts from 'https://esm.sh/recharts@2.10.0?deps=react@18.2.0,react-dom@18.2.0';
+import Babel from 'https://esm.sh/@babel/standalone@7.23.2';
+
+window.React = React;
+window.__LOGO_SRC__ = document.getElementById('logo-data').textContent.trim();
+
+const {useState,useRef,useCallback} = React;
+const {BarChart,Bar,Cell,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ReferenceLine,ResponsiveContainer} = Recharts;
+
+try {
+  const code = document.getElementById('app-src').textContent;
+  const compiled = Babel.transform(code, {presets:['react']}).code;
+  const fn = new Function(
+    'React','useState','useRef','useCallback',
+    'BarChart','Bar','Cell','XAxis','YAxis','CartesianGrid','Tooltip','Legend','ReferenceLine','ResponsiveContainer',
+    compiled + '\nreturn App;'
+  );
+  const App = fn(React,useState,useRef,useCallback,BarChart,Bar,Cell,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ReferenceLine,ResponsiveContainer);
+  createRoot(document.getElementById('root')).render(React.createElement(App));
+  document.getElementById('loading').style.display='none';
+} catch(e) {
+  document.getElementById('loading').innerHTML='<div style="color:red;padding:20px;max-width:600px">Error: '+e.message+'</div>';
+  console.error(e);
+}
+</script>
+<script type="text/plain" id="app-src">
+
+const GREEN="#d0b16f",GREEN_DARK="#01236d",GREEN_LIGHT="#f5eedd",AMBER="#BA7517",AMBER_LIGHT="#FAEEDA",RED="#A32D2D",RED_LIGHT="#FCEBEB";
+const LOGO_SRC=window.__LOGO_SRC__||"";
+const legalOpts=[{v:"meets",l:"Meets all obligations",s:"Tax, licences, employment, insurance and compliance are in order",color:GREEN,bg:GREEN_LIGHT},{v:"partial",l:"Partially meets obligations",s:"Some requirements are in place, others still being addressed",color:AMBER,bg:AMBER_LIGHT},{v:"notyet",l:"Not yet",s:"Legal and compliance requirements still to be set up",color:RED,bg:RED_LIGHT}];
+const onlineCh=[{id:"oWeb",label:"Web",ph:"Website or app URL"},{id:"oFb",label:"FB",ph:"Facebook page URL"},{id:"oIg",label:"IG",ph:"Instagram handle"},{id:"oLi",label:"LI",ph:"LinkedIn URL"},{id:"oOther",label:"Other",ph:"Other social/platform"}];
+const contactCh=[{id:"cName",label:"Name",ph:"Full name"},{id:"cEmail",label:"Email",ph:"Email address"},{id:"cMobile",label:"Mobile",ph:"Mobile number"}];
+const expCats=[{id:"xAcct",l:"Accounting"},{id:"xComms",l:"Communications"},{id:"xCon",l:"Contractors"},{id:"xEquip",l:"Equipment"},{id:"xGen",l:"General"},{id:"xIns",l:"Insurance"},{id:"xLegal",l:"Legal"},{id:"xOffice",l:"Office"},{id:"xMkt",l:"Marketing"},{id:"xProp",l:"Property"},{id:"xTeam",l:"Team"},{id:"xTravel",l:"Travel"},{id:"xVeh",l:"Vehicle"},{id:"xOtherExp",l:"Other expenses"}];
+const txCats=[{id:"txLoan",l:"Loan transactions"},{id:"txAsset",l:"Asset transactions"},{id:"txTax",l:"Tax payments"},{id:"txOther",l:"Other transactions"}];
+
+const STORAGE_KEY="bpg_fd";
+const EXPIRY_KEY="bpg_expiry";
+const NINETY_DAYS=90*24*60*60*1000;
+
+function fmtDate(v){if(!v)return"Not specified";var parts=v.split("-");var months=["January","February","March","April","May","June","July","August","September","October","November","December"];return parseInt(parts[2])+" "+months[parseInt(parts[1])-1]+" "+parts[0];}
+function fmt(n){const v=Math.round(Number(n));return(v<0?"-$":"$")+Math.abs(v).toLocaleString();}
+
+function parseMonthly(str,def){
+  if(def===undefined)def=0;
+  if(!str||str.toLowerCase()==="no"||!str.trim())return Array(12).fill(def);
+  const s=str.trim();
+  if(s.includes("M")&&s.includes(":")){
+    const arr=Array(12).fill(def);
+    s.split(",").forEach(part=>{
+      const m=part.trim().match(/M(\d+):([0-9.]+)/i);
+      if(m){const idx=parseInt(m[1])-1;if(idx>=0&&idx<12)arr[idx]=parseFloat(m[2]);}
+    });
+    return arr;
+  }
+  const n=parseFloat(s.replace(/[^0-9.]/g,""));
+  return Array(12).fill(isNaN(n)?def:n);
+}
+
+function parseGrowth(str){
+  if(!str||str.toLowerCase()==="no"||!str.trim())return Array(12).fill(0);
+  const s=str.trim();
+  if(s.includes("M")&&s.includes(":")){
+    const arr=Array(12).fill(0);
+    s.split(",").forEach(part=>{
+      const m=part.trim().match(/M(\d+):([0-9.]+)/i);
+      if(m){const idx=parseInt(m[1])-1;if(idx>=0&&idx<12)arr[idx]=parseFloat(m[2]);}
+    });
+    return arr;
+  }
+  const n=parseFloat(s.replace(/[^0-9.]/g,""));
+  return Array(12).fill(isNaN(n)?0:n);
+}
+
+function calcCashflow(f){
+  const open=parseFloat(f.openingBalance)||0;
+  const unitGrowth=parseGrowth(f.unitGrowth);
+  const priceInc=parseGrowth(f.priceInc);
+  const costInc=parseGrowth(f.costInc);
+  const avgSales=parseMonthly(f.avgSales,0);
+  const avgPrice=parseMonthly(f.avgPrice,0);
+  const avgCost=parseMonthly(f.avgCost,0);
+
+  const expArr={};
+  expCats.forEach(c=>{expArr[c.id]=parseMonthly(f[c.id],0);});
+  const txArr={};
+  txCats.forEach(c=>{txArr[c.id]=parseMonthly(f[c.id],0);});
+  const taxRate=parseFloat(f.taxRate)||0;
+  let accTax=0;
+
+  let bal=open;
+  const rows=[];
+
+  for(let i=0;i<12;i++){
+    // Revenue
+    const monthlyUnits=parseMonthly(f.monthlyUnits,0);
+    const hasMonthlyUnits=f.monthlyUnits&&f.monthlyUnits.includes("M");
+    let units=hasMonthlyUnits?monthlyUnits[i]:parseFloat(f["month1Units"]||0);
+    if(!hasMonthlyUnits&&i>0){
+      for(let j=0;j<i;j++) units=units*(1+(unitGrowth[j]||0)/100);
+    }
+    let price=avgPrice[i]||parseFloat(f.avgPrice)||0;
+    if(priceInc[i]) price=price*(1+priceInc[i]/100);
+    const revProducts=Math.round(units*price);
+    const revOther=Math.round(parseMonthly(f.otherRevenue,0)[i]);
+    const revenue=revProducts+revOther;
+
+    // COGS
+    let cost=avgCost[i]||parseFloat(f.avgCost)||0;
+    if(costInc[i]) cost=cost*(1+costInc[i]/100);
+    const cogs=Math.round(units*cost);
+
+    const grossProfit=revenue-cogs;
+
+    // Expenses
+    const expDetail={};
+    let totalExpenses=0;
+    expCats.forEach(c=>{
+      const v=Math.round(expArr[c.id][i]);
+      expDetail[c.id]=v;
+      totalExpenses+=v;
+    });
+
+    const netProfit=grossProfit-totalExpenses;
+
+    // Tax = (Net Profit + Team & contractors expense) * taxRate
+    const teamExp=(expDetail["xTeam"]||0)+(expDetail["xCon"]||0);
+    const taxableBase=netProfit+teamExp;
+    const monthTax=Math.round(taxableBase*taxRate/100);
+    const isTaxPayMonth=!!f["taxPayM"+(i+1)]||!Array.from({length:12},function(_,n){return f["taxPayM"+(n+1)];}).some(Boolean);
+    const calcTax=isTaxPayMonth?accTax:0;
+    if(isTaxPayMonth)accTax=0;
+    accTax+=monthTax;
+
+    // Other transactions
+    const txDetail={};
+    let otherTx=0;
+    txCats.forEach(c=>{
+      let v;
+      if(c.id==="txTax"){
+        // Use entered monthly grid values only if the grid is explicitly enabled
+        const entered=f["txTax_monthly"]==="1"?Math.round(txArr[c.id][i]):0;
+        v=entered!==0?entered:calcTax;
+      } else {
+        v=Math.round(txArr[c.id][i]);
+      }
+      txDetail[c.id]=v;
+      otherTx+=v;
+    });
+
+    const netCashflow=netProfit-otherTx;
+    const openBal=bal;
+    bal=bal+netCashflow;
+
+    rows.push({
+      month:"Month "+(i+1),
+      units:Math.round(units),
+      avgPrice:Math.round(price*100)/100,
+      avgCost:Math.round(cost*100)/100,
+      revenue,revProducts,revOther,
+      cogs,grossProfit,
+      expDetail,totalExpenses,
+      netProfit,
+      txDetail,otherTx,
+      netCashflow,
+      openingBalance:openBal,
+      closingBalance:bal
+    });
+  }
+  return rows;
+}
+
+function CfTable({rows}){
+  if(!rows||!rows.length)return <div/>;
+  function totals(key){return rows.reduce(function(s,r){return s+(r[key]||0);},0);}
+  const expTotals={};
+  expCats.forEach(c=>{expTotals[c.id]=rows.reduce((s,r)=>s+(r.expDetail&&r.expDetail[c.id]||0),0);});
+  const txTotals={};
+  txCats.forEach(c=>{txTotals[c.id]=rows.reduce((s,r)=>s+(r.txDetail&&r.txDetail[c.id]||0),0);});
+
+  const th={padding:"9px 8px",textAlign:"right",borderBottom:"2px solid #e5e7eb",fontWeight:600,fontSize:11,background:"#f9fafb",whiteSpace:"nowrap",color:"#6b7280"};
+  const thF={...th,textAlign:"left"};
+  const td={padding:"6px 8px",textAlign:"right",borderBottom:"1px solid #f3f4f6",fontSize:12,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"};
+  const tdF={...td,textAlign:"left",color:"#6b7280"};
+  const tot={...td,fontWeight:600,background:"#f9fafb"};
+  const totF={...tot,textAlign:"left"};
+  const totB={borderLeft:"2px solid #e5e7eb"};
+  const hdr={...td,background:"#eef1f8",color:GREEN_DARK,fontWeight:600,fontSize:10,textTransform:"uppercase",letterSpacing:"0.05em",textAlign:"left"};
+  const hlG={...td,background:GREEN_DARK,color:"#fff",fontWeight:700};
+  const hlR={...td,background:RED,color:"#fff",fontWeight:700};
+  const hlGF={...hlG,textAlign:"left"};
+  const hlRF={...hlR,textAlign:"left"};
+  const gpTotal=totals("grossProfit");
+
+  const wrapStyle={overflowX:"auto"};
+  const tblStyle={width:"100%",borderCollapse:"collapse",fontSize:12};
+
+  var cftable=(
+    <div style={wrapStyle}>
+      <table style={tblStyle}>
+        <thead>
+          <tr>
+            <th style={thF}>Item</th>
+            {rows.map(function(r){return <th key={r.month} style={th}>{r.month.replace("Month ","M")}</th>;})}
+            <th style={Object.assign({},th,totB)}>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td style={hdr} colSpan={rows.length+2}>Key Drivers</td></tr>
+          <tr><td style={tdF}>Units sold</td>{rows.map(function(r){return <td key={r.month} style={td}>{(r.units||0).toLocaleString()}</td>;})}<td style={Object.assign({},tot,totB)}></td></tr>
+          <tr><td style={tdF}>Average price ($)</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.avgPrice||0)}</td>;})}<td style={Object.assign({},tot,totB)}></td></tr>
+          <tr><td style={tdF}>Average cost ($)</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.avgCost||0)}</td>;})}<td style={Object.assign({},tot,totB)}></td></tr>
+          <tr><td style={hdr} colSpan={rows.length+2}>Revenue</td></tr>
+          <tr><td style={tdF}>Products/services</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.revProducts||0)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(totals("revProducts"))}</td></tr>
+          <tr><td style={tdF}>Other revenue</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.revOther||0)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(totals("revOther"))}</td></tr>
+          <tr><td style={totF}>Total Revenue</td>{rows.map(function(r){return <td key={r.month} style={tot}>{fmt(r.revenue)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(totals("revenue"))}</td></tr>
+          <tr><td style={hdr} colSpan={rows.length+2}>Cost of Sales</td></tr>
+          <tr><td style={totF}>Total Cost of Sales</td>{rows.map(function(r){return <td key={r.month} style={tot}>{fmt(r.cogs)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(totals("cogs"))}</td></tr>
+          <tr>
+            <td style={gpTotal<0?hlRF:hlGF}>Gross Profit</td>
+            {rows.map(function(r){return <td key={r.month} style={r.grossProfit<0?hlR:hlG}>{fmt(r.grossProfit)}</td>;})}
+            <td style={Object.assign({},gpTotal<0?hlR:hlG,totB)}>{fmt(gpTotal)}</td>
+          </tr>
+          <tr><td style={hdr} colSpan={rows.length+2}>Expenses</td></tr>
+          {expCats.map(function(cat){return (<tr key={cat.id}><td style={tdF}>{cat.l}</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.expDetail&&r.expDetail[cat.id]||0)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(expTotals[cat.id])}</td></tr>);})}
+          <tr><td style={totF}>Total Expenses</td>{rows.map(function(r){return <td key={r.month} style={tot}>{fmt(r.totalExpenses)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(totals("totalExpenses"))}</td></tr>
+          <tr><td style={hdr} colSpan={rows.length+2}>Net Profit</td></tr>
+          <tr>
+            <td style={totals("netProfit")<0?hlRF:hlGF}>Net Profit/(Loss)</td>
+            {rows.map(function(r){return <td key={r.month} style={r.netProfit<0?hlR:hlG}>{fmt(r.netProfit)}</td>;})}
+            <td style={Object.assign({},totals("netProfit")<0?hlR:hlG,totB)}>{fmt(totals("netProfit"))}</td>
+          </tr>
+          <tr><td style={hdr} colSpan={rows.length+2}>Other Transactions</td></tr>
+          {txCats.map(function(cat){return (<tr key={cat.id}><td style={tdF}>{cat.l}</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.txDetail&&r.txDetail[cat.id]||0)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(txTotals[cat.id])}</td></tr>);})}
+          <tr><td style={hdr} colSpan={rows.length+2}>Cashflow</td></tr>
+          <tr>
+            <td style={totals("netCashflow")<0?hlRF:hlGF}>Net Cashflow</td>
+            {rows.map(function(r){return <td key={r.month} style={r.netCashflow<0?hlR:hlG}>{fmt(r.netCashflow)}</td>;})}
+            <td style={Object.assign({},totals("netCashflow")<0?hlR:hlG,totB)}>{fmt(totals("netCashflow"))}</td>
+          </tr>
+          <tr>
+            <td style={totals("closingBalance")<0?hlRF:hlGF}>Closing Balance</td>
+            {rows.map(function(r){return <td key={r.month} style={r.closingBalance<0?hlR:hlG}>{fmt(r.closingBalance)}</td>;})}
+            <td style={Object.assign({},rows[rows.length-1].closingBalance<0?hlR:hlG,totB)}>{fmt(rows[rows.length-1].closingBalance)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+  return cftable;
+}
+
+function ChartTip({active,payload,label}){
+  if(!active||!payload||!payload.length)return null;
+  return (
+    <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:12}}>
+      <div style={{fontWeight:600,marginBottom:4}}>{label}</div>
+      {payload.map(function(p,i){return <div key={i} style={{color:p.value<0?RED:GREEN_DARK,marginTop:2}}>{p.name}: {fmt(p.value)}</div>;})}
+    </div>
+  );
+}
+
+function CfCharts({rows}){
+  if(!rows||!rows.length)return null;
+  const npData=rows.map(function(r){return{name:r.month.replace("Month ","M"),value:r.netProfit};});
+  const cbData=rows.map(function(r){return{name:r.month.replace("Month ","M"),value:r.closingBalance};});
+  const unitsData=rows.map(function(r){return{name:r.month.replace("Month ","M"),units:r.units||0,revenue:r.revenue||0};});
+
+  return (
+    <div style={{marginTop:24}}>
+      <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"0 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Units Sold & Monthly Sales</div>
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={unitsData} margin={{top:4,right:8,left:8,bottom:0}}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
+          <XAxis dataKey="name" tick={{fontSize:11}} axisLine={false} tickLine={false}/>
+          <YAxis yAxisId="left" tickFormatter={function(v){return v.toLocaleString();}} tick={{fontSize:11}} axisLine={false} tickLine={false} width={48}/>
+          <YAxis yAxisId="right" orientation="right" tickFormatter={function(v){return"$"+Math.abs(v/1000).toFixed(0)+"k";}} tick={{fontSize:11}} axisLine={false} tickLine={false} width={48}/>
+          <Tooltip content={<ChartTip/>}/>
+          <Legend wrapperStyle={{fontSize:11}}/>
+          <Bar yAxisId="left" dataKey="units" name="Units Sold" radius={[3,3,0,0]} fill="#01236d"/>
+          <Bar yAxisId="right" dataKey="revenue" name="Monthly Sales ($)" radius={[3,3,0,0]} fill="#d0b16f"/>
+        </BarChart>
+      </ResponsiveContainer>
+      <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Net Profit / (Loss)</div>
+      <ResponsiveContainer width="100%" height={160}>
+        <BarChart data={npData} margin={{top:4,right:8,left:8,bottom:0}}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
+          <XAxis dataKey="name" tick={{fontSize:11}} axisLine={false} tickLine={false}/>
+          <YAxis tickFormatter={function(v){return(v<0?"-$":"$")+Math.abs(v/1000).toFixed(0)+"k";}} tick={{fontSize:11}} axisLine={false} tickLine={false} width={48}/>
+          <Tooltip content={<ChartTip/>}/>
+          <ReferenceLine y={0} stroke="#d1d5db"/>
+          <Bar dataKey="value" name="Net Profit" radius={[3,3,0,0]}>
+            {npData.map(function(d,i){return <Cell key={i} fill={d.value<0?RED:GREEN}/>;}) }
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Closing Bank Balance</div>
+      <ResponsiveContainer width="100%" height={160}>
+        <BarChart data={cbData} margin={{top:4,right:8,left:8,bottom:0}}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
+          <XAxis dataKey="name" tick={{fontSize:11}} axisLine={false} tickLine={false}/>
+          <YAxis tickFormatter={function(v){return(v<0?"-$":"$")+Math.abs(v/1000).toFixed(0)+"k";}} tick={{fontSize:11}} axisLine={false} tickLine={false} width={48}/>
+          <Tooltip content={<ChartTip/>}/>
+          <ReferenceLine y={0} stroke="#d1d5db"/>
+          <Bar dataKey="value" name="Closing Balance" radius={[3,3,0,0]}>
+            {cbData.map(function(d,i){return <Cell key={i} fill={d.value<0?"#993C1D":"#185FA5"}/>;}) }
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos}){
+  if(!liveRows||!liveRows.length)return null;
+  var wiUnitsState=useState(0);var wiUnits=wiUnitsState[0];var setWiUnits=wiUnitsState[1];
+  var wiPriceState=useState(0);var wiPrice=wiPriceState[0];var setWiPrice=wiPriceState[1];
+  var wiCostState=useState(0);var wiCostU=wiCostState[0];var setWiCostU=wiCostState[1];
+  var wiTeamState=useState(0);var wiTeam=wiTeamState[0];var setWiTeam=wiTeamState[1];
+  var wiTotalExpState=useState(0);var wiTotalExp=wiTotalExpState[0];var setWiTotalExp=wiTotalExpState[1];
+
+  const adj=liveRows.map(function(r){
+    var units=Math.round((r.units||0)*(1+wiUnits/100));
+    var price=r.units>0?(r.revProducts/r.units)*(1+wiPrice/100):0;
+    var cost=r.units>0?(r.cogs/r.units)*(1+wiCostU/100):0;
+    var rev=Math.round(units*price)+(r.revOther||0);
+    var cogs=Math.round(units*cost);
+    var gp=rev-cogs;
+    var teamAdj=Math.round((r.expDetail&&(r.expDetail.xTeam||0)||0)*(1+wiTeam/100));
+    var teamOrig=r.expDetail&&(r.expDetail.xTeam||0)||0;
+    var exp=Math.round(r.totalExpenses*(1+wiTotalExp/100))+(teamAdj-teamOrig);
+    var np=gp-exp;
+    return Object.assign({},r,{revenue:rev,cogs:cogs,grossProfit:gp,totalExpenses:exp,netProfit:np});
+  });
+  var cb=liveRows[0].openingBalance||0;
+  adj.forEach(function(r){cb+=r.netProfit;r.closingBalance=cb;});
+
+  const sl={WebkitAppearance:"none",appearance:"none",width:"100%",height:4,borderRadius:2,background:"#e5e7eb",outline:"none",cursor:"pointer",accentColor:GREEN};
+
+  var baseValues={
+    units:liveRows.reduce(function(s,r){return s+(r.units||0);},0)/12,
+    price:liveRows.reduce(function(s,r){return s+(r.units>0?r.revProducts/r.units:0);},0)/12,
+    cost:liveRows.reduce(function(s,r){return s+(r.units>0?r.cogs/r.units:0);},0)/12,
+    team:liveRows.reduce(function(s,r){return s+(r.expDetail&&r.expDetail.xTeam||0);},0)/12,
+    totalExp:liveRows.reduce(function(s,r){return s+r.totalExpenses;},0)/12,
+  };
+
+  var sliders=[
+    {label:"Units Sold",val:wiUnits,set:setWiUnits,posColor:GREEN_DARK,negColor:RED,base:baseValues.units,unit:"units",isUnits:true},
+    {label:"Average Price",val:wiPrice,set:setWiPrice,posColor:GREEN_DARK,negColor:RED,base:baseValues.price,unit:"$"},
+    {label:"Average Cost",val:wiCostU,set:setWiCostU,posColor:RED,negColor:GREEN_DARK,base:baseValues.cost,unit:"$"},
+    {label:"Team Expenses",val:wiTeam,set:setWiTeam,posColor:RED,negColor:GREEN_DARK,base:baseValues.team,unit:"$"},
+    {label:"Total Expenses",val:wiTotalExp,set:setWiTotalExp,posColor:RED,negColor:GREEN_DARK,base:baseValues.totalExp,unit:"$"},
+  ];
+
+  return (
+    <div style={{marginTop:24}}>
+      <div style={{fontSize:13,fontWeight:600,color:"#6b7280",marginBottom:16,textTransform:"uppercase",letterSpacing:"0.05em"}}>What If Scenarios</div>
+      {sliders.map(function(s){
+        var adjVal=Math.round(s.base*(1+s.val/100));
+        var diff=adjVal-Math.round(s.base);
+        var color=s.val===0?"#6b7280":s.val>0?s.posColor:s.negColor;
+        var dispBase=s.isUnits?Math.round(s.base).toLocaleString():fmt(Math.round(s.base));
+        var dispAdj=s.isUnits?adjVal.toLocaleString():fmt(adjVal);
+        var dispDiff=s.isUnits?(diff>=0?"+":"")+diff.toLocaleString():(diff>=0?"+":"")+fmt(diff);
+        return (
+        <div key={s.label} style={{marginBottom:20}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
+            <span style={{fontSize:13,color:"#374151"}}>{s.label}</span>
+            <div style={{textAlign:"right"}}>
+              <span style={{fontSize:13,fontWeight:600,color:color}}>{s.val>0?"+":""}{s.val}%</span>
+              {s.val!==0&&<span style={{fontSize:12,color:color,marginLeft:8}}>({dispDiff} / mo avg)</span>}
+            </div>
+          </div>
+          <input type="range" min={-50} max={50} value={s.val} style={sl} onChange={function(e){s.set(parseInt(e.target.value));}}/>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:3}}>
+            <span style={{fontSize:11,color:"#9ca3af"}}>Baseline avg: {dispBase}/mo</span>
+            {s.val!==0&&<span style={{fontSize:11,color:color}}>Adjusted: {dispAdj}/mo</span>}
+          </div>
+        </div>
+      );})}
+      <button style={{fontFamily:"inherit",fontSize:12,color:"#6b7280",background:"none",border:"none",cursor:"pointer",padding:0,marginBottom:16,textDecoration:"underline"}} onClick={function(){setWiUnits(0);setWiPrice(0);setWiCostU(0);setWiTeam(0);setWiTotalExp(0);}}>Reset to baseline</button>
+      <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+        {[{label:"Total Net Profit",base:liveRows.reduce(function(s,r){return s+r.netProfit;},0),adj:adj.reduce(function(s,r){return s+r.netProfit;},0)},
+          {label:"Closing Bank Balance",base:liveRows[liveRows.length-1].closingBalance,adj:adj[adj.length-1].closingBalance}
+        ].map(function(item,idx){
+          var diff=item.adj-item.base;
+          var pct=item.base!==0?Math.round(diff/Math.abs(item.base)*100):0;
+          var color=diff>0?GREEN_DARK:diff<0?RED:"#6b7280";
+          return (<div key={idx} style={{flex:1,minWidth:180,background:"#f9fafb",borderRadius:8,padding:"12px 16px",border:"1px solid #e5e7eb"}}>
+            <div style={{fontSize:11,color:"#6b7280",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>{item.label}</div>
+            <div style={{fontSize:18,fontWeight:700,color:"#1a1a1a"}}>{fmt(item.adj)}</div>
+            <div style={{fontSize:12,color:color,marginTop:4,fontWeight:500}}>
+              {diff===0?"No change":(diff>0?"▲ ":"▼ ")+fmt(Math.abs(diff))+" ("+Math.abs(pct)+"% "+(diff>0?"increase":"decrease")+")"}
+            </div>
+            <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>Baseline: {fmt(item.base)}</div>
+          </div>);
+        })}
+      </div>
+    </div>
+  );
+}
+
+function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm,startMonth}){
+  var post=keyPostfix||"";
+  var start=(startMonth||1)-1;
+  var verState=useState(0);var ver=verState[0];var setVer=verState[1];
+  var copiedState=useState(false);var copied=copiedState[0];var setCopied=copiedState[1];
+  function mKey(m){return keyPrefix+(m+1)+post;}
+  var mgStyle={display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:6};
+  return (
+    <div>
+      <div key={storeKey+"-"+ver} style={mgStyle}>
+        {Array.from({length:12},function(_,m){
+          var key=mKey(m);
+          var locked=m<start;
+          return (<div key={m}>
+              <label style={{fontSize:10,color:locked?"#d1d5db":"#9ca3af",marginBottom:2,display:"block",textAlign:"center"}}>M{m+1}</label>
+              <input style={Object.assign({},inp,{textAlign:"right",padding:"6px 8px",fontSize:13},locked?{background:"#f3f4f6",color:"#d1d5db",cursor:"not-allowed"}:{})} defaultValue={locked?"":fdRef.current[key]||""} placeholder={locked?"-":"0"} readOnly={locked} onChange={locked?undefined:function(e){
+                fdRef.current[key]=e.target.value;
+                var parts=Array.from({length:12},function(_,n){return n<start?"0":fdRef.current[mKey(n)]||"0";});
+                fdRef.current[storeKey]=parts.map(function(v,n){return "M"+(n+1)+":"+v;}).join(",");
+                if(onUpdate)onUpdate();
+              }}/>
+            </div>);
+        })}
+      </div>
+      <button style={Object.assign({},btnSm,{marginTop:6,fontSize:11})} onClick={function(){
+        if(copied){
+          Array.from({length:12},function(_,m){if(m>=start)fdRef.current[mKey(m)]="";});
+          fdRef.current[storeKey]="";
+          setCopied(false);
+        } else {
+          var v=fdRef.current[mKey(start)]||"";
+          if(!v||v==="0")return;
+          Array.from({length:12},function(_,m){if(m>=start)fdRef.current[mKey(m)]=v;});
+          fdRef.current[storeKey]=Array.from({length:12},function(_,m){return "M"+(m+1)+":"+(m<start?"0":fdRef.current[mKey(m)]||"0");}).join(",");
+          setCopied(true);
+        }
+        setVer(function(n){return n+1;});
+        if(onUpdate)onUpdate();
+      }}>{copied?"Clear all months":"Copy M"+(start+1)+" to all months"}</button>
+    </div>
+  );
+}
+
+function App(){
+
+  var ACCESS_KEY='bpd_access_expiry';
+  try{
+    var expiry=localStorage.getItem(ACCESS_KEY);
+    if(!expiry||Date.now()>parseInt(expiry)){
+      return React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',fontFamily:'system-ui',flexDirection:'column',gap:16,padding:24,textAlign:'center'}},
+        React.createElement('div',{style:{fontSize:22,fontWeight:700,color:'#01236d',marginBottom:8}},'Access Required'),
+        React.createElement('div',{style:{fontSize:15,color:'#6b7280',maxWidth:400,marginBottom:24}},expiry?'Your 3-month access has expired.':'No active subscription found.'),
+        React.createElement('a',{href:'https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00',style:{background:'#d0b16f',color:'white',padding:'14px 32px',borderRadius:8,fontWeight:700,fontSize:16,textDecoration:'none'}},'Get started for $29')
+      );
+    }
+  }catch(e){}
+  var savedState=useState(function(){
+    try{
+      var expiry=localStorage.getItem(EXPIRY_KEY);
+      var now=Date.now();
+      if(expiry&&now>parseInt(expiry)){localStorage.clear();return{};}
+      if(!expiry){localStorage.setItem(EXPIRY_KEY,String(now+NINETY_DAYS));}
+      var d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
+      return d;
+    }catch(e){return{};}
+  });
+  var savedData=savedState[0];
+
+  var fdRef=useRef(savedData);
+  var stepState=useState(parseInt(localStorage.getItem("bpg_step")||"0")||0);
+  var step=stepState[0];var setStep=stepState[1];
+  var tabState=useState("plan");var tab=tabState[0];var setTab=tabState[1];
+  var previewTabState=useState("details");var previewTab=previewTabState[0];var setPreviewTab=previewTabState[1];
+  var showOutputState=useState(false);var showOutput=showOutputState[0];var setShowOutput=showOutputState[1];
+  var planHtmlState=useState("");var planHtml=planHtmlState[0];var setPlanHtml=planHtmlState[1];
+  var liveRowsState=useState(function(){return calcCashflow(fdRef.current);});
+  var liveRows=liveRowsState[0];var setLiveRows=liveRowsState[1];
+  var loadingState=useState(false);var loading=loadingState[0];var setLoading=loadingState[1];
+  var loadMsgState=useState("");var loadMsg=loadMsgState[0];var setLoadMsg=loadMsgState[1];
+  var legalStatusState=useState(fdRef.current.legalStatus||"");var legalStatus=legalStatusState[0];var setLegalStatus=legalStatusState[1];
+  var goalsState=useState(Array.from({length:6},function(_,i){return fdRef.current["goal"+(i+1)]||"";}));
+  var goals=goalsState[0];var setGoals=goalsState[1];
+  var wiRevState=useState(0);var wiRev=wiRevState[0];var setWiRev=wiRevState[1];
+  var wiExpState=useState(0);var wiExp=wiExpState[0];var setWiExp=wiExpState[1];
+  var wiCosState=useState(0);var wiCos=wiCosState[0];var setWiCos=wiCosState[1];
+  var showFeedbackState=useState(false);var showFeedback=showFeedbackState[0];var setShowFeedback=showFeedbackState[1];
+  var showPrintState=useState(false);var showPrint=showPrintState[0];var setShowPrint=showPrintState[1];
+  var fbRatingState=useState(0);var fbRating=fbRatingState[0];var setFbRating=fbRatingState[1];
+  var fbTextState=useState("");var fbText=fbTextState[0];var setFbText=fbTextState[1];
+  var fbLoadState=useState(false);var fbLoad=fbLoadState[0];var setFbLoad=fbLoadState[1];
+  var fbDoneState=useState(false);var fbDone=fbDoneState[0];var setFbDone=fbDoneState[1];
+  var gridChecksState=useState(function(){
+    var d=fdRef.current;
+    var out={};
+    ["avgPrice","avgCost","otherRevenue","monthlyUnits"].forEach(function(k){out[k]=d[k+"_monthly"]==="1";});
+    expCats.forEach(function(c){out[c.id]=d[c.id+"_monthly"]==="1";});
+    txCats.forEach(function(c){out[c.id]=d[c.id+"_monthly"]==="1";});
+    return out;
+  });
+  var gridChecks=gridChecksState[0];var setGridChecks=gridChecksState[1];
+  var avgSalesVerState=useState(0);var avgSalesVer=avgSalesVerState[0];var setAvgSalesVer=avgSalesVerState[1];
+  var avgSalesPreGrowthState=useState(null);var avgSalesPreGrowth=avgSalesPreGrowthState[0];var setAvgSalesPreGrowth=avgSalesPreGrowthState[1];
+  var msVersionState=useState(0);var msVersion=msVersionState[0];var setMsVersion=msVersionState[1];
+  var compVersionState=useState(0);var compVersion=compVersionState[0];var setCompVersion=compVersionState[1];
+  var compSwVersionState=useState(0);var compSwVersion=compSwVersionState[0];var setCompSwVersion=compSwVersionState[1];
+  var swotVersionState=useState(0);var swotVersion=swotVersionState[0];var setSwotVersion=swotVersionState[1];
+  var goalLoadingState=useState(false);var goalLoading=goalLoadingState[0];var setGoalLoading=goalLoadingState[1];
+  var goalCardLoadingState=useState({});var goalCardLoading=goalCardLoadingState[0];var setGoalCardLoading=goalCardLoadingState[1];
+  var goalCardVerState=useState({});var goalCardVer=goalCardVerState[0];var setGoalCardVer=goalCardVerState[1];
+  var teamVersionState=useState(0);var teamVersion=teamVersionState[0];var setTeamVersion=teamVersionState[1];
+  var goalSalesVerState=useState({});var goalSalesVer=goalSalesVerState[0];var setGoalSalesVer=goalSalesVerState[1];
+  var goalGridChecksState=useState(function(){try{return JSON.parse(localStorage.getItem("bpg_ggc")||"{}");}catch(e){return{};}});
+  var goalGridChecks=goalGridChecksState[0];var setGoalGridChecks=goalGridChecksState[1];
+  var adminMsgState=useState(function(){try{return localStorage.getItem("bpg_admin_msg")||"";}catch(e){return"";}});
+  var adminMsg=adminMsgState[0];
+  var showAdminState=useState(false);var showAdmin=showAdminState[0];var setShowAdmin=showAdminState[1];
+  var adminPwState=useState("");var adminPw=adminPwState[0];var setAdminPw=adminPwState[1];
+  var adminMsgInputState=useState("");var adminMsgInput=adminMsgInputState[0];var setAdminMsgInput=adminMsgInputState[1];
+
+  var inp={width:"100%",fontFamily:"inherit",fontSize:14,color:"#1a1a1a",background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 11px",outline:"none",boxSizing:"border-box"};
+  var ta=function(r){return Object.assign({},inp,{resize:"vertical",lineHeight:1.6,minHeight:r*26});};
+  var sel=Object.assign({},inp,{cursor:"pointer"});
+  var btnSm={fontFamily:"inherit",fontSize:12,padding:"6px 12px",borderRadius:6,border:"1px solid #e5e7eb",background:"#fff",cursor:"pointer",color:"#374151"};
+  var suggestBtn={fontFamily:"inherit",fontSize:13,padding:"8px 16px",borderRadius:6,border:"none",background:"#d0b16f",cursor:"pointer",color:"#fff",fontWeight:500,flexShrink:0};
+
+  function saveToStorage(){
+    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(fdRef.current));}catch(e){}
+  }
+
+  function setStepAndSave(n){
+    setStep(n);
+    try{localStorage.setItem("bpg_step",String(n));}catch(e){}
+    window.scrollTo(0,0);
+  }
+
+  var refreshLive=useCallback(function(){setLiveRows(calcCashflow(fdRef.current));},[]);
+
+  function RT(id,ph,rows){
+    return <textarea autoComplete="off" style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
+  }
+  function R(id,ph){
+    return <input autoComplete="off" style={inp} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
+  }
+  function RS(id,opts){
+    return <select style={sel} defaultValue={fdRef.current[id]||opts[0]} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}>
+      {opts.map(function(o){return <option key={o} value={o}>{o}</option>;})}</select>;
+  }
+
+  function toggleGrid(key){
+    setGridChecks(function(prev){
+      var n=Object.assign({},prev);
+      n[key]=!n[key];
+      fdRef.current[key+"_monthly"]=n[key]?"1":"";
+      saveToStorage();
+      return n;
+    });
+  }
+
+  function toggleGoalGrid(key){
+    setGoalGridChecks(function(prev){
+      var n=Object.assign({},prev);
+      n[key]=!n[key];
+      try{localStorage.setItem("bpg_ggc",JSON.stringify(n));}catch(e){}
+      return n;
+    });
+  }
+
+  function setGoalsAndSave(arr){
+    setGoals(arr);
+    arr.forEach(function(v,i){fdRef.current["goal"+(i+1)]=v;});
+    saveToStorage();
+  }
+  function setLegalAndSave(v){
+    setLegalStatus(v);
+    fdRef.current.legalStatus=v;
+    saveToStorage();
+  }
+
+  async function suggestGoals(){
+    setGoalLoading(true);
+    try{
+      var prompt="Based on this business SWOT analysis, suggest 5 specific, measurable goals that maximise strengths and opportunities and address weaknesses and threats (one per line, no numbering or bullets, 10-20 words each):\n"+
+        "Business: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||"")+"\n"+
+        "Strengths: "+(fdRef.current.swotS||"")+"\n"+
+        "Weaknesses: "+(fdRef.current.swotW||"")+"\n"+
+        "Opportunities: "+(fdRef.current.swotO||"")+"\n"+
+        "Threats: "+(fdRef.current.swotT||"");
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
+      var lines=text.split("\n").filter(function(l){return l.trim();}).slice(0,5);
+      var newGoals=goals.map(function(g,i){return g||(lines[i]||"");});
+      setGoalsAndSave(newGoals);
+    }catch(e){}
+    setGoalLoading(false);
+  }
+
+  async function suggestSWOT(){
+    setGoalLoading(true);
+    setSwotVersion(function(v){return v+1;});
+    var prompt="Write a SWOT analysis for this business. Return ONLY the four sections in this exact format:\nStrengths: [3-4 points, comma separated]\nWeaknesses: [3-4 points, comma separated]\nOpportunities: [3-4 points, comma separated]\nThreats: [3-4 points, comma separated]\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nStage: "+(fdRef.current.stage||"")+"\nTeam: "+(fdRef.current.team||"")+"\nCompetitors: "+(fdRef.current.competitors||"")+"\nTarget market: "+(fdRef.current.targetCust||"");
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
+      var sMatch=text.match(/Strengths:\s*(.+)/i);
+      var wMatch=text.match(/Weaknesses:\s*(.+)/i);
+      var oMatch=text.match(/Opportunities:\s*(.+)/i);
+      var tMatch=text.match(/Threats:\s*(.+)/i);
+      if(sMatch)fdRef.current.swotS=sMatch[1].trim();
+      if(wMatch)fdRef.current.swotW=wMatch[1].trim();
+      if(oMatch)fdRef.current.swotO=oMatch[1].trim();
+      if(tMatch)fdRef.current.swotT=tMatch[1].trim();
+      saveToStorage();
+      setSwotVersion(function(v){return v+1;});
+    }catch(e){}
+    setGoalLoading(false);
+  }
+
+  async function suggestMarketSize(){
+    setMsVersion(function(v){return v+1;});
+    var prompt="Provide a brief market size estimate (2-3 sentences, include numbers/sources where possible) for:\n"+
+      "Business: "+(fdRef.current.bizName||"")+" in "+(fdRef.current.industry||"")+"\n"+
+      "Location: "+(fdRef.current.locations||"")+"\n"+
+      "Target customer: "+(fdRef.current.targetCust||"");
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
+      fdRef.current.marketSize=text;
+      saveToStorage();
+      setMsVersion(function(v){return v+1;});
+    }catch(e){}
+  }
+
+  async function suggestCompetitors(){
+    setCompVersion(function(v){return v+1;});
+    var prompt="List the 3-4 main competitors (name and one-line description each) for a "+
+      (fdRef.current.industry||"business")+" business called "+(fdRef.current.bizName||"this business")+
+      " in "+(fdRef.current.locations||"NZ")+". Keep it factual and concise.";
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
+      fdRef.current.competitors=text;
+      saveToStorage();
+      setCompVersion(function(v){return v+1;});
+    }catch(e){}
+  }
+
+  async function suggestCompSW(){
+    setCompSwVersion(function(v){return v+1;});
+    var comps=fdRef.current.competitors||"";
+    if(!comps.trim()){setCompSwVersion(function(v){return v+1;});return;}
+    var prompt="Based ONLY on the following competitors already identified, summarise their key strengths and weaknesses. Do not introduce any other competitors.\n\nCompetitors:\n"+comps+"\n\nFormat each as '[Competitor name]: Strengths - ... Weaknesses - ...' Keep it concise.";
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
+      fdRef.current.compStrWeakness=text;
+      saveToStorage();
+      setCompSwVersion(function(v){return v+1;});
+    }catch(e){}
+  }
+
+  async function suggestGoalCard(i){
+    setGoalCardLoading(function(prev){var n=Object.assign({},prev);n[i]=true;return n;});
+    var prompt="For this specific business goal, suggest:\n1. How to achieve it (2-3 concrete action steps, 1-2 sentences)\n2. Resources needed (people, tools, budget - 1-2 sentences)\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nGoal: "+(goals[i]||"")+"\n\nReturn in this exact format:\nHow: [your suggestion]\nResources: [your suggestion]";
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
+      var howMatch=text.match(/How:\s*([\s\S]+?)(?:\nResources:|$)/);
+      var resMatch=text.match(/Resources:\s*([\s\S]+?)$/);
+      if(howMatch)fdRef.current["goalHow"+(i+1)]=howMatch[1].trim();
+      if(resMatch)fdRef.current["goalRes"+(i+1)]=resMatch[1].trim();
+      saveToStorage();
+      setGoalCardVer(function(prev){var n=Object.assign({},prev);n[i]=(n[i]||0)+1;return n;});
+    }catch(e){}
+    setGoalCardLoading(function(prev){var n=Object.assign({},prev);n[i]=false;return n;});
+  }
+
+  function downloadCashflowExcel(){
+    var cfRows=liveRows;
+    if(!cfRows||!cfRows.length){alert("No cashflow data to export.");return;}
+    var bizName=fdRef.current.bizName||"Business";
+    var mos=cfRows.map(function(r){return r.month.replace("Month ","M");});
+
+    function buildExcel(){
+      var XLSX=window.XLSX;
+      if(!XLSX){alert("Excel library not loaded. Please try again.");return;}
+      var wb=XLSX.utils.book_new();
+      var data=[];
+      var header=[""].concat(mos).concat(["Total"]);
+      function dr(label,vals){
+        var tot=vals.reduce(function(a,b){return a+(b||0);},0);
+        return [label].concat(vals.map(function(v){return v||0;})).concat([tot]);
+      }
+      function sr(label){return [label].concat(Array(mos.length+1).fill(""));}
+
+      data.push([bizName+" - 12 Month Cashflow Forecast"]);
+      data.push([]);
+      data.push(header);
+      data.push(sr("KEY DRIVERS"));
+      data.push(dr("Units Sold",cfRows.map(function(r){return r.units||0;})));
+      data.push(dr("Avg Price",cfRows.map(function(r){return r.avgPrice||0;})));
+      data.push(dr("Avg Cost",cfRows.map(function(r){return r.avgCost||0;})));
+      data.push(sr("REVENUE"));
+      data.push(dr("Products/Services",cfRows.map(function(r){return r.revProducts||0;})));
+      data.push(dr("Other Revenue",cfRows.map(function(r){return r.revOther||0;})));
+      data.push(dr("Total Revenue",cfRows.map(function(r){return r.revenue||0;})));
+      data.push(sr("COST OF SALES"));
+      data.push(dr("Cost of Sales",cfRows.map(function(r){return r.cogs||0;})));
+      data.push(dr("Gross Profit",cfRows.map(function(r){return r.grossProfit||0;})));
+      data.push(sr("EXPENSES"));
+      expCats.forEach(function(c){
+        var ev=cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;});
+        if(ev.reduce(function(a,b){return a+b;},0))data.push(dr(c.l,ev));
+      });
+      data.push(dr("Total Expenses",cfRows.map(function(r){return r.totalExpenses||0;})));
+      data.push(dr("Net Profit/(Loss)",cfRows.map(function(r){return r.netProfit||0;})));
+      data.push(sr("OTHER TRANSACTIONS"));
+      txCats.forEach(function(c){
+        var tv=cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;});
+        if(tv.reduce(function(a,b){return a+b;},0))data.push(dr(c.l,tv));
+      });
+      data.push(dr("Total Other Transactions",cfRows.map(function(r){return r.otherTx||0;})));
+      data.push(sr("CASHFLOW"));
+      data.push(dr("Opening Balance",cfRows.map(function(r){return r.openingBalance||0;})));
+      data.push(dr("Net Cashflow",cfRows.map(function(r){return r.netCashflow||0;})));
+      data.push(dr("Closing Balance",cfRows.map(function(r){return r.closingBalance||0;})));
+
+      var ws=XLSX.utils.aoa_to_sheet(data);
+      var wsCols=[{wch:28}];
+      for(var wi=0;wi<mos.length+1;wi++)wsCols.push({wch:12});
+      ws["!cols"]=wsCols;
+      ws["!freeze"]={xSplit:1,ySplit:3};
+      XLSX.utils.book_append_sheet(wb,ws,"Cashflow Forecast");
+      XLSX.writeFile(wb,bizName.replace(/[^a-z0-9]/gi,"-")+"-cashflow.xlsx");
+    }
+
+    if(window.XLSX){
+      buildExcel();
+    } else {
+      var xlsxScript=document.createElement("script");
+      xlsxScript.src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+      xlsxScript.onload=function(){buildExcel();};
+      xlsxScript.onerror=function(){alert("Could not load Excel library. Please try again.");};
+      document.head.appendChild(xlsxScript);
+    }
+  }
+  function generateWordDoc(){
+    function fmtN(n){var v=Math.round(Number(n));return(v<0?"-$":"$")+Math.abs(v).toLocaleString();}
+    var f=fdRef.current;
+    var cfRows=liveRows;
+    var today=new Date();
+    var months2=["January","February","March","April","May","June","July","August","September","October","November","December"];
+    var dateStr=today.getDate()+" "+months2[today.getMonth()]+" "+today.getFullYear();
+
+    function buildAndSave(){
+      var docx=window.docx||window.DocxJS||window.DOCX;
+      if(!docx||!docx.Document){
+        // Try to find it — UMD builds sometimes use different global names
+        var keys=Object.keys(window).filter(function(k){return window[k]&&window[k].Document&&window[k].Packer;});
+        if(keys.length){docx=window[keys[0]];}
+      }
+      if(!docx||!docx.Document){alert("docx library not loaded — please try again in a moment");return;}
+      var Document=docx.Document,Packer=docx.Packer,Paragraph=docx.Paragraph,TextRun=docx.TextRun;
+      var HeadingLevel=docx.HeadingLevel,Table=docx.Table,TableRow=docx.TableRow,TableCell=docx.TableCell;
+      var WidthType=docx.WidthType,AlignmentType=docx.AlignmentType,ShadingType=docx.ShadingType;
+      var ImageRun=docx.ImageRun;
+      var FONT="Aptos";
+      // Portrait: 12240 x 15840 twips (A4), Landscape: 15840 x 12240
+      var PORTRAIT={width:12240,height:15840};
+      var LANDSCAPE={width:15840,height:12240};
+      var MARGIN={top:720,right:720,bottom:720,left:720};
+
+      // --- Section 1: Business Plan (Portrait) ---
+      var planChildren=[];
+      planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:160},children:[new TextRun({text:f.bizName||"Business Plan",bold:true,size:48,color:"01236d",font:FONT})]}));
+      planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80},children:[new TextRun({text:"Business Plan and Cashflow Forecast",size:32,color:"d0b16f",font:FONT})]}));
+      planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:320},children:[new TextRun({text:dateStr,size:20,color:"6b7280",font:FONT})]}));
+      if(planHtml){
+        var strippedHtml=planHtml.replace(/<div[^>]*text-align:center[\s\S]*?<\/div>\s*<\/div>/i,"").replace(/<div[^>]*text-align:center[^>]*>[\s\S]*?<\/div>/i,"").trim();
+        var clean=strippedHtml.replace(/<h2[^>]*>(.*?)<\/h2>/gi,"\n##$1\n").replace(/<h3[^>]*>(.*?)<\/h3>/gi,"\n###$1\n").replace(/<p[^>]*>(.*?)<\/p>/gi,"$1\n").replace(/<li[^>]*>(.*?)<\/li>/gi,"- $1\n").replace(/<[^>]+>/g,"").replace(/\*\*/g,"");
+        clean.split("\n").forEach(function(ln){
+          var t=ln.trim();if(!t)return;
+          if(t.startsWith("##")&&!t.startsWith("###"))planChildren.push(new Paragraph({heading:HeadingLevel.HEADING_1,spacing:{before:280,after:80},children:[new TextRun({text:t.replace(/^##\s*/,""),bold:true,color:"01236d",size:28,font:FONT})]}));
+          else if(t.startsWith("###"))planChildren.push(new Paragraph({heading:HeadingLevel.HEADING_2,spacing:{before:160,after:60},children:[new TextRun({text:t.replace(/^###\s*/,""),bold:true,color:"374151",size:24,font:FONT})]}));
+          else if(t.startsWith("- "))planChildren.push(new Paragraph({bullet:{level:0},spacing:{after:40},children:[new TextRun({text:t.slice(2),size:20,font:FONT})]}));
+          else planChildren.push(new Paragraph({spacing:{after:80},children:[new TextRun({text:t,size:20,font:FONT})]}));
+        });
+      }
+
+      // --- Section 2: Graphs (Portrait) ---
+      var graphChildren=[];
+      graphChildren.push(new Paragraph({pageBreakBefore:true,spacing:{after:200},children:[new TextRun({text:"Financial Graphs",bold:true,size:36,color:"01236d",font:FONT})]}));
+
+      function makeBarChart(title,data,color,negColor){
+        var canvas=document.createElement("canvas");
+        var W=600,H=200,pad=40,barW=Math.floor((W-pad*2)/data.length)-4;
+        canvas.width=W;canvas.height=H+60;
+        var ctx=canvas.getContext("2d");
+        ctx.fillStyle="#ffffff";ctx.fillRect(0,0,W,H+60);
+        var max=Math.max.apply(null,data.map(function(d){return Math.abs(d.v);}));
+        if(!max)max=1;
+        // Title
+        ctx.fillStyle="#01236d";ctx.font="bold 14px Arial";ctx.textAlign="center";
+        ctx.fillText(title,W/2,20);
+        // Bars
+        data.forEach(function(d,i){
+          var bh=Math.max(2,Math.round(Math.abs(d.v)/max*(H-40)));
+          var x=pad+i*(barW+4);
+          var y=H-bh;
+          ctx.fillStyle=d.v<0?(negColor||"#A32D2D"):(color||"#01236d");
+          ctx.fillRect(x,y,barW,bh);
+          // Label
+          ctx.fillStyle="#6b7280";ctx.font="10px Arial";ctx.textAlign="center";
+          ctx.fillText(d.l,x+barW/2,H+14);
+        });
+        return canvas.toDataURL("image/png").split(",")[1];
+      }
+
+      if(cfRows&&cfRows.length){
+        var npData=cfRows.map(function(r){return{l:r.month.replace("Month ","M"),v:r.netProfit||0};});
+        var cbData=cfRows.map(function(r){return{l:r.month.replace("Month ","M"),v:r.closingBalance||0};});
+        var unData=cfRows.map(function(r){return{l:r.month.replace("Month ","M"),v:r.units||0};});
+        try{
+          var npImg=makeBarChart("Net Profit / (Loss)",npData,"#01236d","#A32D2D");
+          graphChildren.push(new Paragraph({spacing:{after:100},children:[new TextRun({text:"Net Profit / (Loss)",bold:true,size:22,color:"01236d",font:FONT})]}));
+          graphChildren.push(new Paragraph({spacing:{after:200},children:[new ImageRun({data:Uint8Array.from(atob(npImg),function(c){return c.charCodeAt(0);}),transformation:{width:500,height:170},type:"png"})]}));
+          var cbImg=makeBarChart("Closing Bank Balance",cbData,"#185FA5","#993C1D");
+          graphChildren.push(new Paragraph({spacing:{after:100},children:[new TextRun({text:"Closing Bank Balance",bold:true,size:22,color:"01236d",font:FONT})]}));
+          graphChildren.push(new Paragraph({spacing:{after:200},children:[new ImageRun({data:Uint8Array.from(atob(cbImg),function(c){return c.charCodeAt(0);}),transformation:{width:500,height:170},type:"png"})]}));
+          var unImg=makeBarChart("Units Sold",unData,"#d0b16f","#d0b16f");
+          graphChildren.push(new Paragraph({spacing:{after:100},children:[new TextRun({text:"Units Sold",bold:true,size:22,color:"01236d",font:FONT})]}));
+          graphChildren.push(new Paragraph({spacing:{after:200},children:[new ImageRun({data:Uint8Array.from(atob(unImg),function(c){return c.charCodeAt(0);}),transformation:{width:500,height:170},type:"png"})]}));
+        }catch(imgErr){
+          graphChildren.push(new Paragraph({children:[new TextRun({text:"(Charts not available in this export)",size:18,color:"6b7280",font:FONT})]}));
+        }
+      }
+
+      // --- Section 3: Cashflow (Landscape) ---
+      var cfChildren=[];
+      cfChildren.push(new Paragraph({spacing:{after:200},children:[new TextRun({text:"12-Month Cashflow Forecast",bold:true,size:32,color:"01236d",font:FONT})]}));
+      if(cfRows&&cfRows.length){
+        var mos=cfRows.map(function(r){return r.month.replace("Month ","M");});
+        var cw=520;
+        var navy={type:ShadingType.SOLID,color:"01236d",fill:"01236d"};
+        var hBg={type:ShadingType.SOLID,color:"eef1f8",fill:"eef1f8"};
+        var bBg={type:ShadingType.SOLID,color:"f9fafb",fill:"f9fafb"};
+        function mc(txt,o){o=o||{};return new TableCell({width:{size:o.first?1800:cw,type:WidthType.DXA},shading:o.sh,children:[new Paragraph({alignment:o.first?AlignmentType.LEFT:AlignmentType.RIGHT,children:[new TextRun({text:String(txt||""),bold:!!o.b,color:o.c||"1a1a1a",size:16,font:FONT})]})]}); }
+        function mhr(lbl){var cs=[mc(lbl,{first:true,b:true,c:"01236d",sh:hBg})];mos.forEach(function(){cs.push(mc("",{sh:hBg}));});cs.push(mc("",{sh:hBg}));return new TableRow({children:cs});}
+        function mr(lbl,vals,bold){var tot=vals.reduce(function(s,v){return s+v;},0);var s=bold?bBg:undefined;var cs=[mc(lbl,{first:true,b:bold,sh:s})];vals.forEach(function(v){cs.push(mc(v?fmtN(v):"",{b:bold,c:v<0?"A32D2D":"1a1a1a",sh:s}));});cs.push(mc(tot?fmtN(tot):"",{b:true,c:tot<0?"A32D2D":"1a1a1a",sh:s}));return new TableRow({children:cs});}
+        function mrk(lbl,key,bold){return mr(lbl,cfRows.map(function(r){return r[key]||0;}),bold);}
+        var hc=[mc("Item",{first:true,b:true,c:"FFFFFF",sh:navy})];
+        mos.forEach(function(m){hc.push(mc(m,{b:true,c:"FFFFFF",sh:navy}));});
+        hc.push(mc("Total",{b:true,c:"FFFFFF",sh:navy}));
+        var tblRows=[new TableRow({children:hc})];
+        tblRows.push(mhr("Key Drivers"));
+        tblRows.push(mr("Units Sold",cfRows.map(function(r){return r.units||0;}),false));
+        tblRows.push(mr("Avg Price",cfRows.map(function(r){return r.avgPrice||0;}),false));
+        tblRows.push(mr("Avg Cost",cfRows.map(function(r){return r.avgCost||0;}),false));
+        tblRows.push(mhr("Revenue"));tblRows.push(mrk("Products/Services","revProducts",false));tblRows.push(mrk("Other Revenue","revOther",false));tblRows.push(mrk("Total Revenue","revenue",true));
+        tblRows.push(mhr("Cost of Sales"));tblRows.push(mrk("Cost of Sales","cogs",false));tblRows.push(mrk("Gross Profit","grossProfit",true));
+        tblRows.push(mhr("Expenses"));
+        expCats.forEach(function(c){var t=cfRows.reduce(function(s,r){return s+(r.expDetail&&r.expDetail[c.id]||0);},0);if(t)tblRows.push(mr(c.l,cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;}),false));});
+        tblRows.push(mrk("Total Expenses","totalExpenses",true));tblRows.push(mrk("Net Profit/(Loss)","netProfit",true));
+        tblRows.push(mhr("Other Transactions"));
+        txCats.forEach(function(c){var t=cfRows.reduce(function(s,r){return s+(r.txDetail&&r.txDetail[c.id]||0);},0);if(t)tblRows.push(mr(c.l,cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;}),false));});
+        tblRows.push(mrk("Total Other Transactions","otherTx",true));
+        tblRows.push(mhr("Cashflow"));tblRows.push(mrk("Net Cashflow","netCashflow",true));tblRows.push(mrk("Closing Balance","closingBalance",true));
+        cfChildren.push(new Table({width:{size:100,type:WidthType.PERCENTAGE},rows:tblRows}));
+      }
+
+      var doc=new Document({
+        styles:{default:{document:{run:{font:FONT}}}},
+        sections:[
+          {properties:{page:{size:PORTRAIT,margin:MARGIN}},children:planChildren.concat(graphChildren)},
+          {properties:{page:{size:LANDSCAPE,margin:MARGIN}},children:cfChildren}
+        ]
+      });
+      Packer.toBlob(doc).then(function(blob){
+        var url=URL.createObjectURL(blob);
+        var a=document.createElement("a");a.href=url;a.download=(f.bizName||"business").replace(/[^a-z0-9]/gi,"-")+"-plan.docx";
+        document.body.appendChild(a);a.click();
+        setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+      }).catch(function(err){alert("Error: "+err.message);});
+    }
+    if(window.docx&&window.docx.Document){
+      buildAndSave();
+    } else {
+      var s=document.createElement("script");
+      s.src="https://esm.sh/docx@8.5.0?bundle";
+      s.onload=function(){
+        // esm.sh may expose as default export
+        if(!window.docx&&typeof docx!=='undefined'){window.docx=docx;}
+        buildAndSave();
+      };
+      s.onerror=function(){
+        // Try cdnjs as fallback
+        var s2=document.createElement("script");
+        s2.src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js";
+        s2.onload=function(){buildAndSave();};
+        s2.onerror=function(){alert("Could not load Word library. Please try again.");};
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    }
+  }
+
+  async function generatePlan(){
+    setLoading(true);
+    setShowOutput(true);
+    setPlanHtml("");
+    setLoadMsg("Generating your business plan, this may take a minute...");
+    var f=fdRef.current;
+    var goalsText=goals.map(function(g,i){return g?(i+1)+". "+g:"";}).filter(Boolean).join("\n")||"Not specified";
+    var expText=expCats.map(function(c){return f[c.id]?c.l+": "+f[c.id]:null;}).filter(Boolean).join("; ")||"Not specified";
+    var txText=txCats.map(function(c){return f[c.id]?c.l+": "+f[c.id]:null;}).filter(Boolean).join("; ")||"None";
+    var onlineText=onlineCh.map(function(c){return f[c.id]?c.label+": "+f[c.id]:null;}).filter(Boolean).join(", ")||"Not provided";
+    var contactText=[f.cName?"Name: "+f.cName:null,f.cEmail?"Email: "+f.cEmail:null,f.cMobile?"Mobile: "+f.cMobile:null].filter(Boolean).join(", ")||"Not provided";
+    var legalText=(legalOpts.find(function(o){return o.v===legalStatus;})||{}).l||"Not specified";
+
+    var prompt="You are an expert business consultant. Write a professional business plan following exactly these sections in this order.\n\n"+
+      "STEP 1 - BUSINESS DETAILS: Business: "+(f.bizName||"")+" | Industry: "+(f.industry||"")+" | Type: "+(f.bizType||"")+" | Stage: "+(f.stage||"")+
+      " | Description: "+(f.description||"")+" | History: "+(f.history||"")+
+      " | Locations: "+(f.locations||"")+" | Team: "+(f.team||"")+
+      " | Online: "+onlineText+" | Contact: "+contactText+" | Legal: "+legalText+
+      " | Notes: "+(f.extra1||"")+
+      "\n\nSTEP 2 - MARKET & CUSTOMERS: Target customer: "+(f.targetCust||"")+" | Current customers: "+(f.currentCust||"")+
+      " | Market opportunity: "+(f.marketSize||"")+" | Competitors: "+(f.competitors||"")+
+      " | Competitor strengths/weaknesses: "+(f.compStrWeakness||"")+" | Competitive advantage: "+(f.advantage||"")+" | IP: "+(f.ip||"")+
+      " | Notes: "+(f.extra3||"")+
+      "\n\nSTEP 3 - VISION & STRATEGY: Vision: "+(f.vision||"")+" | Position: "+(f.position||"")+" | Values: "+(f.values||"")+
+      " | SWOT Strengths: "+(f.swotS||"")+" | Weaknesses: "+(f.swotW||"")+" | Opportunities: "+(f.swotO||"")+" | Threats: "+(f.swotT||"")+
+      " | Goals:\n"+goalsText+
+      " | Notes: "+(f.extra2||"")+
+      "\n\nSTEP 4 - MAKING IT HAPPEN: Team: "+(f.execTeam||"")+" | New hires: "+(f.execTeamNew||"")+
+      " | Marketing: "+(f.execMkt||"")+" | Launch marketing: "+(f.execMktLaunch||"")+
+      " | Other (assets/funding): "+(f.execOther||"")+" | Notes: "+(f.extra4||"")+
+      " | Estimated extra sales units from goals: "+(f.goalSalesTotal||"0")+" | Estimated extra expenses from goals: $"+(f.goalExpTotal||"0")+
+      "\n\nSTEP 5 - FINANCIAL POSITION: Opening bank balance: $"+(f.openingBalance||"0")+" | Assets: "+(f.assets||"")+" | Debt: "+(f.debt||"")+
+      " | Equity: "+(f.equity||"")+" | Expenses: "+expText+" | Other transactions: "+txText+
+      "\n\nWrite the plan with these ## sections in this exact order:\n"+
+      "## 1. Business Details\n## 2. Market & Customers\n## 3. Vision & Strategy\n## 4. Making it Happen\n## 5. Financial Position\n\n"+
+      "Use ### subheadings and bullet points (lines starting with -). In ## 3 list goals as numbered items. No # headings, no ---, no **. Total 600-800 words.";
+
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:2000,messages:[{role:"user",content:prompt}]})});
+      var rawText=await res.text();
+      var data;
+      try{ data=JSON.parse(rawText); }catch(pe){ throw new Error("Response was not JSON. Status: "+res.status+". Body starts with: "+rawText.substring(0,200)); }
+      if(!data.content){
+        var errMsg=data.error?data.error.message:JSON.stringify(data);
+        throw new Error(errMsg);
+      }
+      var text=data.content.map(function(x){return x.text||"";}).join("");
+      var today=new Date();
+      var dateStr=today.getDate()+" "+["January","February","March","April","May","June","July","August","September","October","November","December"][today.getMonth()]+" "+today.getFullYear();
+      var html="<div style='text-align:center;padding:24px 0 32px;border-bottom:2px solid #f5eedd;margin-bottom:28px'>";
+      html+="<div style='font-size:26px;font-weight:800;color:#01236d;margin-bottom:8px'>"+(fdRef.current.bizName||"Business Plan")+"</div>";
+      html+="<div style='font-size:16px;font-weight:500;color:#d0b16f;margin-bottom:6px'>Business Plan and Cashflow Forecast</div>";
+      html+="<div style='font-size:13px;color:#6b7280'>"+dateStr+"</div>";
+      html+="</div>";
+      var inList=false;var inOList=false;
+      text.trim().split("\n").forEach(function(ln){
+        ln=ln.replace(/\*\*/g,"").replace(/^---+\s*$/,"");
+        var trimmed=ln.trim();
+        if(!trimmed)return;
+        if(trimmed.startsWith("## ")){
+          if(inList){html+="</ul>";inList=false;}
+          if(inOList){html+="</ol>";inOList=false;}
+          html+="<h2 style='font-size:18px;font-weight:700;color:#01236d;margin:28px 0 10px;padding-bottom:5px;border-bottom:2px solid #f5eedd'>"+trimmed.slice(3)+"</h2>";
+        } else if(trimmed.startsWith("### ")){
+          if(inList){html+="</ul>";inList=false;}
+          if(inOList){html+="</ol>";inOList=false;}
+          html+="<h3 style='font-size:14px;font-weight:600;color:#374151;margin:14px 0 5px'>"+trimmed.slice(4)+"</h3>";
+        } else if(trimmed.match(/^\d+\.\s/)){
+          if(inList){html+="</ul>";inList=false;}
+          if(inOList){html+="</ol>";inOList=false;}
+          html+="<p style='margin-bottom:5px;line-height:1.7;font-size:14px;padding-left:4px'>"+trimmed+"</p>";
+        } else if(trimmed.startsWith("- ")||trimmed.startsWith("* ")||trimmed.startsWith("• ")||(ln.match(/^(\s{2,}|\t)/)&&!trimmed.startsWith("#"))){
+          if(inOList){html+="</ol>";inOList=false;}
+          if(!inList){html+="<ul style='margin:4px 0 8px;padding-left:20px;list-style-type:disc'>";inList=true;}
+          var txt=trimmed.replace(/^[-*•]\s*/,"");
+          html+="<li style='font-size:14px;line-height:1.7;color:#1a1a1a;margin-bottom:3px;display:list-item;list-style-type:disc'>"+txt+"</li>";
+        } else if(trimmed.startsWith("#")){}
+        else{
+          if(inList){html+="</ul>";inList=false;}
+          if(inOList){html+="</ol>";inOList=false;}
+          html+="<p style='margin-bottom:8px;line-height:1.7;font-size:14px'>"+trimmed+"</p>";
+        }
+      });
+      if(inList)html+="</ul>";
+      if(inOList)html+="</ol>";
+      // Append cashflow table
+      var cfRows=liveRows;
+      if(cfRows&&cfRows.length){
+        html+="<div style='margin-top:36px;border-top:2px solid #f5eedd;padding-top:24px'>";
+        html+="<h2 style='font-size:17px;font-weight:700;color:#01236d;margin-bottom:4px'>Graphs</h2>";
+        html+="<p style='font-size:13px;color:#6b7280;margin-bottom:16px;font-style:italic'>Units Sold, Net Profit and Closing Bank Balance charts appear below this document.</p>";
+      }
+      setPlanHtml(html);
+    }catch(e){
+      setPlanHtml("<p style='color:#6b7280'>Error generating plan: "+e.message+". Please try again.</p>");
+    }
+    setLoading(false);
+  }
+
+  async function submitFeedback(){
+    setFbLoad(true);
+    try{
+      await fetch("https://formspree.io/f/xzzbbqgp",{
+        method:"POST",
+        headers:{"Content-Type":"application/json","Accept":"application/json"},
+        body:JSON.stringify({
+          rating:fbRating+" stars",
+          comment:fbText,
+          step:"Step "+(step+1),
+          _subject:"Strategy DIY Feedback - "+fbRating+" stars"
+        })
+      });
+    }catch(e){}
+    setFbLoad(false);
+    setFbDone(true);
+  }
+
+  function startOver(){
+    fdRef.current={};
+    try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem("bpg_step");}catch(e){}
+    setStep(0);setShowOutput(false);setPlanHtml("");setLiveRows([]);
+    setLegalStatus("");setGoals(Array(6).fill(""));
+    window.scrollTo(0,0);
+  }
+
+  function downloadPlan(){
+    var text=planHtml.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
+    var blob=new Blob([text],{type:"text/plain"});
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="business-plan.txt";
+    a.click();
+  }
+
+  var stepDefs=[
+    {label:"Step 1 of 5 - Business Details",title:"Tell us about your business",desc:"Let's start with the fundamentals.",
+      render:function(){return (<>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business name</div>
+          {R("bizName","e.g. Flowly Ltd")}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Date established</div>
+          <input style={inp} type="date" defaultValue={fdRef.current.bizDate||""} onChange={function(e){fdRef.current.bizDate=e.target.value;saveToStorage();}}/>
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Type of business</div>
+          {RS("bizType",["Company (Ltd)","Sole Trader","Partnership","Trust","Other"])}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Industry / sector</div>
+          {R("industry","e.g. SaaS, hospitality, retail")}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Location(s)</div>
+          {R("locations","e.g. Auckland CBD, online nationwide")}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What does your business do?</div>
+          {RT("description","Describe your product or service and who it's for...",3)}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business history / origin</div>
+          {RT("history","e.g. I spotted a gap in the market when...",3)}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Current stage</div>
+          {RS("stage",["Pre-launch (idea stage)","MVP / prototype built","Early customers","Growing revenue"])}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business team</div>
+          {RT("team","e.g. 2 full-time founders, 1 part-time developer...",2)}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Online presence</div>
+          {onlineCh.map(function(c){var _os={display:"flex",gap:8,marginBottom:6};return (<div key={c.id} style={_os}><div style={{width:30,height:30,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,background:"#f3f4f6",color:"#6b7280"}}>{c.label}</div><input style={Object.assign({},inp,{flex:1})} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();}}/></div>);})}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Main contact</div>
+          {contactCh.map(function(c){var _cs={display:"flex",gap:8,marginBottom:6};return (<div key={c.id} style={_cs}><div style={{width:50,height:30,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,flexShrink:0,background:"#f3f4f6",color:"#6b7280"}}>{c.label}</div><input style={Object.assign({},inp,{flex:1})} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();}}/></div>);})}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Legal obligations</div>
+          {legalOpts.map(function(o){var _ls={display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",border:"1px solid "+(legalStatus===o.v?o.color:"#e5e7eb"),borderRadius:8,cursor:"pointer",background:legalStatus===o.v?o.bg:"#fff",marginBottom:6};return (<div key={o.v} style={_ls} onClick={function(){setLegalAndSave(o.v);}}>
+            <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px solid "+(legalStatus===o.v?o.color:"#d1d5db"),flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",marginTop:1}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:legalStatus===o.v?o.color:"transparent"}}></div>
+            </div>
+            <div><div style={{fontSize:14,lineHeight:1.35,color:"#1a1a1a"}}>{o.l}</div><div style={{fontSize:12,color:"#6b7280",marginTop:2}}>{o.s}</div></div>
+          </div>);})}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
+          <textarea key="extra1" style={ta(2)} defaultValue={fdRef.current["extra1"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra1"]=e.target.value;saveToStorage();}}/>
+        </>
+      );}},
+    {label:"Step 2 of 5 - Market & Customers",title:"Tell us about your customers, market and competitors",desc:"Providing facts and figures is important.",
+      render:function(){return (<>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Who is the target customer/market?</div>
+          {RT("targetCust","e.g. Small business owners aged 30-50...",3)}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Does the business have any current customers/market share?</div>
+          {RT("currentCust","e.g. 45 paying customers, approx 2% of local market...",2)}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What is the target market opportunity (estimated)?</div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={suggestBtn} onClick={suggestMarketSize}>Suggest with AI</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div key={"ms-"+msVersion} style={{marginTop:8}}>
+            <textarea style={ta(3)} defaultValue={fdRef.current.marketSize||""} placeholder="e.g. NZ SME accounting software market ~$120M..." onChange={function(e){fdRef.current.marketSize=e.target.value;saveToStorage();}}/>
+          </div>
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Who are the main competitors to your business and how does your business differ from them?</div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={suggestBtn} onClick={suggestCompetitors}>Suggest with AI</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div key={"comp-"+compVersion} style={{marginTop:8}}>
+            <textarea style={ta(3)} defaultValue={fdRef.current.competitors||""} placeholder="e.g. Xero (market leader, feature-rich but expensive)..." onChange={function(e){fdRef.current.competitors=e.target.value;saveToStorage();}}/>
+          </div>
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What are the strengths and weaknesses of the main competitors to your business?</div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={suggestBtn} onClick={suggestCompSW}>Suggest with AI</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div key={"csw-"+compSwVersion} style={{marginTop:8}}>
+            <textarea style={ta(3)} defaultValue={fdRef.current.compStrWeakness||""} placeholder="e.g. Xero: strengths - brand, integrations. Weaknesses - price..." onChange={function(e){fdRef.current.compStrWeakness=e.target.value;saveToStorage();}}/>
+          </div>
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What is the competitive advantage or unique selling point of your business?</div>
+          {RT("advantage","What makes you better or different?",2)}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What Intellectual Property does your business have?</div>
+          {RT("ip","e.g. Registered trademark, proprietary software. Or: none.",2)}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
+          <textarea key="extra3" style={ta(2)} defaultValue={fdRef.current["extra3"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra3"]=e.target.value;saveToStorage();}}/>
+        </>
+      );}},
+    {label:"Step 3 of 5 - Vision & Strategy",title:"Tell us how you see the future of your business",desc:"What does success look like?",
+      render:function(){return (<>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>SWOT Analysis</div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={suggestBtn} onClick={suggestSWOT} disabled={!!goalLoading}>{goalLoading?"Suggesting...":"Suggest SWOT from Step 1 & 2"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Strengths, Weaknesses, Opportunities, Threats the business has.</span></div>
+          <div key={"swot-"+swotVersion} style={{display:"flex",flexDirection:"column",gap:10,marginTop:10}}>
+            {[{id:"swotS",l:"Strengths",h:"What your business does well",ph:"e.g. Strong technical team, first-mover advantage..."},{id:"swotW",l:"Weaknesses",h:"What your business could do better",ph:"e.g. Limited marketing budget..."},{id:"swotO",l:"Opportunities",h:"The possibilities available",ph:"e.g. Growing market, underserved segment..."},{id:"swotT",l:"Threats",h:"The risks to your business",ph:"e.g. Well-funded competitors..."}].map(function(x){return (<div key={x.id}><label style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:3,display:"block"}}>{x.l}</label><span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>{x.h}</span><textarea style={ta(2)} defaultValue={fdRef.current[x.id]||""} placeholder={x.ph} onChange={function(e){fdRef.current[x.id]=e.target.value;saveToStorage();}}/></div>);})}
+          </div>
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Vision</div>
+          <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>By (year) be the (ambition) for (who)</span>
+          {RT("vision","e.g. By 2027, to be the go-to invoicing tool for 10,000 NZ sole traders...",3)}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Position Statement</div>
+          <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>For [customer] who [need], [business] is a [category] that [benefit]</span>
+          {RT("position","e.g. For NZ sole traders who are overwhelmed by complex accounting...",3)}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Values</div>
+          {RT("values","e.g. Simplicity - we remove complexity, not add to it...",3)}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Goals</div>
+          <span style={{fontSize:12,color:"#374151",marginBottom:6,display:"block"}}>The main steps to achieve success</span>
+          <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:8}}><button style={suggestBtn} onClick={suggestGoals} disabled={goalLoading}>{goalLoading?"Suggesting...":"Suggest goals from SWOT"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Goals the business should have.</span></div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {goals.map(function(g,i){var gs={display:"flex",gap:8,alignItems:"flex-start",marginBottom:6};return (<div key={i} style={gs}><div style={{fontSize:12,fontWeight:700,color:"#6b7280",width:18,flexShrink:0,paddingTop:10}}>{i+1}</div><input style={Object.assign({},inp,{flex:1})} value={g} placeholder={"e.g. Reach 500 paying customers within 12 months..."} onChange={function(e){var n=goals.slice();n[i]=e.target.value;setGoalsAndSave(n);}}/></div>);})}
+          </div>
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
+          <textarea key="extra2" style={ta(2)} defaultValue={fdRef.current["extra2"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra2"]=e.target.value;saveToStorage();}}/>
+        </>
+      );}},
+    {label:"Step 4 of 5 - Making it Happen",title:"Tell us how your business will achieve its goals",desc:<span>What will it take to achieve success?</span>,
+      render:function(){return (<>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business Goals</div>
+          <span style={{fontSize:12,color:"#6b7280",marginBottom:6,display:"block"}}>From Step 3 — read only. <button style={{background:"none",border:"none",color:"#01236d",fontSize:12,cursor:"pointer",padding:0,fontFamily:"inherit"}} onClick={function(){setStepAndSave(2);}}>Edit in Step 3</button></span>
+          <div style={{display:"flex",flexDirection:"column",gap:12}}>
+            {goals.map(function(g,i){
+              if(!g)return null;
+              return (<div key={i} style={{border:"1px solid #e5e7eb",borderRadius:8,padding:"12px 14px",background:"#fafafa"}}>
+                <div style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:10}}>
+                  <div style={{fontSize:12,fontWeight:700,color:GREEN_DARK,width:18,flexShrink:0,paddingTop:2}}>{i+1}</div>
+                  <div style={{fontSize:14,fontWeight:500,color:"#1a1a1a",lineHeight:1.4}}>{g}</div>
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:8,paddingLeft:26}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}><button style={suggestBtn} disabled={!!goalCardLoading[i]} onClick={function(){suggestGoalCard(i);}}>{goalCardLoading[i]?"Suggesting...":"Suggest with AI"}</button><span style={{fontSize:11,color:"#374151",fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other ways the business will achieve its goals and resources needed.</span></div>
+                  <div key={"ghow"+i+"-"+(goalCardVer[i]||0)}>
+                    <div style={{fontSize:12,fontWeight:500,color:"#374151",marginBottom:3}}>How will you achieve this goal?</div>
+                    <textarea style={ta(2)} defaultValue={fdRef.current["goalHow"+(i+1)]||""} placeholder="e.g. Launch targeted social media campaign..." onChange={function(e){fdRef.current["goalHow"+(i+1)]=e.target.value;saveToStorage();}}/>
+                  </div>
+                  <div key={"gres"+i+"-"+(goalCardVer[i]||0)}>
+                    <label style={{fontSize:12,fontWeight:500,color:"#374151",marginBottom:3,display:"block"}}>Resources needed</label>
+                    <textarea style={ta(2)} defaultValue={fdRef.current["goalRes"+(i+1)]||""} placeholder="e.g. Marketing manager, design tools..." onChange={function(e){fdRef.current["goalRes"+(i+1)]=e.target.value;saveToStorage();}}/>
+                  </div>
+                </div>
+              </div>);
+            })}
+          </div>
+          {!goals.some(Boolean)&&<div style={{fontSize:13,color:"#374151",fontStyle:"italic"}}>No goals entered yet — go back to Step 3 to add them.</div>}
+          <div style={{marginBottom:14}}/>
+          <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>From the goals above, how much will sales units increase in total over the next 12 months?</div>
+              <input style={inp} defaultValue={fdRef.current.goalSalesTotal||""} placeholder="e.g. 100" onChange={function(e){fdRef.current.goalSalesTotal=e.target.value;saveToStorage();}}/>
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>From the goals above, how much will expenses increase in total over the next 12 months?</div>
+              <input style={inp} defaultValue={fdRef.current.goalExpTotal||""} placeholder="e.g. 5000" onChange={function(e){fdRef.current.goalExpTotal=e.target.value;saveToStorage();}}/>
+            </div>
+          </div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
+          <textarea key="extra4" style={ta(2)} defaultValue={fdRef.current["extra4"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra4"]=e.target.value;saveToStorage();}}/>
+        </>
+      );}},
+    {label:"Step 5 of 5 - Financial Information",title:"Tell us about your business finances",desc:<span>These numbers will determine your 12-month cashflow forecast.</span>,
+      render:function(){
+        var s5tabs=["Details","Cashflow","Graphs","What If"];
+        var s5key=["details","cashflow","graphs","whatif"].indexOf(previewTab)>=0?previewTab:"details";
+        return (<>
+          <div style={{display:"flex",gap:0,borderBottom:"1px solid #e5e7eb",marginBottom:20}}>
+            {s5tabs.map(function(t){var k=t.toLowerCase().replace(" ","");var active=s5key===k;return <button key={t} style={{fontFamily:"inherit",fontSize:13,padding:"8px 16px",border:"none",background:"none",cursor:"pointer",borderBottom:"2px solid "+(active?"#d0b16f":"transparent"),color:active?"#01236d":"#6b7280",fontWeight:active?600:400}} onClick={function(){setPreviewTab(k);}}>{t}</button>;})}
+          </div>
+          {s5key==="details"&&(<>
+            <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Opening bank balance ($)</div>
+                <input style={inp} defaultValue={fdRef.current.openingBalance||""} placeholder="e.g. 12000" onChange={function(e){fdRef.current.openingBalance=e.target.value;saveToStorage();refreshLive();}}/>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Assets</div>
+                <input style={inp} defaultValue={fdRef.current.assets||""} placeholder="e.g. $3,000 debtors, laptop $4,000" onChange={function(e){fdRef.current.assets=e.target.value;saveToStorage();}}/>
+              </div>
+            </div>
+            <div style={{marginBottom:14}}/>
+            <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Debt</div>
+                <input style={inp} defaultValue={fdRef.current.debt||""} placeholder="e.g. $5,000 suppliers, $10,000 loan" onChange={function(e){fdRef.current.debt=e.target.value;saveToStorage();}}/>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Equity contributed</div>
+                <input style={inp} defaultValue={fdRef.current.equity||""} placeholder="e.g. $30,000 from founder Jane Smith" onChange={function(e){fdRef.current.equity=e.target.value;saveToStorage();}}/>
+              </div>
+            </div>
+            <div style={{marginBottom:14}}/>
+
+            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly sales units</div>
+            <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:6}}>
+              <span style={{fontSize:12,color:"#374151"}}>Make sure you have added the sales targets from how your business is going to achieve its goals</span>
+              <div style={{flexShrink:0,fontSize:12,color:"#01236d",fontWeight:500,border:"1px solid #01236d",borderRadius:6,padding:"4px 10px",whiteSpace:"nowrap"}}>From Step 4: <span style={{color:"#d0b16f"}}>{fdRef.current.goalSalesTotal?fdRef.current.goalSalesTotal+" units over 12 months":"not set in Step 4"}</span></div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkMonthlyUnits" checked={!!gridChecks["monthlyUnits"]} onChange={function(){toggleGrid("monthlyUnits");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkMonthlyUnits" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+            {gridChecks["monthlyUnits"]?(<div>
+              <div key={"unitsGrid-"+avgSalesVer}><MonthGrid keyPrefix={"monthlyUnitsM"} storeKey={"monthlyUnits"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>
+              <div style={{display:"flex",gap:8,alignItems:"center",marginTop:6,flexWrap:"wrap"}}>
+                <span style={{fontSize:12,color:"#374151",flexShrink:0}}>Apply growth %</span>
+                <input id="unitsGrowthInp" style={Object.assign({},inp,{width:52,textAlign:"right",padding:"5px 6px",fontSize:12})} placeholder="e.g. 5"/>
+                <button style={Object.assign({},btnSm,{fontSize:11,padding:"5px 10px"})} onClick={function(){
+                  var base=parseFloat(fdRef.current["monthlyUnitsM1"])||0;
+                  var pct=parseFloat(document.getElementById("unitsGrowthInp").value)||0;
+                  if(!base||!pct)return;
+                  for(var m=1;m<12;m++){fdRef.current["monthlyUnitsM"+(m+1)]=String(Math.round(base*Math.pow(1+pct/100,m)));}
+                  fdRef.current.monthlyUnits=Array.from({length:12},function(_,n){return "M"+(n+1)+":"+(fdRef.current["monthlyUnitsM"+(n+1)]||fdRef.current["monthlyUnitsM1"]||"0");}).join(",");
+                  refreshLive();saveToStorage();
+                  setAvgSalesVer(function(v){return v+1;});
+                }}>Apply growth %</button>
+              </div>
+            </div>):<input style={inp} defaultValue={fdRef.current.month1Units||""} placeholder="e.g. 50" onChange={function(e){fdRef.current.month1Units=e.target.value;saveToStorage();refreshLive();}}/>}
+
+            <div style={{marginBottom:14}}/>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Average sale price ($)</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgPrice" checked={!!gridChecks["avgPrice"]} onChange={function(){toggleGrid("avgPrice");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgPrice" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+            {gridChecks["avgPrice"]?<div key={"avgPriceGrid"}><MonthGrid keyPrefix={"avgPriceM"} storeKey={"avgPrice"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.avgPrice||""} placeholder="e.g. 49" onChange={function(e){fdRef.current.avgPrice=e.target.value;saveToStorage();refreshLive();}}/>}
+            <div style={{marginBottom:14}}/>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Average cost per unit ($)</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgCost" checked={!!gridChecks["avgCost"]} onChange={function(){toggleGrid("avgCost");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgCost" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+            {gridChecks["avgCost"]?<div key={"avgCostGrid"}><MonthGrid keyPrefix={"avgCostM"} storeKey={"avgCost"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.avgCost||""} placeholder="e.g. 12" onChange={function(e){fdRef.current.avgCost=e.target.value;saveToStorage();refreshLive();}}/>}
+            <div style={{marginBottom:14}}/>
+            <div style={{display:"flex",gap:16,alignItems:"flex-start",flexWrap:"wrap"}}>
+              <div style={{flex:"0 0 auto"}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Tax rate on products/services (%)</div>
+                <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>e.g. GST 15% — used to calculate tax in Other Transactions</span>
+                <input style={Object.assign({},inp,{width:120})} defaultValue={fdRef.current.taxRate||""} placeholder="e.g. 15" onChange={function(e){fdRef.current.taxRate=e.target.value;saveToStorage();refreshLive();}}/>
+              </div>
+              <div style={{flex:1,minWidth:200}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What months do you pay your tax?</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,marginTop:4}}>
+                  {Array.from({length:12},function(_,m){
+                    var key="taxPayM"+(m+1);
+                    return (<label key={m} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,fontSize:11,color:"#374151",cursor:"pointer"}}>
+                      <input type="checkbox" defaultChecked={!!fdRef.current[key]} onChange={function(e){
+                        fdRef.current[key]=e.target.checked?"1":"";
+                        saveToStorage();refreshLive();
+                      }} style={{width:14,height:14,accentColor:GREEN,cursor:"pointer"}}/>
+                      M{m+1}
+                    </label>);
+                  })}
+                </div>
+              </div>
+            </div>
+            <div style={{marginBottom:14}}/>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Other revenue ($)</div>
+            <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>Any other revenue not from product/service sales e.g. grants, interest. Amount per month or month-specific e.g. M1:500</span>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkOtherRev" checked={!!gridChecks["otherRevenue"]} onChange={function(){toggleGrid("otherRevenue");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkOtherRev" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+            {gridChecks["otherRevenue"]?<div key={"otherRevGrid"}><MonthGrid keyPrefix={"otherRevM"} storeKey={"otherRevenue"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.otherRevenue||""} placeholder="e.g. 500 or M1:5000, M6:1000" onChange={function(e){fdRef.current.otherRevenue=e.target.value;saveToStorage();refreshLive();}}/>}
+            <div style={{marginBottom:14}}/>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly expenses (exc tax)</div>
+            <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:8}}>
+              <span style={{fontSize:12,color:"#374151"}}>Make sure you have added the extra expenses from how your business is going to achieve its goals</span>
+              <div style={{flexShrink:0,fontSize:12,color:"#01236d",fontWeight:500,border:"1px solid #01236d",borderRadius:6,padding:"4px 10px",whiteSpace:"nowrap"}}>From Step 4: <span style={{color:"#d0b16f"}}>{fdRef.current.goalExpTotal?"$"+fdRef.current.goalExpTotal+" over 12 months":"not set in Step 4"}</span></div>
+            </div>
+            {expCats.map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
+              <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}</div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+              {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={inp} defaultValue={fdRef.current[c.id]||""} placeholder="e.g. 200" onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
+            </div>);})}            <div style={{marginBottom:14}}/>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Other transactions ($)</div>
+            <span style={{fontSize:12,color:"#374151",marginBottom:8,display:"block"}}>Regular monthly or one-off e.g. M1:5000</span>
+            {txCats.map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
+              <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}{c.id==="txTax"&&<span style={{fontSize:11,color:"#d0b16f",marginLeft:8,fontWeight:400}}>Auto-calculated from Tax rate — override with monthly amounts</span>}</div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+              {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={c.id==="txTax"?Object.assign({},inp,{color:"#9ca3af",fontStyle:"italic"}):inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.id==="txTax"?"Auto-calculated — tick to override by month":"e.g. 500"} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
+            </div>);})}
+            <div style={{marginBottom:14}}/>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
+            <textarea key="extra5" style={ta(2)} defaultValue={fdRef.current["extra5"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra5"]=e.target.value;saveToStorage();}}/>
+          </>)}
+          {s5key==="cashflow"&&<div>
+            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+              <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}} onClick={function(){downloadCashflowExcel();}}>Download Excel (.xlsx)</button>
+            </div>
+            <CfTable rows={liveRows}/>
+          </div>}
+          {s5key==="graphs"&&<CfCharts rows={liveRows}/>}
+          {s5key==="whatif"&&<WhatIf liveRows={liveRows} wiRev={wiRev} wiExp={wiExp} wiCos={wiCos} setWiRev={setWiRev} setWiExp={setWiExp} setWiCos={setWiCos}/>}
+        </>
+      );}},
+  ];
+
+  var appStyle={fontFamily:"system-ui,sans-serif",maxWidth:640,margin:"0 auto",padding:16};
+  var cardStyle={background:"#fff",borderRadius:12,padding:"24px 20px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:16};
+
+  if(showOutput){
+    return (
+      <div style={appStyle}>
+        <div style={{display:"flex",gap:10,marginBottom:12}}>
+          <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setShowOutput(false);setStepAndSave(4);}}>← Edit</button>
+          {!loading&&<button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer"}} onClick={function(){generateWordDoc();}}>Download Word (.docx)</button>}
+        </div>
+        <div style={cardStyle}>
+          {tab==="plan"&&(
+            <div>
+              {loading&&<div style={{textAlign:"center",padding:"40px 16px",color:"#6b7280",fontSize:14}}>{loadMsg}</div>}
+              {!loading&&!planHtml&&<div style={{textAlign:"center",padding:"40px 16px",color:"#6b7280",fontSize:14}}><button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none",fontSize:14,padding:"10px 20px"})} onClick={generatePlan}>Generate Business Plan</button></div>}
+              {planHtml&&<div style={{overflowX:"auto",pointerEvents:"none"}} dangerouslySetInnerHTML={{__html:planHtml}}/>}
+              {planHtml&&liveRows&&liveRows.length>0&&(
+                <div style={{marginTop:8}}>
+                  <CfCharts rows={liveRows}/>
+                </div>
+              )}
+              {planHtml&&liveRows&&liveRows.length>0&&(
+                <div style={{marginTop:32,borderTop:"2px solid #f5eedd",paddingTop:24}}>
+                  <h2 style={{fontSize:17,fontWeight:700,color:"#01236d",marginBottom:16}}>12-Month Cashflow Forecast</h2>
+                  <CfTable rows={liveRows}/>
+                </div>
+              )}
+            </div>
+          )}
+          {tab==="cashflow"&&(
+            <div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:20}}>
+                <img src={LOGO_SRC} style={{width:44,height:44,objectFit:"contain"}} alt="Logo"/>
+                <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}} onClick={function(){downloadCashflowExcel();}}>Download Excel (.xlsx)</button>
+              </div>
+        <div style={{display:"flex",gap:5,marginBottom:22}}>
+                {["table","preview"].map(function(t){return <button key={t} style={{flex:1,height:4,borderRadius:2,background:previewTab===t?"#d0b16f":"#e5e7eb",border:"none",cursor:"pointer"}} onClick={function(){setPreviewTab(t);}}/>;}) }
+              </div>
+              {previewTab==="table"&&<CfTable rows={liveRows}/>}
+            </div>
+          )}
+          {tab==="graphs"&&<CfCharts rows={liveRows}/>}
+        </div>
+        {showPrint&&(
+          <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)",zIndex:1000,overflow:"auto"}}>
+            <div style={{background:"#fff",maxWidth:860,margin:"20px auto",borderRadius:12,padding:"32px 28px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+                <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){window.print();}}>Print / Save as PDF</button>
+                <button style={btnSm} onClick={function(){setShowPrint(false);}}>✕ Close</button>
+              </div>
+              <div style={{textAlign:"center",paddingBottom:24,marginBottom:24,borderBottom:"2px solid #f5eedd"}}>
+                <div style={{fontSize:26,fontWeight:800,color:"#01236d",marginBottom:8}}>{fdRef.current.bizName||"Business Plan"}</div>
+                <div style={{fontSize:16,fontWeight:500,color:"#d0b16f",marginBottom:6}}>Business Plan and Cashflow Forecast</div>
+                <div style={{fontSize:13,color:"#6b7280"}}>{fmtDate(new Date().toISOString().slice(0,10))}</div>
+              </div>
+              {planHtml&&<div style={{overflowX:"auto",pointerEvents:"none"}} dangerouslySetInnerHTML={{__html:planHtml}}/>}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+  var currentStep=stepDefs[step];
+  return (
+    <div style={appStyle}>
+      <div style={cardStyle}>
+        <div style={{display:"flex",gap:5,marginBottom:22}}>
+          {stepDefs.map(function(s,i){return <div key={i} style={{flex:1,height:4,borderRadius:2,background:i<step?"#d0b16f":i===step?"#01236d":"#e5e7eb"}}/>;}) }
+        </div>
+        <div style={{fontSize:11,fontWeight:600,color:"#374151",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>{currentStep.label}</div>
+        <div style={{fontSize:20,fontWeight:700,color:GREEN_DARK,marginBottom:4,lineHeight:1.2}}>{currentStep.title}</div>
+        <div style={{fontSize:14,color:"#374151",marginBottom:12,lineHeight:1.6}}>{currentStep.desc}</div>
+        <div style={{display:"flex",gap:10,marginBottom:20}}>
+          {step>0&&<button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setStepAndSave(step-1);}}>Back</button>}
+          {step<stepDefs.length-1
+            ?<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setStepAndSave(step+1);}}>Next →</button>
+            :<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){generatePlan();setShowOutput(true);}}>Generate Plan</button>
+          }
+        </div>
+        {currentStep.render()}
+        <div style={{display:"flex",gap:10,marginTop:20}}>
+          {step>0&&<button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setStepAndSave(step-1);}}>Back</button>}
+          {step<stepDefs.length-1
+            ?<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setStepAndSave(step+1);}}>Next →</button>
+            :<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){generatePlan();setShowOutput(true);}}>Generate Plan</button>
+          }
+        </div>
+      </div>
+      <div style={{textAlign:"center",fontSize:12,color:"#9ca3af",padding:"8px 0",display:"flex",justifyContent:"space-between"}}>
+        <button style={{fontFamily:"inherit",fontSize:12,color:"#9ca3af",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={startOver}>Clear all data</button>
+        <button style={{fontFamily:"inherit",fontSize:12,color:"#9ca3af",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){
+          var data=JSON.stringify(fdRef.current);
+          var ta=document.createElement("textarea");
+          ta.value=data;
+          ta.style.cssText="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:80%;height:200px;z-index:9999;padding:12px;font-size:12px;border:2px solid #01236d;border-radius:8px;";
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          var msg=document.createElement("div");
+          msg.textContent="Data copied to clipboard! Save it somewhere safe.";
+          msg.style.cssText="position:fixed;top:calc(50% - 130px);left:50%;transform:translateX(-50%);background:#01236d;color:#fff;padding:8px 16px;border-radius:6px;font-size:13px;z-index:10000;";
+          document.body.appendChild(msg);
+          setTimeout(function(){document.body.removeChild(ta);document.body.removeChild(msg);},3000);
+        }}>Export data</button>
+        <button style={{fontFamily:"inherit",fontSize:12,color:"#9ca3af",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){
+          var input=prompt("Paste your exported data here:");
+          if(!input)return;
+          try{
+            var data=JSON.parse(input);
+            fdRef.current=data;
+            saveToStorage();
+            setLegalStatus(data.legalStatus||"");
+            setGoals(Array.from({length:6},function(_,i){return data["goal"+(i+1)]||"";}));
+            setLiveRows(calcCashflow(data));
+            alert("Data restored successfully!");
+          }catch(e){alert("Invalid data. Please paste the exported text exactly as copied.");}
+        }}>Import data</button>
+        <button style={{fontFamily:"inherit",fontSize:12,color:"#d0b16f",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){setShowFeedback(true);}}>Give feedback</button>
+        <button style={{fontFamily:"inherit",fontSize:11,color:"#d1d5db",background:"none",border:"none",cursor:"pointer"}} onClick={function(){setShowAdmin(true);}}>⚙</button>
+      </div>
+      {adminMsg&&<div style={{background:GREEN_LIGHT,border:"1px solid "+GREEN,borderRadius:8,padding:"10px 14px",marginTop:8,fontSize:13,color:GREEN_DARK}}>{adminMsg}</div>}
+      {showAdmin&&(<div style={{background:"#f9fafb",borderRadius:8,padding:16,marginTop:8,border:"1px solid #e5e7eb"}}>
+        <div style={{fontSize:13,fontWeight:600,color:"#374151",marginBottom:8}}>Admin</div>
+        <input style={inp} type="password" placeholder="Password" value={adminPw} onChange={function(e){setAdminPw(e.target.value);}}/>
+        {adminPw==="stratdiy2025"&&(<div style={{marginTop:8}}>
+          <textarea style={ta(2)} placeholder="Broadcast message to all users (leave blank to clear)" value={adminMsgInput} onChange={function(e){setAdminMsgInput(e.target.value);}}/>
+          <div style={{display:"flex",gap:8,marginTop:8}}>
+            <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){try{localStorage.setItem("bpg_admin_msg",adminMsgInput);}catch(e){}setShowAdmin(false);setAdminPw("");}}>Save & broadcast</button>
+            <button style={btnSm} onClick={function(){setShowAdmin(false);setAdminPw("");}}>Cancel</button>
+          </div>
+        </div>)}
+      </div>)}
+      {showFeedback&&(
+        <div style={{background:"#f9fafb",borderRadius:8,padding:16,marginTop:8,border:"1px solid #e5e7eb"}}>
+          {fbDone?<div style={{textAlign:"center",color:"#d0b16f",fontSize:14,padding:"8px 0"}}>Thank you for your feedback!</div>:(
+            <div>
+              <div style={{fontSize:13,fontWeight:500,color:"#374151",marginBottom:8}}>How would you rate your experience?</div>
+              <div style={{display:"flex",gap:6,marginBottom:12}}>
+                {[1,2,3,4,5].map(function(n){return <button key={n} onClick={function(){setFbRating(n);}} style={{fontFamily:"inherit",fontSize:20,background:"none",border:"none",cursor:"pointer",color:n<=fbRating?"#f59e0b":"#d1d5db",padding:"2px 4px"}}>{n<=fbRating?"★":"☆"}</button>;})}
+              </div>
+              <textarea style={ta(3)} placeholder="Any comments? (optional)" value={fbText} onChange={function(e){setFbText(e.target.value);}}/>
+              <div style={{display:"flex",gap:8,marginTop:8}}>
+                <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={submitFeedback} disabled={fbLoad||(!fbText.trim()&&fbRating===0)}>{fbLoad?"Sending...":"Send Feedback"}</button>
+                <button style={btnSm} onClick={function(){setShowFeedback(false);setFbText("");setFbRating(0);}}>Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+</script>
+</body>
+</html>

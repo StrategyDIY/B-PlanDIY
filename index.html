@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/favicon-192.png">
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>B-PlanDIY — Business Plan and Cashflow Generator</title>
+<meta name="description" content="Create a professional business plan and 12-month cashflow forecast in minutes. Built for startup founders."/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+:root{
+  --navy:#01236d;
+  --gold:#d0b16f;
+  --gold-light:#f5eedd;
+  --white:#ffffff;
+  --off-white:#f8f9fc;
+  --grey:#6b7280;
+  --dark:#1a1a2e;
+}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--dark);background:var(--white);line-height:1.6;}
+a{color:inherit;text-decoration:none;}
+
+/* NAV */
+nav{background:var(--white);border-bottom:1px solid #e5e7eb;padding:0 24px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;height:84px;}
+.nav-logo{display:flex;align-items:center;gap:10px;}
+.nav-logo img{width:72px;height:72px;object-fit:contain;}
+.nav-logo span{font-size:17px;font-weight:700;color:var(--navy);letter-spacing:-0.02em;}
+.nav-links{display:flex;gap:28px;font-size:15px;color:var(--navy);font-weight:700;}
+.nav-links a:hover{color:var(--gold);}
+.nav-cta{background:var(--gold);color:var(--white);padding:9px 22px;border-radius:6px;font-size:14px;font-weight:600;transition:opacity 0.15s;}
+.nav-cta:hover{opacity:0.88;}
+@media(max-width:600px){.nav-links{display:none;}}
+
+/* HERO */
+.hero{background:var(--navy);color:var(--white);padding:88px 24px 80px;text-align:center;position:relative;overflow:hidden;}
+.hero::after{content:"";position:absolute;bottom:-2px;left:0;right:0;height:60px;background:var(--white);clip-path:ellipse(55% 100% at 50% 100%);}
+.hero-eyebrow{display:inline-block;background:rgba(208,177,111,0.2);color:var(--gold);font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:22px;}
+.hero h1{font-size:clamp(30px,5vw,52px);font-weight:800;line-height:1.15;letter-spacing:-0.02em;margin-bottom:20px;max-width:680px;margin-left:auto;margin-right:auto;}
+.hero h1 em{color:var(--gold);font-style:normal;}
+.hero-sub{font-size:17px;color:rgba(255,255,255,0.72);max-width:500px;margin:0 auto 36px;line-height:1.7;}
+.btn-primary{background:var(--gold);color:var(--white);padding:15px 36px;border-radius:8px;font-size:16px;font-weight:700;border:none;cursor:pointer;transition:opacity 0.15s;display:inline-block;}
+.btn-primary:hover{opacity:0.88;}
+.hero-note{margin-top:18px;display:flex;gap:20px;justify-content:center;flex-wrap:wrap;font-size:14px;color:rgba(255,255,255,0.7);}.hero-note span{display:flex;align-items:center;gap:6px;}
+
+/* STEP WALKTHROUGH */
+.walkthrough{padding:80px 24px;background:var(--white);}
+.section-header{text-align:center;margin-bottom:56px;}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;}
+.section-title{font-size:clamp(28px,4vw,42px);font-weight:800;color:var(--navy);letter-spacing:-0.02em;line-height:1.2;}
+.section-sub{font-size:15px;color:var(--grey);margin-top:10px;}
+
+.step-row{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;max-width:1000px;margin:0 auto 80px;}
+.step-row.reverse{direction:rtl;}
+.step-row.reverse>*{direction:ltr;}
+@media(max-width:700px){.step-row,.step-row.reverse{grid-template-columns:1fr;direction:ltr;}}
+
+.step-info{}
+.step-number{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:var(--gold);color:var(--white);font-size:15px;font-weight:800;border-radius:50%;margin-bottom:14px;}
+.step-title{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:10px;}
+.step-desc{font-size:15px;color:var(--grey);line-height:1.7;margin-bottom:16px;}
+.step-bullets{list-style:none;}
+.step-bullets li{font-size:14px;color:#374151;padding:5px 0;display:flex;gap:8px;align-items:flex-start;}
+.step-bullets li::before{content:"✓";color:var(--gold);font-weight:700;flex-shrink:0;margin-top:1px;}
+
+/* MOCK SCREENS */
+.mock{background:var(--off-white);border-radius:14px;border:1px solid #e5e7eb;overflow:hidden;box-shadow:0 4px 20px rgba(1,35,109,0.08);}
+.mock-bar{background:var(--navy);padding:10px 14px;display:flex;gap:6px;align-items:center;}
+.mock-dot{width:10px;height:10px;border-radius:50%;}
+.mock-steps{display:flex;gap:4px;padding:12px 16px 0;}
+.ms{flex:1;height:3px;border-radius:2px;background:#e5e7eb;}
+.ms.done{background:var(--gold);}
+.ms.active{background:var(--navy);}
+.mock-body{padding:20px;}
+.mock-tag{font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--grey);margin-bottom:4px;}
+.mock-h{font-size:16px;font-weight:700;color:var(--navy);margin-bottom:3px;}
+.mock-sub{font-size:12px;color:var(--grey);margin-bottom:14px;}
+.mock-field{margin-bottom:10px;}
+.mock-label{font-size:11px;font-weight:600;color:var(--navy);margin-bottom:3px;}
+.mock-input{width:100%;border:1px solid #e5e7eb;border-radius:5px;padding:7px 9px;font-size:12px;color:#374151;background:white;}
+.mock-input.filled{color:var(--navy);border-color:#d0b16f;}
+.mock-ai{background:var(--gold);color:white;border:none;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:600;margin-bottom:5px;display:inline-block;}
+.mock-textarea{width:100%;border:1px solid #e5e7eb;border-radius:5px;padding:7px 9px;font-size:12px;color:#374151;background:white;min-height:52px;}
+.mock-textarea.filled{color:var(--navy);border-color:#d0b16f;}
+.mock-row{display:flex;gap:8px;}
+.mock-row .mock-field{flex:1;}
+.mock-footer{display:flex;justify-content:flex-end;padding:0 20px 16px;}
+.mock-next{background:var(--gold);color:white;border:none;border-radius:5px;padding:7px 16px;font-size:12px;font-weight:600;}
+
+/* PLAN SAMPLE */
+.plan-sample{background:var(--off-white);padding:80px 24px;}
+.plan-doc{max-width:720px;margin:0 auto;background:white;border-radius:14px;box-shadow:0 4px 24px rgba(1,35,109,0.1);overflow:hidden;}
+.plan-doc-header{background:var(--navy);padding:32px;text-align:center;}
+.plan-doc-title{font-size:24px;font-weight:800;color:white;margin-bottom:4px;}
+.plan-doc-sub{font-size:13px;color:var(--gold);font-weight:500;margin-bottom:4px;}
+.plan-doc-date{font-size:12px;color:rgba(255,255,255,0.4);}
+.plan-doc-body{padding:28px 32px;}
+.plan-section{margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid #f3f4f6;}
+.plan-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.plan-section h3{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:8px;padding-bottom:5px;border-bottom:2px solid var(--gold-light);}
+.plan-section p{font-size:13px;color:#374151;line-height:1.7;margin-bottom:6px;}
+.plan-section ul{list-style:none;margin-top:6px;}
+.plan-section ul li{font-size:13px;color:#374151;padding:3px 0;display:flex;gap:6px;}
+.plan-section ul li::before{content:"•";color:var(--gold);}
+.plan-blur{position:relative;}
+.plan-blur-overlay{position:absolute;bottom:0;left:0;right:0;height:120px;background:linear-gradient(transparent,white);display:flex;align-items:flex-end;justify-content:center;padding-bottom:20px;}
+.plan-unlock{background:var(--navy);color:white;border:none;border-radius:6px;padding:10px 22px;font-size:13px;font-weight:600;cursor:pointer;}
+
+/* CASHFLOW PREVIEW */
+.cf-preview{max-width:720px;margin:28px auto 0;background:white;border-radius:14px;box-shadow:0 4px 24px rgba(1,35,109,0.1);overflow:hidden;}
+.cf-header{background:var(--navy);padding:14px 20px;}
+.cf-header h4{font-size:13px;font-weight:700;color:white;}
+.cf-table{width:100%;border-collapse:collapse;font-size:12px;overflow-x:auto;display:block;}
+.cf-table th{background:#f0f4fa;color:var(--navy);font-weight:600;padding:8px 10px;text-align:right;white-space:nowrap;}
+.cf-table th:first-child{text-align:left;}
+.cf-table td{padding:7px 10px;text-align:right;border-bottom:1px solid #f3f4f6;white-space:nowrap;}
+.cf-table td:first-child{text-align:left;color:var(--grey);}
+.cf-table tr.bold td{font-weight:700;background:#f9fafb;}
+.cf-table tr.highlight td{background:var(--navy);color:white;font-weight:700;}
+.cf-table tr.hdr td{background:#eef1f8;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--navy);}
+.pos{color:#0F6E56;}
+.neg{color:#A32D2D;}
+
+/* FEATURES GRID */
+.features{padding:80px 24px;background:var(--off-white);}
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;max-width:960px;margin:0 auto;}
+.feature-card{background:white;border-radius:12px;padding:24px;border:1px solid #e5e7eb;transition:border-color 0.2s,box-shadow 0.2s;}
+.feature-card:hover{border-color:var(--gold);box-shadow:0 4px 16px rgba(208,177,111,0.15);}
+.feature-icon{font-size:24px;margin-bottom:12px;}
+.feature-title{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:5px;}
+.feature-desc{font-size:13px;color:var(--grey);line-height:1.6;}
+
+/* TESTIMONIALS */
+.testimonials{padding:80px 24px;}
+.t-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;max-width:960px;margin:0 auto;}
+.t-card{background:var(--off-white);border-radius:12px;padding:28px;border-left:3px solid var(--gold);}
+.t-text{font-size:14px;color:#374151;line-height:1.7;margin-bottom:18px;font-style:italic;}
+.t-author{display:flex;align-items:center;gap:10px;}
+.t-avatar{width:36px;height:36px;border-radius:50%;background:var(--navy);color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.t-name{font-size:13px;font-weight:600;color:var(--navy);}
+.t-role{font-size:12px;color:var(--grey);}
+
+/* PRICING */
+.pricing{padding:80px 24px;background:var(--off-white);}
+.pricing-card{max-width:440px;margin:0 auto;background:white;border-radius:16px;box-shadow:0 8px 40px rgba(1,35,109,0.12);overflow:hidden;}
+.p-header{background:var(--navy);padding:36px;text-align:center;}
+.p-badge{display:inline-block;background:var(--gold);color:white;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:4px 12px;border-radius:20px;margin-bottom:16px;}
+.p-price{font-size:56px;font-weight:800;color:white;line-height:1;}
+.p-price sup{font-size:24px;vertical-align:top;margin-top:10px;display:inline-block;}
+.p-period{font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;}
+.p-body{padding:32px;}
+.p-list{list-style:none;margin-bottom:28px;}
+.p-list li{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:#374151;padding:8px 0;border-bottom:1px solid #f3f4f6;}
+.p-list li:last-child{border-bottom:none;}
+.p-check{color:var(--gold);font-weight:700;flex-shrink:0;}
+.p-cta{display:block;text-align:center;background:var(--gold);color:white;padding:15px;border-radius:8px;font-size:16px;font-weight:700;border:none;cursor:pointer;width:100%;transition:opacity 0.15s;}
+.p-cta:hover{opacity:0.88;}
+.p-note{text-align:center;font-size:12px;color:var(--grey);margin-top:14px;}
+
+
+/* COMMUNITY */
+.community{{padding:80px 24px 90px;background:linear-gradient(135deg,#01236d 0%,#01347a 100%);color:white;text-align:center;}}
+.community .section-title{{color:white;font-size:clamp(22px,3vw,32px);margin-bottom:10px;}}
+.community .section-sub{{color:rgba(255,255,255,0.65);max-width:560px;margin:0 auto 48px;}}
+.community-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:28px;max-width:900px;margin:0 auto;}}
+.community-card{{background:rgba(255,255,255,0.06);border:1px solid rgba(208,177,111,0.25);border-radius:16px;padding:36px 28px;text-align:center;transition:transform 0.2s,background 0.2s;}}
+.community-card:hover{{background:rgba(255,255,255,0.1);transform:translateY(-3px);}}
+.community-icon{{width:64px;height:64px;background:rgba(208,177,111,0.15);border:2px solid rgba(208,177,111,0.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 20px;}}
+.community-title{{font-size:18px;font-weight:700;color:var(--gold);margin-bottom:12px;}}
+.community-desc{{font-size:14px;color:rgba(255,255,255,0.72);line-height:1.8;}}
+.community-badge{{display:inline-block;background:var(--gold);color:white;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-top:18px;}}
+/* FINAL CTA */
+.final{background:var(--navy);padding:80px 24px;text-align:center;color:white;}
+.final h2{font-size:clamp(24px,4vw,36px);font-weight:800;margin-bottom:12px;letter-spacing:-0.02em;}
+.final p{font-size:16px;color:rgba(255,255,255,0.65);margin-bottom:32px;}
+
+footer{background:#010f2e;color:rgba(255,255,255,0.4);padding:24px;text-align:center;font-size:13px;}
+footer a{color:var(--gold);}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">
+    <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAEAAAAAAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCANIA0gDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKYsqNIYw6mQAEqDyAehxT6ACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACkdgqlicAc0tZXie6+yaLcODhmGxfqeKipNQi5PoOKu7HHabqxHis3W47J5TG2R/Ceg/QV6NXjvuOCDkH3r1fTLxL6xhuE/jUEj0PcfnmvPy+tzc0X6nTiIKNrFuiiivTOUKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKrSX9rGxWS4hRh1DOAalyUd2FizRVI6nZ5/4+7f8A7+Cl/tOy/wCfu3/7+Cl7SPcfKy5XD+Pb4SXUNkh/1Y3v9T0H6frXT3Gs2EEZd7uDA9HBJ/AV5nf3TXd9cTsTiRywz2Hb9AK4cfXSp8sXub0KbbuyGuz8A3u6G4tGPKHzFHsev6/zri81o+G7wWGrwzOcRHKOfQH/AOvivNw1T2VRSOutHngep5oqkNTsP+fy3/7+Cl/tOx/5/Lf/AL+CvoPaR7nm2fYuUVT/ALTsf+fy3/7+CnR39rKwWK5hdj2VwTR7SPcLMtUUUVYgooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK898SeGZbFWuLLdNb5JZP4k/wAa9Co61hXoRrKzLp1HB3R4xijFd74h8LLcs1xp+I5jy0Z4Vj7ehrhZY3ikaOVSrqcFT1FeHXoTpOzO+lNTV0MxRilorA02YlFLRQNiUYpaktrea6mEVvG0kh6Af54o30QtiLFdV4c8MSXBS5vw0UQ5VBw5Pr7D9a19B8Mw2Yjnuz5tyBwD91D7e/vXTAV62GwP2qn3HJVr392IUUUV6hyBRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFZOvaLb6tBiRQsy/ckA5Ht9K1qy/El4LLR55M4dhsT3J4rKsouD5ti6bakrHlpGHZf7pxRSUtfNM9MKKKKCiazgFxcxRFxGHcLuPbJxXqGj6TbaXAUtl+ZvvuerV5SCQQR1HIr1fRbz7bpttODu8xASffvXpZbyuTvucmJvbTYv0UUV7BxBRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABXGfEG5H+iWwPrKR+g/r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RRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAHn/jmxS2vo7lBtWfdvx03DH881zNejeOLbztCdwMtC6uPpnB/Q15zXgY2moVNOp6OHleIUUUVyG4UUUUAFFFFABRRRQAV63pUS2+nW8SfdWNQPyrySvZIxtRR7V6eWrWTOPFvRIdRRRXrnGFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAFfUIBc2U8DdJI2T8xXkJGCRXsxryXWoFtdXu4VGFWQkfjz/WvKzGO0jrwstWinRRRXlHaFFFFABRRRQAUUUUAWtJj87VLSIn5WlXP5j/69eudq8t8Lf8AIwWWP7xP4bTXqXevYyxe42cOKd2kFFFFekcgUUUUDCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACvNPGq48QTHP3lU/pivS64L4gxqt/bOB8zRkE/Q/wD164cwV6VzfDO0zlqKKK8M7wooooKCiiigAooooA6TwJCr6u8jjIjjOPqSB/jXoOK474dxgxXsv8LFAPwB/wAa7KvewKtRR5td++FFFFdZiFFFFMAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigArhfiH/wAfdn/uN/Ou6rhPiF/x92f+438648e7UWbUP4iOUooorwT0tgooooAKKKKACiiigD0TwPE0WhgsMb5GYfTp/SuhFZ3h6D7NollGRhhGCfqeT/OtLvX0mHjy04o8mbvJsKKKK2JCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigArgPiAc6rbj0hH/oRrv68z8Zyl/EE69kVVH5VwZg7UrG+HV53MWiiivDZ6AUUUUxhRRRQAVY0+Fri/toR0kkCn6VXrf8EW/na4jkZWJGbPv0H860ow55pEVJcquejgAAAdBRRRX0x5QUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABXlPiWUTa9euhyu/aD9BivVXO1GPoM1445DOzY+8xNeZmU7RjHudWFWrYyloorxjtCiiiqGFFFFABXY/DyFt95KV4+VQfwJP8xXHV6b4Rt/s2hW6sMO48w++en6YruwEOarfsc+IlaBs0UUV7h54UUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAGd4hlaHRbx0+8Imx+WK8rr0TxxceTorRg4aZgv4dT/KvO68TMZXmkd2G+ESiiiuA6gooooAKKKKAJbSBrm5igT70jBR+Jr16FBHEiAABVAGK888EWvnax53aBCfxPAr0YV7GXQtFy7nBiXqkFFFFekcwUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAHDfEGcPdWkA6orOfxOB/I1yda3iqYTa7dENkK3l/TAGf1zWTXzeKnz1Wz0qUeWKEooorE2CiiigAoop9vE088cSffdgqj3NAm7Hd+BLIwWMtw64aZ+P90cfzzXUVFaQrbW0UKfdRQoqWvpaNNUoKKPKnLmdwooorUkKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACorqbyLaWXbu2IW2jqcCpaDQB447M7MzHLMck+ppp6V6+beI9YkP4UfZYP8AnjH+VeS8sv8Aa/A61ifI8eNJXsYtof8Ankn/AHzR9mh/55J/3zR/Zf8Ae/Af1vyPHKK9j+zQ/wDPJP8Avmj7ND/zyT/vmj+y/wC9+AfW/I8eroPBdhJc6slwY/3MHzbv9og8V6D9nh/55J/3yKlAAGAMCtKWXqElJu5MsTdWSCiiivSOUKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigD/9k=" alt="B-PlanDIY"/>
+    <span>B-PlanDIY</span>
+  </div>
+  <div class="nav-links">
+    <a href="#steps">How it works</a>
+    <a href="#plan-sample">Sample output</a>
+    <a href="#pricing">Pricing</a>
+  </div>
+  <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="nav-cta">Get started — $29</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow" style="font-size:clamp(14px,2vw,20px);padding:8px 20px;margin-bottom:28px;">Built for Small Business Owners and Startups<br>So Simple you can Do It Yourself</div>
+  <h1>An <em>integrated business plan and cashflow forecast</em> — in under an hour</h1>
+  <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="btn-primary">Get started for $29 →</a>
+  <p class="hero-note"><span>✓ 3 months full access</span><span>✓ Download as Word</span><span>✓ Save and return anytime</span></p>
+  <p style="margin-top:14px;font-size:14px;color:rgba(255,255,255,0.5);">Already paid? <a href="https://b-plandiy.com/app.html" style="color:#d0b16f;text-decoration:underline;">Click here to go to the app</a></p>
+</section>
+
+<!-- STEP WALKTHROUGH -->
+<section class="walkthrough" id="steps">
+  <div class="section-header">
+    <div class="eyebrow" style="font-size:clamp(28px,4vw,48px);letter-spacing:0.04em;margin-bottom:16px;">How It Works</div>
+    <h2 class="section-title" style="font-size:clamp(22px,3.5vw,40px);">Complete five simple steps — AI suggestions as required</h2>
+    
+  </div>
+
+  <!-- Step 1 -->
+  <div class="step-row">
+    <div class="step-info">
+      <div class="step-number">1</div>
+      <div class="step-title">Business Details</div>
+      <div class="step-desc">Start with the fundamentals — what your business does, where it operates, who's on your team and where things stand legally.</div>
+      <ul class="step-bullets">
+        <li>Business name, type, industry and stage</li>
+        <li>Team overview and online presence</li>
+        <li>Legal obligations status</li>
+      </ul>
+    </div>
+    <div class="mock">
+      <div class="mock-bar"><div class="mock-dot" style="background:#ff5f57"></div><div class="mock-dot" style="background:#febc2e"></div><div class="mock-dot" style="background:#28c840"></div></div>
+      <div class="mock-steps"><div class="ms active"></div><div class="ms"></div><div class="ms"></div><div class="ms"></div><div class="ms"></div></div>
+      <div class="mock-body">
+        <div class="mock-tag">Step 1 of 5 — Business Details</div>
+        <div class="mock-h">Tell us about your business</div>
+        <div class="mock-sub">Let's start with the fundamentals.</div>
+        <div class="mock-field"><div class="mock-label">Business name</div><input class="mock-input filled" value="Flowly Ltd" readonly/></div>
+        <div class="mock-row">
+          <div class="mock-field"><div class="mock-label">Type</div><input class="mock-input filled" value="Company (Ltd)" readonly/></div>
+          <div class="mock-field"><div class="mock-label">Industry</div><input class="mock-input filled" value="SaaS / Software" readonly/></div>
+        </div>
+        <div class="mock-field"><div class="mock-label">What does your business do?</div><textarea class="mock-textarea filled" readonly>Flowly is a simple invoicing and cashflow tool built specifically for NZ sole traders who are overwhelmed by complex accounting software.</textarea></div>
+      </div>
+      <div class="mock-footer"><button class="mock-next">Next →</button></div>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step-row reverse">
+    <div class="step-info">
+      <div class="step-number">2</div>
+      <div class="step-title">Market and Customers</div>
+      <div class="step-desc">Describe your target customer, the market opportunity and who you're up against. Use AI to suggest market size and competitor analysis.</div>
+      <ul class="step-bullets">
+        <li>Target customer/market profile</li>
+        
+        <li>Competitors and your competitive advantage</li>
+        <li>Intellectual property</li>
+      </ul>
+    </div>
+    <div class="mock">
+      <div class="mock-bar"><div class="mock-dot" style="background:#ff5f57"></div><div class="mock-dot" style="background:#febc2e"></div><div class="mock-dot" style="background:#28c840"></div></div>
+      <div class="mock-steps"><div class="ms done"></div><div class="ms active"></div><div class="ms"></div><div class="ms"></div><div class="ms"></div></div>
+      <div class="mock-body">
+        <div class="mock-tag">Step 2 of 5 — Market and Customers</div>
+        <div class="mock-h">Tell us about your customers</div>
+        <div class="mock-field"><div class="mock-label">Who is the target customer/market?</div><textarea class="mock-textarea filled" readonly>NZ sole traders and freelancers aged 25–50 who need simple invoicing without complex accounting.</textarea></div>
+        <div class="mock-field">
+          <div class="mock-label">What is the target market opportunity?</div>
+          <span class="mock-ai">✦ Suggest with AI</span>
+          <textarea class="mock-textarea filled" readonly>NZ SME accounting software market ~$120M. Over 350,000 sole traders — currently underserved by enterprise tools.</textarea>
+        </div>
+      </div>
+      <div class="mock-footer"><button class="mock-next">Next →</button></div>
+    </div>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step-row">
+    <div class="step-info">
+      <div class="step-number">3</div>
+      <div class="step-title">Vision and Goals</div>
+      <div class="step-desc">After considering the Strengths, Weaknesses, Opportunities and Threats (SWOT) of the business, define the Vision and Goals you want your business to achieve. Use AI to make SWOT and Goal suggestions.</div>
+      <ul class="step-bullets">
+        <li>SWOT analysis</li>
+        <li>Vision, Position statement, Values</li>
+        
+        <li>Goals</li>
+      </ul>
+    </div>
+    <div class="mock">
+      <div class="mock-bar"><div class="mock-dot" style="background:#ff5f57"></div><div class="mock-dot" style="background:#febc2e"></div><div class="mock-dot" style="background:#28c840"></div></div>
+      <div class="mock-steps"><div class="ms done"></div><div class="ms done"></div><div class="ms active"></div><div class="ms"></div><div class="ms"></div></div>
+      <div class="mock-body">
+        <div class="mock-tag">Step 3 of 5 — Vision and Goals</div>
+        <div class="mock-h">How you see the future</div>
+        <div class="mock-field">
+          <span class="mock-ai">✦ Suggest SWOT from Step 1 and 2</span>
+          <div class="mock-label">Strengths</div><input class="mock-input filled" value="First-mover, simple UX, NZ-specific features" readonly/>
+        </div>
+        <div class="mock-field"><div class="mock-label">Vision</div><textarea class="mock-textarea filled" readonly>By 2027, to be the go-to invoicing tool for 10,000 NZ sole traders — the simplest way to get paid.</textarea></div>
+        <div class="mock-field">
+          <span class="mock-ai">✦ Suggest goals from SWOT</span>
+        </div>
+      </div>
+      <div class="mock-footer"><button class="mock-next">Next →</button></div>
+    </div>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step-row reverse">
+    <div class="step-info">
+      <div class="step-number">4</div>
+      <div class="step-title">Making it Happen</div>
+      <div class="step-desc">For each of your business goals, detail how you'll achieve it and what resources you need. Use AI to suggest the how and the resources required.</div>
+      <ul class="step-bullets">
+        <li>Goal-by-goal action planning</li>
+        <li>Resources and team needed</li>
+        <li>Estimated sales and expense impact</li>
+      </ul>
+    </div>
+    <div class="mock">
+      <div class="mock-bar"><div class="mock-dot" style="background:#ff5f57"></div><div class="mock-dot" style="background:#febc2e"></div><div class="mock-dot" style="background:#28c840"></div></div>
+      <div class="mock-steps"><div class="ms done"></div><div class="ms done"></div><div class="ms done"></div><div class="ms active"></div><div class="ms"></div></div>
+      <div class="mock-body">
+        <div class="mock-tag">Step 4 of 5 — Making it Happen</div>
+        <div class="mock-h">Achieving your goals</div>
+        <div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin-bottom:8px;background:#fafafa;">
+          <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;">1. Reach 500 paying customers within 12 months</div>
+          <span class="mock-ai">✦ Suggest with AI</span>
+          <div class="mock-field"><div class="mock-label">How will you achieve this?</div><textarea class="mock-textarea filled" style="min-height:36px;" readonly>Launch targeted LinkedIn ads, partner with 3 NZ accounting firms for referrals, early-bird pricing.</textarea></div>
+          <div class="mock-field"><div class="mock-label">Resources needed</div><input class="mock-input filled" value="$3,000 ad budget, part-time marketing hire" readonly/></div>
+        </div>
+      </div>
+      <div class="mock-footer"><button class="mock-next">Next →</button></div>
+    </div>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="step-row">
+    <div class="step-info">
+      <div class="step-number">5</div>
+      <div class="step-title">Financial Information</div>
+      <div class="step-desc">Enter your financial information including the estimated sales and expense impact from Making it Happen and get a live 12-month profit statement/cashflow.</div>
+      <ul class="step-bullets">
+        <li>Sales less costs/expenses equals Profit</li>
+        <li>Live cashflow updates in real time</li>
+        <li>Graphs and What If analysis</li>
+      </ul>
+    </div>
+    <div class="mock">
+      <div class="mock-bar"><div class="mock-dot" style="background:#ff5f57"></div><div class="mock-dot" style="background:#febc2e"></div><div class="mock-dot" style="background:#28c840"></div></div>
+      <div class="mock-steps"><div class="ms done"></div><div class="ms done"></div><div class="ms done"></div><div class="ms done"></div><div class="ms active"></div></div>
+      <div class="mock-body">
+        <div class="mock-tag">Step 5 of 5 — Financial Information</div>
+        <div class="mock-h">Your cashflow forecast</div>
+        <div class="mock-row">
+          <div class="mock-field"><div class="mock-label">Opening bank balance</div><input class="mock-input filled" value="$12,000" readonly/></div>
+          <div class="mock-field"><div class="mock-label">Tax rate (%)</div><input class="mock-input filled" value="15%" readonly/></div>
+        </div>
+        <div class="mock-field"><div class="mock-label">Monthly sales units</div>
+          <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin-top:3px;">
+            <div style="text-align:center;"><div style="font-size:9px;color:var(--grey);">M1</div><input style="width:100%;border:1px solid #d0b16f;border-radius:3px;padding:3px;font-size:10px;text-align:right;" value="50" readonly/></div>
+            <div style="text-align:center;"><div style="font-size:9px;color:var(--grey);">M2</div><input style="width:100%;border:1px solid #e5e7eb;border-radius:3px;padding:3px;font-size:10px;text-align:right;" value="58" readonly/></div>
+            <div style="text-align:center;"><div style="font-size:9px;color:var(--grey);">M3</div><input style="width:100%;border:1px solid #e5e7eb;border-radius:3px;padding:3px;font-size:10px;text-align:right;" value="67" readonly/></div>
+            <div style="text-align:center;"><div style="font-size:9px;color:var(--grey);">M4</div><input style="width:100%;border:1px solid #e5e7eb;border-radius:3px;padding:3px;font-size:10px;text-align:right;" value="78" readonly/></div>
+            <div style="text-align:center;"><div style="font-size:9px;color:var(--grey);">M5</div><input style="width:100%;border:1px solid #e5e7eb;border-radius:3px;padding:3px;font-size:10px;text-align:right;" value="90" readonly/></div>
+            <div style="text-align:center;"><div style="font-size:9px;color:var(--grey);">M6</div><input style="width:100%;border:1px solid #e5e7eb;border-radius:3px;padding:3px;font-size:10px;text-align:right;" value="104" readonly/></div>
+          </div>
+        </div>
+      </div>
+      <div class="mock-footer"><button class="mock-next" style="background:var(--navy);">Generate Plan →</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- PLAN SAMPLE -->
+<section class="plan-sample" id="plan-sample">
+  <div class="section-header">
+    <div class="eyebrow" style="font-size:clamp(28px,4vw,48px);letter-spacing:0.04em;margin-bottom:16px;">Sample Output</div>
+    <h2 class="section-title">Here's what you get</h2>
+    <p class="section-sub">A professional plan and forecast — ready to share with banks, investors or your team.</p>
+  </div>
+
+  <div class="plan-blur">
+    <div class="plan-doc">
+      <div class="plan-doc-header">
+        <div class="plan-doc-title">Flowly Ltd</div>
+        <div class="plan-doc-sub">Business Plan and Cashflow Forecast</div>
+        <div class="plan-doc-date">18 July 2025</div>
+      </div>
+      <div class="plan-doc-body">
+        <div class="plan-section">
+          <h3>1. Business Details</h3>
+          <p>Flowly Ltd is a New Zealand-registered SaaS company at the early customer stage, developing a simple invoicing and cashflow management tool designed exclusively for sole traders and freelancers. Founded by a team with deep experience in both software development and small business operations, Flowly addresses a clear gap in the market: the absence of an affordable, genuinely simple invoicing tool built for the NZ context.</p>
+        </div>
+        <div class="plan-section">
+          <h3>2. Market and Customers</h3>
+          <p>The target market is New Zealand sole traders aged 25–50, a segment of over 350,000 businesses currently underserved by enterprise accounting platforms. The NZ SME accounting software market is estimated at approximately $120M annually.</p>
+          <p><strong>Competitive advantage:</strong> Unlike Xero or MYOB — which are built for accountants — Flowly is designed to be used by the business owner directly, with no accounting knowledge required.</p>
+        </div>
+        <div class="plan-section">
+          <h3>3. Vision and Goals</h3>
+          <p><em>Vision:</em> By 2027, to be the go-to invoicing tool for 10,000 NZ sole traders.</p>
+          <ul>
+            <li>Reach 500 paying customers within 12 months</li>
+            <li>Achieve $10,000 MRR by end of Year 1</li>
+            <li>Launch mobile app by Q3 2025</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="plan-blur-overlay">
+      <a href="#pricing" class="plan-unlock">Unlock your full plan →</a>
+    </div>
+  </div>
+
+  <div class="cf-preview">
+    <div class="cf-header"><h4>12-Month Cashflow Forecast (sample)</h4></div>
+    <div style="overflow-x:auto;">
+    <table class="cf-table">
+      <tr><th>Item</th><th>M1</th><th>M2</th><th>M3</th><th>M4</th><th>M5</th><th>M6</th><th>Total</th></tr>
+      <tr class="hdr"><td colspan="8">Key Drivers</td></tr>
+      <tr><td>Units Sold</td><td>50</td><td>58</td><td>67</td><td>78</td><td>90</td><td>104</td><td>—</td></tr>
+      <tr class="hdr"><td colspan="8">Revenue</td></tr>
+      <tr><td>Total Revenue</td><td>$2,450</td><td>$2,842</td><td>$3,283</td><td>$3,822</td><td>$4,410</td><td>$5,096</td><td>$21,903</td></tr>
+      <tr class="hdr"><td colspan="8">Expenses</td></tr>
+      <tr><td>Total Expenses</td><td>$3,200</td><td>$3,200</td><td>$3,200</td><td>$3,200</td><td>$3,200</td><td>$3,200</td><td>$29,200</td></tr>
+      <tr class="highlight"><td>Net Profit/(Loss)</td><td class="neg">-$750</td><td class="neg">-$358</td><td class="pos">$83</td><td class="pos">$622</td><td class="pos">$1,210</td><td class="pos">$1,896</td><td class="pos">$2,703</td></tr>
+      <tr class="bold"><td>Closing Balance</td><td class="neg">$11,250</td><td class="neg">$10,892</td><td>$10,975</td><td class="pos">$11,597</td><td class="pos">$12,807</td><td class="pos">$14,703</td><td>—</td></tr>
+    </table>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="section-header">
+    <div class="eyebrow" style="font-size:clamp(28px,4vw,48px);letter-spacing:0.04em;margin-bottom:16px;">Everything Included</div>
+    <h2 class="section-title">All the tools you need</h2>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card"><div class="feature-icon">📋</div><div class="feature-title">Professional Business Plan</div><div class="feature-desc">AI writes a structured plan for all audiences - covering market, strategy, actions and financials.</div></div>
+    <div class="feature-card"><div class="feature-icon">📊</div><div class="feature-title">12-Month Cashflow Forecast</div><div class="feature-desc">Auto-calculated from your numbers, revenue, costs, expenses, profit, tax, other transactions and closing balance - month by month.</div></div>
+    <div class="feature-card"><div class="feature-icon">✦</div><div class="feature-title">AI Suggestions</div><div class="feature-desc">AI generated suggestions from your business context for SWOT analysis, goals, market size, competitors.</div></div>
+    <div class="feature-card"><div class="feature-icon">📈</div><div class="feature-title">Graphs</div><div class="feature-desc">Visual graphs for units sold, net profit and bank balance — included in your downloadable plan.</div></div>
+    <div class="feature-card"><div class="feature-icon">🎯</div><div class="feature-title">What If Scenarios</div><div class="feature-desc">Slide revenue, costs or expenses up or down and see the instant impact on your bottom line.</div></div>
+    <div class="feature-card"><div class="feature-icon">📄</div><div class="feature-title">Download as Word</div><div class="feature-desc">Export your complete plan and forecast as a professionally formatted Word document (.docx).</div></div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="testimonials">
+  <div class="section-header">
+    <div class="eyebrow" style="font-size:clamp(28px,4vw,48px);letter-spacing:0.04em;margin-bottom:16px;">What Business Owners Say</div>
+    <h2 class="section-title">Real businesses, real results</h2>
+  </div>
+  <div class="t-grid">
+    <div class="t-card"><p class="t-text">"I'd been putting off writing my business plan for months. This had me done in an afternoon — professional enough to show my bank manager."</p><div class="t-author"><div class="t-avatar">SK</div><div><div class="t-name">Sarah K.</div><div class="t-role">Founder, boutique skincare brand</div></div></div></div>
+    <div class="t-card"><p class="t-text">"The cashflow forecast alone is worth it. I could see where I'd run out of money before it happened — and adjust my plan accordingly."</p><div class="t-author"><div class="t-avatar">JM</div><div><div class="t-name">James M.</div><div class="t-role">Owner, trade services business</div></div></div></div>
+    <div class="t-card"><p class="t-text">"The AI suggestions are genuinely useful — not generic filler. It picked up on my industry specifics and gave me things I hadn't thought of."</p><div class="t-author"><div class="t-avatar">PT</div><div><div class="t-name">Priya T.</div><div class="t-role">Co-founder, SaaS startup</div></div></div></div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="pricing">
+  <div class="section-header">
+    <div class="eyebrow" style="font-size:clamp(28px,4vw,48px);letter-spacing:0.04em;margin-bottom:16px;">Simple Pricing</div>
+    <h2 class="section-title">One price - everything included</h2>
+    <p class="section-sub">3 months full access. No subscription, no hidden fees.</p>
+  </div>
+  <div class="pricing-card">
+    <div class="p-header">
+      <div class="p-badge">Full Access — 3 Months</div>
+      <div class="p-price"><sup>$</sup>29</div>
+      <div class="p-period">One-time payment &bull; NZD incl. GST</div>
+    </div>
+    <div class="p-body">
+      <ul class="p-list">
+        <li><span class="p-check">✓</span> Simple 5-step business plan wizard</li>
+                <li><span class="p-check">✓</span> 12-month profit statement and cashflow forecast</li>
+        <li><span class="p-check">✓</span> Graphs and What If analysis</li>
+        <li><span class="p-check">✓</span> Download as Word document (.docx)</li>
+        <li><span class="p-check">✓</span> Save and return anytime for 3 months</li>
+        <li><span class="p-check">✓</span> Information saves locally so no privacy/security concerns</li>
+        <li><span class="p-check">✓</span> Export and import your data</li>
+        <li><span class="p-check">✓</span> Private WhatsApp community group</li>
+        <li><span class="p-check">✓</span> Free business planning seminars</li>
+      </ul>
+      <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="p-cta">Get started for $29 →</a>
+      <p class="p-note">Secure payment &bull; Instant access after payment</p>
+    </div>
+  </div>
+</section>
+
+<!-- COMMUNITY -->
+<section class="community">
+  <div class="section-header">
+    <div class="eyebrow" style="color:rgba(208,177,111,0.8);font-size:clamp(28px,4vw,48px);letter-spacing:0.04em;margin-bottom:16px;">Included With Your Plan</div>
+    <h2 class="section-title">You're not on your own</h2>
+    <p class="section-sub">When you sign up to B-PlanDIY you get more than just software — you join a community of small business owners who are figuring it out together. And you get access to as many free online seminars as you need.</p>
+  </div>
+  <div style="display:flex;gap:24px;max-width:860px;margin:0 auto;flex-wrap:wrap;justify-content:center;">
+    <div style="flex:1;min-width:280px;border:2px solid #d0b16f;border-radius:16px;padding:36px 28px;text-align:center;background:rgba(255,255,255,0.06);">
+      <div class="community-icon">💬</div>
+      <div class="community-title">Private WhatsApp Group</div>
+      <div class="community-desc">Get invited to our private WhatsApp community of small business owners where you can ask questions and share experiences. You can also ask B-PlanDIY directly for help and advice.</div>
+      <div class="community-badge">Included free</div>
+    </div>
+    <div style="flex:1;min-width:280px;border:2px solid #d0b16f;border-radius:16px;padding:36px 28px;text-align:center;background:rgba(255,255,255,0.06);">
+      <div class="community-icon">🎓</div>
+      <div class="community-title">Free Business Planning Seminars</div>
+      <div class="community-desc">Members get access to free online seminars covering business planning, cashflow management, goal setting and growth strategies — run by experienced business advisors.</div>
+      <div class="community-badge">Included free</div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final">
+  <h2>Ready to write your business plan?</h2>
+  <p>Stop putting it off. Most small business owners finish in under an hour - and you'll have a community of likeminded small business owners alongside you.</p>
+  <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="btn-primary">Get started for $29 →</a>
+</section>
+
+<footer>
+  <p>&copy; 2025 B-PlanDIY &bull; <a href="mailto:support@b-plandiy.com">support@b-plandiy.com</a> &bull; <a href="./privacy-policy.html">Privacy Policy</a> &bull; <a href="./terms.html">Terms</a></p>
+</footer>
+
+</body>
+</html>
