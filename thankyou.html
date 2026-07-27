@@ -156,7 +156,6 @@ document.getElementById('welcomeForm').addEventListener('submit', function(e) {
   .then(function(result) {
     var expiry = result.expiry || (Date.now() + (90 * 24 * 60 * 60 * 1000));
     localStorage.setItem('bpd_access_expiry', String(expiry));
-    alert('Response: ' + JSON.stringify(result));
     document.getElementById('welcomeForm').style.display = 'none';
     document.getElementById('successMsg').style.display = 'block';
   })
