@@ -1,0 +1,75 @@
+exports.handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
+  }
+
+  try {
+    const data = JSON.parse(event.body);
+    const expiryTimestamp = Date.now() + (90 * 24 * 60 * 60 * 1000);
+    const paymentDate = new Date().toISOString().slice(0, 10);
+
+    // Save to Airtable
+    const response = await fetch(
+      `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${process.env.AIRTABLE_TABLE_ID}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.AIRTABLE_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fields: {
+            Name: data.name || '',
+            Email: data.email || '',
+            Phone: data.phone || '',
+            PaymentDate: paymentDate,
+            ExpiryTimestamp: expiryTimestamp,
+            ReminderSent: false
+          }
+        })
+      }
+    );
+
+    // Send welcome email via Resend
+    await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'B-PlanDIY <support@b-plandiy.com>',
+        to: data.email,
+        subject: 'Welcome to B-PlanDIY!',
+        html: `
+          <div style="font-family:system-ui,sans-serif;max-width:560px;margin:0 auto;color:#1a1a2e;">
+            <div style="background:#01236d;padding:28px 32px;border-radius:12px 12px 0 0;text-align:center;">
+              <h1 style="color:#d0b16f;font-size:24px;margin:0;">Welcome to B-PlanDIY!</h1>
+            </div>
+            <div style="background:#fff;padding:32px;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;">
+              <p style="font-size:16px;">Hi ${data.name},</p>
+              <p style="font-size:15px;color:#374151;">Thanks for signing up to B-PlanDIY. Your 3-month access is now active.</p>
+              <p style="font-size:15px;color:#374151;">Your access expires on <strong>${new Date(expiryTimestamp).toDateString()}</strong>.</p>
+              <div style="text-align:center;margin:28px 0;">
+                <a href="https://b-plandiy.com/app.html" style="background:#d0b16f;color:#fff;padding:14px 32px;border-radius:8px;font-weight:700;font-size:16px;text-decoration:none;">Go to the app</a>
+              </div>
+              <p style="font-size:14px;color:#6b7280;">You will also be added to our private WhatsApp community shortly, and invited to our free business planning seminars.</p>
+              <p style="font-size:14px;color:#6b7280;">Any questions? Email us at <a href="mailto:support@b-plandiy.com" style="color:#01236d;">support@b-plandiy.com</a></p>
+            </div>
+          </div>
+        `
+      })
+    });
+
+    return {
+      statusCode: 200,
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      body: JSON.stringify({ success: true, expiry: expiryTimestamp })
+    };
+  } catch (err) {
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message })
+    };
+  }
+};
