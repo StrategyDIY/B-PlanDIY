@@ -478,7 +478,8 @@ function App(){
       return React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',fontFamily:'system-ui',flexDirection:'column',gap:16,padding:24,textAlign:'center'}},
         React.createElement('div',{style:{fontSize:22,fontWeight:700,color:'#01236d',marginBottom:8}},'Access Required'),
         React.createElement('div',{style:{fontSize:15,color:'#6b7280',maxWidth:400,marginBottom:24}},expiry?'Your 3-month access has expired.':'No active subscription found.'),
-        React.createElement('a',{href:'https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00',style:{background:'#d0b16f',color:'white',padding:'14px 32px',borderRadius:8,fontWeight:700,fontSize:16,textDecoration:'none'}},'Get started for $29')
+        React.createElement('a',{href:'https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00',style:{background:'#d0b16f',color:'white',padding:'14px 32px',borderRadius:8,fontWeight:700,fontSize:16,textDecoration:'none'}},'Get started for $29'),
+        React.createElement('div',{style:{marginTop:16,fontSize:14,color:'#6b7280'}},'Already paid? ',React.createElement('a',{href:'/verify.html',style:{color:'#01236d',fontWeight:600,textDecoration:'underline'}},'Verify your email to restore access'))
       );
     }
   }catch(e){}
