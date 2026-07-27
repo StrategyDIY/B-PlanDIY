@@ -24,7 +24,8 @@ exports.handler = async (event) => {
             Phone: data.phone || '',
             PaymentDate: paymentDate,
             ExpiryTimestamp: expiryTimestamp,
-            ReminderSent: false
+            ReminderSent: false,
+            Referral: data.referral || ''
           }
         })
       }
