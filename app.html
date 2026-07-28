@@ -509,6 +509,7 @@ function App(){
   var previewTabState=useState("details");var previewTab=previewTabState[0];var setPreviewTab=previewTabState[1];
   var cfStartState=useState(fdRef.current.cfStartDate||"");var cfStart=cfStartState[0];var setCfStart=cfStartState[1];
   var showOutputState=useState(false);var showOutput=showOutputState[0];var setShowOutput=showOutputState[1];
+  var showDirectionState=useState(false);var showDirection=showDirectionState[0];var setShowDirection=showDirectionState[1];
   var planHtmlState=useState("");var planHtml=planHtmlState[0];var setPlanHtml=planHtmlState[1];
   var liveRowsState=useState(function(){return calcCashflow(fdRef.current);});
   var liveRows=liveRowsState[0];var setLiveRows=liveRowsState[1];
@@ -524,6 +525,7 @@ function App(){
   var showPrintState=useState(false);var showPrint=showPrintState[0];var setShowPrint=showPrintState[1];
   var fbRatingState=useState(0);var fbRating=fbRatingState[0];var setFbRating=fbRatingState[1];
   var fbTextState=useState("");var fbText=fbTextState[0];var setFbText=fbTextState[1];
+  var fbEmailState=useState("");var fbEmail=fbEmailState[0];var setFbEmail=fbEmailState[1];
   var fbLoadState=useState(false);var fbLoad=fbLoadState[0];var setFbLoad=fbLoadState[1];
   var fbDoneState=useState(false);var fbDone=fbDoneState[0];var setFbDone=fbDoneState[1];
   var gridChecksState=useState(function(){
@@ -1054,6 +1056,7 @@ function App(){
         body:JSON.stringify({
           rating:fbRating+" stars",
           comment:fbText,
+          email:fbEmail||"Not provided",
           step:"Step "+(step+1),
           business:fdRef.current.bizName||"Unknown",
           _subject:"B-PlanDIY Feedback - "+fbRating+" stars"
@@ -1248,8 +1251,8 @@ function App(){
       );}},
     {label:"Step 5 of 5 - Financial Information",title:"Tell us about your business finances",desc:<span>These numbers will determine your 12-month cashflow forecast.</span>,
       render:function(){
-        var s5tabs=["Details","Cashflow","Graphs","What If","Direction"];
-        var s5key=["details","cashflow","graphs","whatif","direction"].indexOf(previewTab)>=0?previewTab:"details";
+        var s5tabs=["Details","Cashflow","Graphs","What If"];
+        var s5key=["details","cashflow","graphs","whatif"].indexOf(previewTab)>=0?previewTab:"details";
         return (<>
           <div style={{display:"flex",gap:0,borderBottom:"1px solid #e5e7eb",marginBottom:20}}>
             {s5tabs.map(function(t){var k=t.toLowerCase().replace(" ","");var active=s5key===k;return <button key={t} style={{fontFamily:"inherit",fontSize:13,padding:"8px 16px",border:"none",background:"none",cursor:"pointer",borderBottom:"2px solid "+(active?"#d0b16f":"transparent"),color:active?"#01236d":"#6b7280",fontWeight:active?600:400}} onClick={function(){setPreviewTab(k);}}>{t}</button>;})}
@@ -1294,7 +1297,7 @@ function App(){
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly sales units</div>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:6}}>
               <span style={{fontSize:12,color:"#374151"}}>Make sure you have added the sales targets from how your business is going to achieve its goals</span>
-              <div style={{flexShrink:0,fontSize:12,color:"#01236d",fontWeight:500,border:"1px solid #01236d",borderRadius:6,padding:"4px 10px",whiteSpace:"nowrap"}}>From Step 4: <span style={{color:"#d0b16f"}}>{fdRef.current.goalSalesTotal?fdRef.current.goalSalesTotal+" units over 12 months":"not set in Step 4"}</span></div>
+              <div style={{flexShrink:0,fontSize:12,color:"#01236d",fontWeight:500,border:"1px solid #01236d",borderRadius:6,padding:"4px 10px",whiteSpace:"nowrap"}}>From Step 4: <span style={{color:"#374151"}}>{fdRef.current.goalSalesTotal?fdRef.current.goalSalesTotal+" units over 12 months":"not set in Step 4"}</span></div>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkMonthlyUnits" checked={!!gridChecks["monthlyUnits"]} onChange={function(){toggleGrid("monthlyUnits");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkMonthlyUnits" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["monthlyUnits"]?(<div>
@@ -1354,7 +1357,7 @@ function App(){
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly expenses (exc tax)</div>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:8}}>
               <span style={{fontSize:12,color:"#374151"}}>Make sure you have added the extra expenses from how your business is going to achieve its goals</span>
-              <div style={{flexShrink:0,fontSize:12,color:"#01236d",fontWeight:500,border:"1px solid #01236d",borderRadius:6,padding:"4px 10px",whiteSpace:"nowrap"}}>From Step 4: <span style={{color:"#d0b16f"}}>{fdRef.current.goalExpTotal?"$"+fdRef.current.goalExpTotal+" over 12 months":"not set in Step 4"}</span></div>
+              <div style={{flexShrink:0,fontSize:12,color:"#01236d",fontWeight:500,border:"1px solid #01236d",borderRadius:6,padding:"4px 10px",whiteSpace:"nowrap"}}>From Step 4: <span style={{color:"#374151"}}>{fdRef.current.goalExpTotal?"$"+fdRef.current.goalExpTotal+" over 12 months":"not set in Step 4"}</span></div>
             </div>
             {expCats.map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
               <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}</div>
@@ -1380,58 +1383,78 @@ function App(){
           </div>}
           {s5key==="graphs"&&<CfCharts rows={liveRows}/>}
           {s5key==="whatif"&&<WhatIf liveRows={liveRows} wiRev={wiRev} wiExp={wiExp} wiCos={wiCos} setWiRev={setWiRev} setWiExp={setWiExp} setWiCos={setWiCos}/>}
-          {s5key==="direction"&&<div style={{padding:"8px 0"}}>
-            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Vision</div>
-            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16,minHeight:40,whiteSpace:"pre-wrap"}}>{fdRef.current.vision||<span style={{color:"#9ca3af"}}>Not yet completed</span>}</div>
-            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Position Statement</div>
-            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16,minHeight:40,whiteSpace:"pre-wrap"}}>{fdRef.current.position||<span style={{color:"#9ca3af"}}>Not yet completed</span>}</div>
-            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Values</div>
-            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16,minHeight:40,whiteSpace:"pre-wrap"}}>{fdRef.current.values||<span style={{color:"#9ca3af"}}>Not yet completed</span>}</div>
-            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Target Customer/Market</div>
-            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16,minHeight:40,whiteSpace:"pre-wrap"}}>{fdRef.current.targetCust||<span style={{color:"#9ca3af"}}>Not yet completed</span>}</div>
-            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Target Customer/Market</div>
-            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16,minHeight:40,whiteSpace:"pre-wrap"}}>{fdRef.current.targetCust||<span style={{color:"#9ca3af"}}>Not yet completed</span>}</div>
-            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Goals</div>
-            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16}}>
-              {Array.from({length:6},function(_,i){var g=fdRef.current["goal"+(i+1)];return g?<div key={i} style={{marginBottom:6}}><strong>{i+1}.</strong> {g}</div>:null;}).filter(Boolean).length>0
-                ?Array.from({length:6},function(_,i){var g=fdRef.current["goal"+(i+1)];return g?<div key={i} style={{marginBottom:6}}><strong>{i+1}.</strong> {g}</div>:null;})
-                :<span style={{color:"#9ca3af"}}>Not yet completed</span>}
-            </div>
-            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>How Going to Achieve Goals</div>
-            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16}}>
-              {Array.from({length:6},function(_,i){
-                var g=fdRef.current["goal"+(i+1)];
-                var h=fdRef.current["goalHow"+(i+1)];
-                var r=fdRef.current["goalRes"+(i+1)];
-                return g?<div key={i} style={{marginBottom:12}}>
-                  <div style={{fontWeight:600,marginBottom:3}}>{i+1}. {g}</div>
-                  {h&&<div style={{marginLeft:12,marginBottom:2}}><span style={{color:"#6b7280"}}>How:</span> {h}</div>}
-                  {r&&<div style={{marginLeft:12}}><span style={{color:"#6b7280"}}>Resources:</span> {r}</div>}
-                </div>:null;
-              }).filter(Boolean).length>0
-                ?Array.from({length:6},function(_,i){
-                  var g=fdRef.current["goal"+(i+1)];
-                  var h=fdRef.current["goalHow"+(i+1)];
-                  var r=fdRef.current["goalRes"+(i+1)];
-                  return g?<div key={i} style={{marginBottom:12}}>
-                    <div style={{fontWeight:600,marginBottom:3}}>{i+1}. {g}</div>
-                    {h&&<div style={{marginLeft:12,marginBottom:2}}><span style={{color:"#6b7280"}}>How:</span> {h}</div>}
-                    {r&&<div style={{marginLeft:12}}><span style={{color:"#6b7280"}}>Resources:</span> {r}</div>}
-                  </div>:null;
-                })
-                :<span style={{color:"#9ca3af"}}>Not yet completed</span>}
-            </div>
-            <div style={{textAlign:"center",marginTop:24,paddingTop:16,borderTop:"2px solid #f5eedd"}}>
-              <div style={{fontSize:14,color:"#6b7280",marginBottom:12}}>Review your direction above, then generate your business plan.</div>
-              <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 28px",borderRadius:8,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer"}} onClick={function(){generatePlan();setShowOutput(true);}}>Generate Business Plan →</button>
-            </div>
-          </div>}
         </>
       );}},
   ];
 
   var appStyle={fontFamily:"system-ui,sans-serif",maxWidth:640,margin:"0 auto",padding:16};
   var cardStyle={background:"#fff",borderRadius:12,padding:"24px 20px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:16};
+
+  if(showDirection&&!showOutput){
+    var f=fdRef.current;
+    return (
+      <div style={appStyle}>
+        <div style={cardStyle}>
+          <div style={{display:"flex",gap:3,marginBottom:22}}>
+            {stepDefs.map(function(_,i){return <div key={i} style={{flex:1,height:4,borderRadius:2,background:"#d0b16f"}}/>;}) }
+            <div style={{flex:1,height:4,borderRadius:2,background:"#01236d"}}/>
+          </div>
+          <div style={{fontSize:11,fontWeight:600,color:"#374151",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>Summary</div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+            <img src={LOGO_SRC} style={{width:36,height:36,objectFit:"contain"}} alt="Logo"/>
+            <div style={{fontSize:18,fontWeight:700,color:"#01236d"}}>Summary</div>
+            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"8px 16px",borderRadius:8,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer",marginLeft:"auto"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
+          </div>
+          <div style={{fontSize:13,color:"#6b7280",marginBottom:20}}>Review your key information below, then generate your business plan.</div>
+          {[
+            {label:"Vision",val:f.vision},
+            {label:"Position Statement",val:f.position},
+            {label:"Values",val:f.values},
+            {label:"Target Customer/Market",val:f.targetCust},
+          ].map(function(item){return (
+            <div key={item.label} style={{marginBottom:14}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#01236d",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>{item.label}</div>
+              <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:item.val?"#374151":"#9ca3af",minHeight:36,whiteSpace:"pre-wrap"}}>{item.val||"Not yet completed"}</div>
+            </div>
+          );})}
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#01236d",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Goals</div>
+            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",minHeight:36}}>
+              {Array.from({length:6},function(_,i){var g=f["goal"+(i+1)];return g?<div key={i} style={{marginBottom:4}}><strong>{i+1}.</strong> {g}</div>:null;}).filter(Boolean).length>0
+                ?Array.from({length:6},function(_,i){var g=f["goal"+(i+1)];return g?<div key={i} style={{marginBottom:4}}><strong>{i+1}.</strong> {g}</div>:null;})
+                :<span style={{color:"#9ca3af"}}>Not yet completed</span>}
+            </div>
+          </div>
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#01236d",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>How Going to Achieve Goals</div>
+            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",minHeight:36}}>
+              {Array.from({length:6},function(_,i){
+                var g=f["goal"+(i+1)],h=f["goalHow"+(i+1)],r=f["goalRes"+(i+1)];
+                return g?<div key={i} style={{marginBottom:10}}>
+                  <div style={{fontWeight:600}}>{i+1}. {g}</div>
+                  {h&&<div style={{marginLeft:12,color:"#374151"}}><span style={{color:"#6b7280"}}>How:</span> {h}</div>}
+                  {r&&<div style={{marginLeft:12,color:"#374151"}}><span style={{color:"#6b7280"}}>Resources:</span> {r}</div>}
+                </div>:null;
+              }).filter(Boolean).length>0
+                ?Array.from({length:6},function(_,i){
+                  var g=f["goal"+(i+1)],h=f["goalHow"+(i+1)],r=f["goalRes"+(i+1)];
+                  return g?<div key={i} style={{marginBottom:10}}>
+                    <div style={{fontWeight:600}}>{i+1}. {g}</div>
+                    {h&&<div style={{marginLeft:12}}><span style={{color:"#6b7280"}}>How:</span> {h}</div>}
+                    {r&&<div style={{marginLeft:12}}><span style={{color:"#6b7280"}}>Resources:</span> {r}</div>}
+                  </div>:null;
+                })
+                :<span style={{color:"#9ca3af"}}>Not yet completed</span>}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"space-between",paddingTop:16,borderTop:"2px solid #f5eedd"}}>
+            <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setShowDirection(false);}}>← Back</button>
+            <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 28px",borderRadius:8,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if(showOutput){
     return (
@@ -1506,7 +1529,7 @@ function App(){
           {step>0&&<button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setStepAndSave(step-1);}}>Back</button>}
           {step<stepDefs.length-1
             ?<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setStepAndSave(step+1);}}>Next →</button>
-            :<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setPreviewTab("direction");}}>Next →</button>
+            :<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setShowDirection(true);}}>Next →</button>
           }
         </div>
         {currentStep.render()}
@@ -1514,7 +1537,7 @@ function App(){
           {step>0&&<button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setStepAndSave(step-1);}}>Back</button>}
           {step<stepDefs.length-1
             ?<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setStepAndSave(step+1);}}>Next →</button>
-            :<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setPreviewTab("direction");}}>Next →</button>
+            :<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setShowDirection(true);}}>Next →</button>
           }
         </div>
       </div>
@@ -1571,9 +1594,10 @@ function App(){
                 {[1,2,3,4,5].map(function(n){return <button key={n} onClick={function(){setFbRating(n);}} style={{fontFamily:"inherit",fontSize:20,background:"none",border:"none",cursor:"pointer",color:n<=fbRating?"#f59e0b":"#d1d5db",padding:"2px 4px"}}>{n<=fbRating?"★":"☆"}</button>;})}
               </div>
               <textarea style={ta(3)} placeholder="Any comments? (optional)" value={fbText} onChange={function(e){setFbText(e.target.value);}}/>
+              <input key="fb-email" autoComplete="email" type="email" style={{...inp,marginTop:8}} placeholder="Your email (optional - so we can follow up)" value={fbEmail} onChange={function(e){setFbEmail(e.target.value);}}/>
               <div style={{display:"flex",gap:8,marginTop:8}}>
                 <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={submitFeedback} disabled={fbLoad||(!fbText.trim()&&fbRating===0)}>{fbLoad?"Sending...":"Send Feedback"}</button>
-                <button style={btnSm} onClick={function(){setShowFeedback(false);setFbText("");setFbRating(0);}}>Cancel</button>
+                <button style={btnSm} onClick={function(){setShowFeedback(false);setFbText("");setFbRating(0);setFbEmail("");}}>Cancel</button>
               </div>
             </div>
           )}
