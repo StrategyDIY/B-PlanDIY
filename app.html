@@ -1396,13 +1396,13 @@ function App(){
     return (
       <div style={appStyle}>
         <div style={cardStyle}>
-          <div style={{fontSize:14,color:"#374151",marginBottom:12,lineHeight:1.6}}>Here is the summary of the direction of your business.</div>
           <div style={{display:"flex",gap:3,marginBottom:22}}>
             {stepDefs.map(function(_,i){return <div key={i} style={{flex:1,height:4,borderRadius:2,background:"#d0b16f"}}/>;}) }
             <div style={{flex:1,height:4,borderRadius:2,background:"#01236d"}}/>
           </div>
           <div style={{fontSize:11,fontWeight:600,color:"#374151",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>Summary</div>
-          <div style={{fontSize:18,fontWeight:700,color:"#01236d",marginBottom:16}}>Business Direction</div>
+          <div style={{fontSize:18,fontWeight:700,color:"#01236d",marginBottom:8}}>Business Direction</div>
+          <div style={{fontSize:14,color:"#374151",marginBottom:12,lineHeight:1.6}}>Here is the summary of the direction of your business.</div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
             <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:6,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>← Back</button>
             <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"8px 16px",borderRadius:8,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer",marginLeft:"auto"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
