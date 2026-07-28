@@ -573,10 +573,10 @@ function App(){
   var refreshLive=useCallback(function(){setLiveRows(calcCashflow(fdRef.current));},[]);
 
   function RT(id,ph,rows){
-    return <textarea autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
+    return <textarea key={id} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
   }
   function R(id,ph){
-    return <input autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} style={inp} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
+    return <input key={id} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={inp} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
   }
   function RS(id,opts){
     return <select style={sel} defaultValue={fdRef.current[id]||opts[0]} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}>
@@ -808,8 +808,8 @@ function App(){
       var ImageRun=docx.ImageRun;
       var FONT="Aptos";
       // Portrait: 12240 x 15840 twips (A4), Landscape: 15840 x 12240
-      var PORTRAIT={width:12240,height:15840};
-      var LANDSCAPE={width:15840,height:12240};
+      var PORTRAIT={width:11906,height:16838};
+      var LANDSCAPE={width:16838,height:11906};
       var MARGIN={top:720,right:720,bottom:720,left:720};
 
       // --- Section 1: Business Plan (Portrait) ---
@@ -1048,14 +1048,15 @@ function App(){
   async function submitFeedback(){
     setFbLoad(true);
     try{
-      await fetch("https://formspree.io/f/xzzbbqgp",{
+      await fetch("https://formspree.io/f/mzdngdkg",{
         method:"POST",
         headers:{"Content-Type":"application/json","Accept":"application/json"},
         body:JSON.stringify({
           rating:fbRating+" stars",
           comment:fbText,
           step:"Step "+(step+1),
-          _subject:"Strategy DIY Feedback - "+fbRating+" stars"
+          business:fdRef.current.bizName||"Unknown",
+          _subject:"B-PlanDIY Feedback - "+fbRating+" stars"
         })
       });
     }catch(e){}
@@ -1388,6 +1389,8 @@ function App(){
             <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16,minHeight:40,whiteSpace:"pre-wrap"}}>{fdRef.current.values||<span style={{color:"#9ca3af"}}>Not yet completed</span>}</div>
             <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Target Customer/Market</div>
             <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16,minHeight:40,whiteSpace:"pre-wrap"}}>{fdRef.current.targetCust||<span style={{color:"#9ca3af"}}>Not yet completed</span>}</div>
+            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Target Customer/Market</div>
+            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16,minHeight:40,whiteSpace:"pre-wrap"}}>{fdRef.current.targetCust||<span style={{color:"#9ca3af"}}>Not yet completed</span>}</div>
             <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Goals</div>
             <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16}}>
               {Array.from({length:6},function(_,i){var g=fdRef.current["goal"+(i+1)];return g?<div key={i} style={{marginBottom:6}}><strong>{i+1}.</strong> {g}</div>:null;}).filter(Boolean).length>0
@@ -1417,6 +1420,10 @@ function App(){
                   </div>:null;
                 })
                 :<span style={{color:"#9ca3af"}}>Not yet completed</span>}
+            </div>
+            <div style={{textAlign:"center",marginTop:24,paddingTop:16,borderTop:"2px solid #f5eedd"}}>
+              <div style={{fontSize:14,color:"#6b7280",marginBottom:12}}>Review your direction above, then generate your business plan.</div>
+              <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 28px",borderRadius:8,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer"}} onClick={function(){generatePlan();setShowOutput(true);}}>Generate Business Plan →</button>
             </div>
           </div>}
         </>
@@ -1499,7 +1506,7 @@ function App(){
           {step>0&&<button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setStepAndSave(step-1);}}>Back</button>}
           {step<stepDefs.length-1
             ?<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setStepAndSave(step+1);}}>Next →</button>
-            :<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){generatePlan();setShowOutput(true);}}>Generate Plan</button>
+            :<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setPreviewTab("direction");}}>Next →</button>
           }
         </div>
         {currentStep.render()}
@@ -1507,7 +1514,7 @@ function App(){
           {step>0&&<button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setStepAndSave(step-1);}}>Back</button>}
           {step<stepDefs.length-1
             ?<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setStepAndSave(step+1);}}>Next →</button>
-            :<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){generatePlan();setShowOutput(true);}}>Generate Plan</button>
+            :<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setPreviewTab("direction");}}>Next →</button>
           }
         </div>
       </div>
