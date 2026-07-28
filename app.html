@@ -963,6 +963,7 @@ function App(){
 
     var prompt="You are an expert business consultant. Write a professional business plan following exactly these sections in this order.\n\n"+
       "STEP 1 - BUSINESS DETAILS: Business: "+(f.bizName||"")+" | Industry: "+(f.industry||"")+" | Type: "+(f.bizType||"")+" | Stage: "+(f.stage||"")+
+      " | Date Established: "+(f.bizDate?f.bizDate.split("-").slice(0,2).reverse().join("/"):"Not specified")+
       " | Description: "+(f.description||"")+" | History: "+(f.history||"")+
       " | Locations: "+(f.locations||"")+" | Team: "+(f.team||"")+
       " | Online: "+onlineText+" | Contact: "+contactText+" | Legal: "+legalText+
@@ -983,7 +984,7 @@ function App(){
       " | Equity: "+(f.equity||"")+" | Expenses: "+expText+" | Other transactions: "+txText+
       "\n\nWrite the plan with these ## sections in this exact order:\n"+
       "## 1. Business Details\n## 2. Market & Customers\n## 3. Vision & Strategy\n## 4. Making it Happen\n## 5. Financial Position\n\n"+
-      "Use ### subheadings and bullet points (lines starting with -). In ## 3 list goals as numbered items. No # headings, no ---, no **. Total 600-800 words.";
+      "Use ### subheadings and bullet points (lines starting with -) for sections 4 and 5 only. For sections 1, 2 and 3 (Business Details, Market & Customers, Vision & Strategy) write in flowing prose paragraphs — no bullet points. In ## 3 list goals as numbered items. No # headings, no ---, no **. Total 600-800 words.";
 
     try{
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:2000,messages:[{role:"user",content:prompt}]})});
@@ -1395,13 +1396,13 @@ function App(){
     return (
       <div style={appStyle}>
         <div style={cardStyle}>
+          <div style={{fontSize:14,color:"#374151",marginBottom:12,lineHeight:1.6}}>Here is the summary of the direction of your business.</div>
           <div style={{display:"flex",gap:3,marginBottom:22}}>
             {stepDefs.map(function(_,i){return <div key={i} style={{flex:1,height:4,borderRadius:2,background:"#d0b16f"}}/>;}) }
             <div style={{flex:1,height:4,borderRadius:2,background:"#01236d"}}/>
           </div>
           <div style={{fontSize:11,fontWeight:600,color:"#374151",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>Summary</div>
           <div style={{fontSize:18,fontWeight:700,color:"#01236d",marginBottom:16}}>Business Direction</div>
-          <div style={{fontSize:13,color:"#6b7280",marginBottom:12}}>Here is the summary of the direction of your business.</div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
             <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:6,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>← Back</button>
             <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"8px 16px",borderRadius:8,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer",marginLeft:"auto"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
