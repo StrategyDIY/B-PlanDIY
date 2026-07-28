@@ -1297,7 +1297,7 @@ function App(){
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly sales units</div>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:6}}>
               <span style={{fontSize:12,color:"#374151"}}>Make sure you have added the sales targets from how your business is going to achieve its goals</span>
-              <div style={{flexShrink:0,fontSize:12,color:"#01236d",fontWeight:500,border:"1px solid #01236d",borderRadius:6,padding:"4px 10px",whiteSpace:"nowrap"}}>From Step 4: <span style={{color:"#374151"}}>{fdRef.current.goalSalesTotal?fdRef.current.goalSalesTotal+" units over 12 months":"not set in Step 4"}</span></div>
+              <div style={{flexShrink:0,fontSize:12,color:"#01236d",fontWeight:500,border:"1px solid #d0b16f",borderRadius:6,padding:"4px 10px",whiteSpace:"nowrap",background:"#d0b16f",color:"#fff"}}>From Step 4: <span style={{color:"#fff"}}>{fdRef.current.goalSalesTotal?fdRef.current.goalSalesTotal+" units over 12 months":"not set in Step 4"}</span></div>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkMonthlyUnits" checked={!!gridChecks["monthlyUnits"]} onChange={function(){toggleGrid("monthlyUnits");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkMonthlyUnits" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["monthlyUnits"]?(<div>
@@ -1357,7 +1357,7 @@ function App(){
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly expenses (exc tax)</div>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:8}}>
               <span style={{fontSize:12,color:"#374151"}}>Make sure you have added the extra expenses from how your business is going to achieve its goals</span>
-              <div style={{flexShrink:0,fontSize:12,color:"#01236d",fontWeight:500,border:"1px solid #01236d",borderRadius:6,padding:"4px 10px",whiteSpace:"nowrap"}}>From Step 4: <span style={{color:"#374151"}}>{fdRef.current.goalExpTotal?"$"+fdRef.current.goalExpTotal+" over 12 months":"not set in Step 4"}</span></div>
+              <div style={{flexShrink:0,fontSize:12,color:"#01236d",fontWeight:500,border:"1px solid #d0b16f",borderRadius:6,padding:"4px 10px",whiteSpace:"nowrap",background:"#d0b16f",color:"#fff"}}>From Step 4: <span style={{color:"#fff"}}>{fdRef.current.goalExpTotal?"$"+fdRef.current.goalExpTotal+" over 12 months":"not set in Step 4"}</span></div>
             </div>
             {expCats.map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
               <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}</div>
@@ -1401,7 +1401,7 @@ function App(){
           </div>
           <div style={{fontSize:11,fontWeight:600,color:"#374151",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>Summary</div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
-            <img src={LOGO_SRC} style={{width:36,height:36,objectFit:"contain"}} alt="Logo"/>
+            <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:6,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>← Back</button>
             <div style={{fontSize:18,fontWeight:700,color:"#01236d"}}>Summary</div>
             <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"8px 16px",borderRadius:8,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer",marginLeft:"auto"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
           </div>
@@ -1448,7 +1448,7 @@ function App(){
             </div>
           </div>
           <div style={{display:"flex",gap:10,justifyContent:"space-between",paddingTop:16,borderTop:"2px solid #f5eedd"}}>
-            <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setShowDirection(false);}}>← Back</button>
+            <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:6,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>← Back</button>
             <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 28px",borderRadius:8,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
           </div>
         </div>
