@@ -2,9 +2,6 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<link rel="icon" type="image/png" href="/favicon.png">
-<link rel="shortcut icon" href="/favicon.ico">
-<link rel="apple-touch-icon" href="/favicon-192.png">
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>B-PlanDIY - Business Plan Generator</title>
 <style>
@@ -13,6 +10,7 @@
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" onerror="console.warn('jszip CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="console.warn('xlsx CDN failed')"></script>
 </head>
 <body>
@@ -105,6 +103,15 @@ function calcCashflow(f){
   const avgSales=parseMonthly(f.avgSales,0);
   const avgPrice=parseMonthly(f.avgPrice,0);
   const avgCost=parseMonthly(f.avgCost,0);
+  const monthNames=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var startYear=0,startMonth=0;
+  if(f.cfStartDate){var parts=f.cfStartDate.split("-");startYear=parseInt(parts[0])||0;startMonth=parseInt(parts[1])||0;}
+  function getMonthLabel(i){
+    if(!startYear||!startMonth)return"Month "+(i+1);
+    var m=(startMonth-1+i)%12;
+    var y=startYear+Math.floor((startMonth-1+i)/12);
+    return monthNames[m]+" "+y;
+  }
 
   const expArr={};
   expCats.forEach(c=>{expArr[c.id]=parseMonthly(f[c.id],0);});
@@ -178,7 +185,7 @@ function calcCashflow(f){
     bal=bal+netCashflow;
 
     rows.push({
-      month:"Month "+(i+1),
+      month:getMonthLabel(i),
       units:Math.round(units),
       avgPrice:Math.round(price*100)/100,
       avgCost:Math.round(cost*100)/100,
@@ -500,6 +507,7 @@ function App(){
   var step=stepState[0];var setStep=stepState[1];
   var tabState=useState("plan");var tab=tabState[0];var setTab=tabState[1];
   var previewTabState=useState("details");var previewTab=previewTabState[0];var setPreviewTab=previewTabState[1];
+  var cfStartState=useState(fdRef.current.cfStartDate||"");var cfStart=cfStartState[0];var setCfStart=cfStartState[1];
   var showOutputState=useState(false);var showOutput=showOutputState[0];var setShowOutput=showOutputState[1];
   var planHtmlState=useState("");var planHtml=planHtmlState[0];var setPlanHtml=planHtmlState[1];
   var liveRowsState=useState(function(){return calcCashflow(fdRef.current);});
@@ -565,10 +573,10 @@ function App(){
   var refreshLive=useCallback(function(){setLiveRows(calcCashflow(fdRef.current));},[]);
 
   function RT(id,ph,rows){
-    return <textarea autoComplete="off" style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
+    return <textarea autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
   }
   function R(id,ph){
-    return <input autoComplete="off" style={inp} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
+    return <input autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} style={inp} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
   }
   function RS(id,opts){
     return <select style={sel} defaultValue={fdRef.current[id]||opts[0]} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}>
@@ -1079,7 +1087,16 @@ function App(){
           {R("bizName","e.g. Flowly Ltd")}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Date established</div>
-          <input style={inp} type="date" defaultValue={fdRef.current.bizDate||""} onChange={function(e){fdRef.current.bizDate=e.target.value;saveToStorage();}}/>
+          <div style={{display:"flex",gap:8}}>
+            <select style={{...sel,flex:1}} value={(fdRef.current.bizDate||"").split("-")[1]||""} onChange={function(e){var parts=(fdRef.current.bizDate||"----").split("-");parts[1]=e.target.value;fdRef.current.bizDate=parts[0]+"-"+parts[1]+"-01";saveToStorage();}}>
+              <option value="">Month</option>
+              {["01","02","03","04","05","06","07","08","09","10","11","12"].map(function(m,i){return <option key={m} value={m}>{["January","February","March","April","May","June","July","August","September","October","November","December"][i]}</option>;})}
+            </select>
+            <select style={{...sel,flex:1}} value={(fdRef.current.bizDate||"").split("-")[0]||""} onChange={function(e){var parts=(fdRef.current.bizDate||"----").split("-");parts[0]=e.target.value;fdRef.current.bizDate=parts[0]+"-"+(parts[1]||"01")+"-01";saveToStorage();}}>
+              <option value="">Year</option>
+              {Array.from({length:50},function(_,i){var y=new Date().getFullYear()-i;return <option key={y} value={String(y)}>{y}</option>;})}
+            </select>
+          </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Type of business</div>
           {RS("bizType",["Company (Ltd)","Sole Trader","Partnership","Trust","Other"])}
@@ -1230,13 +1247,26 @@ function App(){
       );}},
     {label:"Step 5 of 5 - Financial Information",title:"Tell us about your business finances",desc:<span>These numbers will determine your 12-month cashflow forecast.</span>,
       render:function(){
-        var s5tabs=["Details","Cashflow","Graphs","What If"];
-        var s5key=["details","cashflow","graphs","whatif"].indexOf(previewTab)>=0?previewTab:"details";
+        var s5tabs=["Details","Cashflow","Graphs","What If","Direction"];
+        var s5key=["details","cashflow","graphs","whatif","direction"].indexOf(previewTab)>=0?previewTab:"details";
         return (<>
           <div style={{display:"flex",gap:0,borderBottom:"1px solid #e5e7eb",marginBottom:20}}>
             {s5tabs.map(function(t){var k=t.toLowerCase().replace(" ","");var active=s5key===k;return <button key={t} style={{fontFamily:"inherit",fontSize:13,padding:"8px 16px",border:"none",background:"none",cursor:"pointer",borderBottom:"2px solid "+(active?"#d0b16f":"transparent"),color:active?"#01236d":"#6b7280",fontWeight:active?600:400}} onClick={function(){setPreviewTab(k);}}>{t}</button>;})}
           </div>
           {s5key==="details"&&(<>
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Cashflow start date (Month 1)</div>
+              <div style={{display:"flex",gap:8}}>
+                <select style={{...sel,flex:1}} value={(cfStart||"").split("-")[1]||""} onChange={function(e){var parts=(cfStart||"----").split("-");parts[1]=e.target.value;var newVal=parts[0]+"-"+parts[1];fdRef.current.cfStartDate=newVal;setCfStart(newVal);saveToStorage();refreshLive();}}>
+                  <option value="">Month</option>
+                  {["01","02","03","04","05","06","07","08","09","10","11","12"].map(function(m,i){return <option key={m} value={m}>{["January","February","March","April","May","June","July","August","September","October","November","December"][i]}</option>;})}
+                </select>
+                <select style={{...sel,flex:1}} value={(cfStart||"").split("-")[0]||""} onChange={function(e){var parts=(cfStart||"----").split("-");parts[0]=e.target.value;var newVal=parts[0]+"-"+(parts[1]||"01");fdRef.current.cfStartDate=newVal;setCfStart(newVal);saveToStorage();refreshLive();}}>
+                  <option value="">Year</option>
+                  {Array.from({length:10},function(_,i){var y=new Date().getFullYear()-2+i;return <option key={y} value={String(y)}>{y}</option>;})}
+                </select>
+              </div>
+            </div>
             <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Opening bank balance ($)</div>
@@ -1349,6 +1379,46 @@ function App(){
           </div>}
           {s5key==="graphs"&&<CfCharts rows={liveRows}/>}
           {s5key==="whatif"&&<WhatIf liveRows={liveRows} wiRev={wiRev} wiExp={wiExp} wiCos={wiCos} setWiRev={setWiRev} setWiExp={setWiExp} setWiCos={setWiCos}/>}
+          {s5key==="direction"&&<div style={{padding:"8px 0"}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Vision</div>
+            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16,minHeight:40,whiteSpace:"pre-wrap"}}>{fdRef.current.vision||<span style={{color:"#9ca3af"}}>Not yet completed</span>}</div>
+            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Position Statement</div>
+            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16,minHeight:40,whiteSpace:"pre-wrap"}}>{fdRef.current.position||<span style={{color:"#9ca3af"}}>Not yet completed</span>}</div>
+            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Values</div>
+            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16,minHeight:40,whiteSpace:"pre-wrap"}}>{fdRef.current.values||<span style={{color:"#9ca3af"}}>Not yet completed</span>}</div>
+            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Target Customer/Market</div>
+            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16,minHeight:40,whiteSpace:"pre-wrap"}}>{fdRef.current.targetCust||<span style={{color:"#9ca3af"}}>Not yet completed</span>}</div>
+            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>Goals</div>
+            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16}}>
+              {Array.from({length:6},function(_,i){var g=fdRef.current["goal"+(i+1)];return g?<div key={i} style={{marginBottom:6}}><strong>{i+1}.</strong> {g}</div>:null;}).filter(Boolean).length>0
+                ?Array.from({length:6},function(_,i){var g=fdRef.current["goal"+(i+1)];return g?<div key={i} style={{marginBottom:6}}><strong>{i+1}.</strong> {g}</div>:null;})
+                :<span style={{color:"#9ca3af"}}>Not yet completed</span>}
+            </div>
+            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4,textTransform:"uppercase",letterSpacing:"0.05em"}}>How Going to Achieve Goals</div>
+            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",marginBottom:16}}>
+              {Array.from({length:6},function(_,i){
+                var g=fdRef.current["goal"+(i+1)];
+                var h=fdRef.current["goalHow"+(i+1)];
+                var r=fdRef.current["goalRes"+(i+1)];
+                return g?<div key={i} style={{marginBottom:12}}>
+                  <div style={{fontWeight:600,marginBottom:3}}>{i+1}. {g}</div>
+                  {h&&<div style={{marginLeft:12,marginBottom:2}}><span style={{color:"#6b7280"}}>How:</span> {h}</div>}
+                  {r&&<div style={{marginLeft:12}}><span style={{color:"#6b7280"}}>Resources:</span> {r}</div>}
+                </div>:null;
+              }).filter(Boolean).length>0
+                ?Array.from({length:6},function(_,i){
+                  var g=fdRef.current["goal"+(i+1)];
+                  var h=fdRef.current["goalHow"+(i+1)];
+                  var r=fdRef.current["goalRes"+(i+1)];
+                  return g?<div key={i} style={{marginBottom:12}}>
+                    <div style={{fontWeight:600,marginBottom:3}}>{i+1}. {g}</div>
+                    {h&&<div style={{marginLeft:12,marginBottom:2}}><span style={{color:"#6b7280"}}>How:</span> {h}</div>}
+                    {r&&<div style={{marginLeft:12}}><span style={{color:"#6b7280"}}>Resources:</span> {r}</div>}
+                  </div>:null;
+                })
+                :<span style={{color:"#9ca3af"}}>Not yet completed</span>}
+            </div>
+          </div>}
         </>
       );}},
   ];
