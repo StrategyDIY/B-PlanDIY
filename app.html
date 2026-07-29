@@ -47,8 +47,28 @@ const LOGO_SRC=window.__LOGO_SRC__||"";
 const legalOpts=[{v:"meets",l:"Meets all obligations",s:"Tax, licences, employment, insurance and compliance are in order",color:GREEN,bg:GREEN_LIGHT},{v:"partial",l:"Partially meets obligations",s:"Some requirements are in place, others still being addressed",color:AMBER,bg:AMBER_LIGHT},{v:"notyet",l:"Not yet",s:"Legal and compliance requirements still to be set up",color:RED,bg:RED_LIGHT}];
 const onlineCh=[{id:"oWeb",label:"Web",ph:"Website or app URL"},{id:"oFb",label:"FB",ph:"Facebook page URL"},{id:"oIg",label:"IG",ph:"Instagram handle"},{id:"oLi",label:"LI",ph:"LinkedIn URL"},{id:"oOther",label:"Other",ph:"Other social/platform"}];
 const contactCh=[{id:"cName",label:"Name",ph:"Full name"},{id:"cEmail",label:"Email",ph:"Email address"},{id:"cMobile",label:"Mobile",ph:"Mobile number"}];
-const expCats=[{id:"xAcct",l:"Accounting"},{id:"xComms",l:"Communications"},{id:"xCon",l:"Contractors"},{id:"xEquip",l:"Equipment"},{id:"xGen",l:"General"},{id:"xIns",l:"Insurance"},{id:"xLegal",l:"Legal"},{id:"xOffice",l:"Office"},{id:"xMkt",l:"Marketing"},{id:"xProp",l:"Property"},{id:"xTeam",l:"Team"},{id:"xTravel",l:"Travel"},{id:"xVeh",l:"Vehicle"},{id:"xOtherExp",l:"Other expenses"}];
-const txCats=[{id:"txLoan",l:"Loan transactions"},{id:"txAsset",l:"Asset transactions"},{id:"txTax",l:"Tax payments"},{id:"txOther",l:"Other transactions"}];
+const expCats=[
+  {id:"xAcct",l:"Accounting",ph:"e.g. 200 (monthly accounting fee)"},
+  {id:"xComms",l:"Communications",ph:"e.g. 150 (phone, internet, subscriptions)"},
+  {id:"xCon",l:"Contractors",ph:"e.g. 1000 (web developer, designer)"},
+  {id:"xEquip",l:"Equipment",ph:"e.g. equipment repairs or maintenance $500"},
+  {id:"xGen",l:"General",ph:"e.g. 100 (stationery, sundries)"},
+  {id:"xIns",l:"Insurance",ph:"e.g. $1,200 annual or $100 per month"},
+  {id:"xLegal",l:"Legal",ph:"e.g. $1,500 company setup"},
+  {id:"xOffice",l:"Office",ph:"e.g. 800 (rent, power, cleaning)"},
+  {id:"xMkt",l:"Marketing",ph:"e.g. 500 (social ads, SEO, collateral)"},
+  {id:"xProp",l:"Property",ph:"e.g. $1,200 rent or $5,000 one-off fitout"},
+  {id:"xTeam",l:"Team",ph:"e.g. 5000 (salaries, wages, PAYE)"},
+  {id:"xTravel",l:"Travel",ph:"e.g. 300 (fuel, flights, accommodation)"},
+  {id:"xVeh",l:"Vehicle",ph:"e.g. 600 (lease, fuel, maintenance)"},
+  {id:"xOtherExp",l:"Other expenses",ph:"e.g. 200 (anything not covered above)"}
+];
+const txCats=[
+  {id:"txLoan",l:"Loan transactions",ph:"e.g. $50,000 loan received, -$2,000 monthly repayment"},
+  {id:"txAsset",l:"Asset transactions",ph:"e.g. -$15,000 vehicle purchase"},
+  {id:"txTax",l:"Tax payments",ph:"Auto-calculated — tick to override by month"},
+  {id:"txOther",l:"Other transactions",ph:"e.g. $10,000 owner investment, -$500 drawings"}
+];
 
 const STORAGE_KEY="bpg_fd";
 const EXPIRY_KEY="bpg_expiry";
@@ -803,8 +823,8 @@ function App(){
       var ImageRun=docx.ImageRun;
       var FONT="Aptos";
       // Portrait: 12240 x 15840 twips (A4), Landscape: 15840 x 12240
-      var PORTRAIT={width:11906,height:16838};
-      var LANDSCAPE={width:16838,height:11906};
+      var PORTRAIT={width:11906,height:16838,orientation:"portrait"};
+      var LANDSCAPE={width:16838,height:11906,orientation:"landscape"};
       var MARGIN={top:720,right:720,bottom:720,left:720};
 
       // --- Section 1: Business Plan (Portrait) ---
@@ -1105,7 +1125,7 @@ function App(){
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Location(s)</div>
           {R("locations","e.g. Auckland CBD, online nationwide")}
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What does your business do?</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business description</div>
           {RT("description","Describe your product or service and who it's for...",3)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business history / origin</div>
@@ -1187,7 +1207,7 @@ function App(){
           <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>For [customer] who [need], [business] is a [category] that [benefit]</span>
           {RT("position","e.g. For NZ sole traders who are overwhelmed by complex accounting...",3)}
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Values</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Values</div><div style={{fontSize:12,color:"#6b7280",marginBottom:6}}>The principles that guide your business</div>
           {RT("values","e.g. Simplicity - we remove complexity, not add to it...",3)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Goals</div>
@@ -1268,7 +1288,7 @@ function App(){
             <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Opening bank balance ($)</div>
-                <input style={inp} defaultValue={fdRef.current.openingBalance||""} placeholder="e.g. 12000" onChange={function(e){fdRef.current.openingBalance=e.target.value;saveToStorage();refreshLive();}}/>
+                <input style={inp} defaultValue={fdRef.current.openingBalance||""} placeholder="e.g. 5000 (cash in bank at start)" onChange={function(e){fdRef.current.openingBalance=e.target.value;saveToStorage();refreshLive();}}/>
               </div>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Assets</div>
@@ -1344,9 +1364,8 @@ function App(){
             </div>
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Other revenue ($)</div>
-            <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>Any other revenue not from product/service sales e.g. grants, interest. Amount per month or month-specific e.g. M1:500</span>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkOtherRev" checked={!!gridChecks["otherRevenue"]} onChange={function(){toggleGrid("otherRevenue");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkOtherRev" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
-            {gridChecks["otherRevenue"]?<div key={"otherRevGrid"}><MonthGrid keyPrefix={"otherRevM"} storeKey={"otherRevenue"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.otherRevenue||""} placeholder="e.g. 500 or M1:5000, M6:1000" onChange={function(e){fdRef.current.otherRevenue=e.target.value;saveToStorage();refreshLive();}}/>}
+            {gridChecks["otherRevenue"]?<div key={"otherRevGrid"}><MonthGrid keyPrefix={"otherRevM"} storeKey={"otherRevenue"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.otherRevenue||""} placeholder="e.g. 500 (grants, interest, rental income)" onChange={function(e){fdRef.current.otherRevenue=e.target.value;saveToStorage();refreshLive();}}/>}
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly expenses (exc tax)</div>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:8}}>
@@ -1356,14 +1375,14 @@ function App(){
             {expCats.map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
               <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}</div>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
-              {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={inp} defaultValue={fdRef.current[c.id]||""} placeholder="e.g. 200" onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
+              {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 200"} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
             </div>);})}            <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Other transactions ($)</div>
-            <span style={{fontSize:12,color:"#374151",marginBottom:8,display:"block"}}>Regular monthly or one-off e.g. M1:5000</span>
+            <span style={{fontSize:12,color:"#374151",marginBottom:8,display:"block"}}>Regular monthly or one-off</span>
             {txCats.map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
               <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}{c.id==="txTax"&&<span style={{fontSize:11,color:"#d0b16f",marginLeft:8,fontWeight:400}}>Auto-calculated from Tax rate — override with monthly amounts</span>}</div>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
-              {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={c.id==="txTax"?Object.assign({},inp,{color:"#9ca3af",fontStyle:"italic"}):inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.id==="txTax"?"Auto-calculated — tick to override by month":"e.g. 500"} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
+              {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={c.id==="txTax"?Object.assign({},inp,{color:"#9ca3af",fontStyle:"italic"}):inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.id==="txTax"?"Auto-calculated — tick to override by month":(c.ph||"e.g. 500")} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
             </div>);})}
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
