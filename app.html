@@ -25,14 +25,15 @@ import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
 import * as Recharts from 'https://esm.sh/recharts@2.10.0?deps=react@18.2.0,react-dom@18.2.0';
 import Babel from 'https://esm.sh/@babel/standalone@7.23.2';
 window.React = React;
+window.Recharts = Recharts;
 window.__LOGO_SRC__ = document.getElementById('logo-data').textContent.trim();
 const {useState,useRef,useCallback} = React;
-const {BarChart,Bar,Cell,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ReferenceLine,ResponsiveContainer} = Recharts;
+const {BarChart,Bar,Cell,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ReferenceLine,ResponsiveContainer} = Recharts;
 try {
   const code = document.getElementById('app-src').textContent;
   const compiled = Babel.transform(code, {presets:['react']}).code;
-  const fn = new Function('React','useState','useRef','useCallback','BarChart','Bar','Cell','XAxis','YAxis','CartesianGrid','Tooltip','Legend','ReferenceLine','ResponsiveContainer',compiled + '\nreturn App;');
-  const App = fn(React,useState,useRef,useCallback,BarChart,Bar,Cell,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ReferenceLine,ResponsiveContainer);
+  const fn = new Function('React','useState','useRef','useCallback','BarChart','Bar','Cell','LineChart','Line','XAxis','YAxis','CartesianGrid','Tooltip','Legend','ReferenceLine','ResponsiveContainer','Recharts',compiled + '\nreturn App;');
+  const App = fn(React,useState,useRef,useCallback,BarChart,Bar,Cell,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ReferenceLine,ResponsiveContainer,Recharts);
   createRoot(document.getElementById('root')).render(React.createElement(App));
   document.getElementById('loading').style.display='none';
 } catch(e) {
@@ -57,9 +58,9 @@ const expCats=[
   {id:"xLegal",l:"Legal",ph:"e.g. 1500 (IP advice, trademark)"},
   {id:"xOffice",l:"Office",ph:"e.g. 800 (cleaning, stationery)"},
   {id:"xMkt",l:"Marketing",ph:"e.g. 500 (social ads, SEO, collateral)"},
-  {id:"xProp",l:"Property",ph:"e.g. 1200 (rent and outgoings)"},
+  {id:"xProp",l:"Property",ph:"e.g. 1200 (rent, outgoings)"},
   {id:"xTeam",l:"Team",ph:"e.g. 5000 (salaries, wages, PAYE)"},
-  {id:"xTravel",l:"Travel",ph:"e.g. 300 (fuel, flights, accommodation)"},
+  {id:"xTravel",l:"Travel",ph:"e.g. 300 (flights, accommodation)"},
   {id:"xVeh",l:"Vehicle",ph:"e.g. 600 (lease, fuel, maintenance)"},
   {id:"xOtherExp",l:"Other expenses",ph:"e.g. 200 (anything not covered above)"}
 ];
@@ -305,7 +306,12 @@ function ChartTip({active,payload,label}){
   );
 }
 
-function CfCharts({rows}){
+function CfCharts({rows,expCatsData}){
+  const COLORS=["#01236d","#d0b16f","#4e73df","#1cc88a","#36b9cc","#f6c23e","#e74a3b","#858796","#5a5c69","#2e59d9","#17a673","#2c9faf","#fd7e14","#6610f2"];
+  const expPieData=(expCatsData||[]).map(function(c,i){
+    var total=rows.reduce(function(s,r){return s+(r.expDetail&&r.expDetail[c.id]||0);},0);
+    return total>0?{name:c.l,value:total,color:COLORS[i%COLORS.length]}:null;
+  }).filter(Boolean);
   if(!rows||!rows.length)return null;
   const npData=rows.map(function(r){return{name:r.month.replace("Month ","M"),value:r.netProfit};});
   const cbData=rows.map(function(r){return{name:r.month.replace("Month ","M"),value:r.closingBalance};});
@@ -326,18 +332,34 @@ function CfCharts({rows}){
           <Bar yAxisId="right" dataKey="revenue" name="Monthly Sales ($)" radius={[3,3,0,0]} fill="#d0b16f"/>
         </BarChart>
       </ResponsiveContainer>
+      <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Expense Breakdown</div>
+      {expPieData.length>0?(<div style={{display:"flex",gap:16,alignItems:"center"}}>
+        <ResponsiveContainer width="50%" height={200}>
+          <Recharts.PieChart>
+            <Recharts.Pie data={expPieData} dataKey="value" cx="50%" cy="50%" outerRadius={80} label={false}>
+              {expPieData.map(function(e,i){return <Cell key={i} fill={e.color}/>;}) }
+            </Recharts.Pie>
+            <Tooltip formatter={function(v,n){return["$"+Math.round(v).toLocaleString(),n];}}/>
+          </Recharts.PieChart>
+        </ResponsiveContainer>
+        <div style={{flex:1,fontSize:11,color:"#374151"}}>
+          {expPieData.map(function(e){return <div key={e.name} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
+            <div style={{width:10,height:10,borderRadius:2,background:e.color,flexShrink:0}}/>
+            <span style={{flex:1}}>{e.name}</span>
+            <span style={{fontWeight:600}}>${Math.round(e.value).toLocaleString()}</span>
+          </div>;})}
+        </div>
+      </div>):<div style={{fontSize:13,color:"#9ca3af",padding:"16px 0"}}>No expense data entered yet.</div>}
       <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Net Profit / (Loss)</div>
       <ResponsiveContainer width="100%" height={160}>
-        <BarChart data={npData} margin={{top:4,right:8,left:8,bottom:0}}>
+        <LineChart data={npData} margin={{top:4,right:8,left:8,bottom:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
           <XAxis dataKey="name" tick={{fontSize:11}} axisLine={false} tickLine={false}/>
           <YAxis tickFormatter={function(v){return(v<0?"-$":"$")+Math.abs(v/1000).toFixed(0)+"k";}} tick={{fontSize:11}} axisLine={false} tickLine={false} width={48}/>
           <Tooltip content={<ChartTip/>}/>
           <ReferenceLine y={0} stroke="#d1d5db"/>
-          <Bar dataKey="value" name="Net Profit" radius={[3,3,0,0]}>
-            {npData.map(function(d,i){return <Cell key={i} fill={d.value<0?RED:GREEN}/>;}) }
-          </Bar>
-        </BarChart>
+          <Line type="monotone" dataKey="value" name="Net Profit" stroke="#01236d" strokeWidth={2} dot={function(p){return <circle key={p.key} cx={p.cx} cy={p.cy} r={4} fill={p.value<0?RED:GREEN} stroke="#fff" strokeWidth={1}/>;}} activeDot={{r:5}}/>
+        </LineChart>
       </ResponsiveContainer>
       <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Closing Bank Balance</div>
       <ResponsiveContainer width="100%" height={160}>
@@ -856,19 +878,91 @@ function App(){
         ctx.fillStyle="#ffffff";ctx.fillRect(0,0,W,H+60);
         var max=Math.max.apply(null,data.map(function(d){return Math.abs(d.v);}));
         if(!max)max=1;
-        // Title
         ctx.fillStyle="#01236d";ctx.font="bold 14px Arial";ctx.textAlign="center";
         ctx.fillText(title,W/2,20);
-        // Bars
         data.forEach(function(d,i){
           var bh=Math.max(2,Math.round(Math.abs(d.v)/max*(H-40)));
           var x=pad+i*(barW+4);
           var y=H-bh;
           ctx.fillStyle=d.v<0?(negColor||"#A32D2D"):(color||"#01236d");
           ctx.fillRect(x,y,barW,bh);
-          // Label
           ctx.fillStyle="#6b7280";ctx.font="10px Arial";ctx.textAlign="center";
           ctx.fillText(d.l,x+barW/2,H+14);
+        });
+        return canvas.toDataURL("image/png").split(",")[1];
+      }
+
+      function makeLineChart(title,data,color,negColor){
+        var canvas=document.createElement("canvas");
+        var W=600,H=200,padL=50,padR=20,padT=30,padB=40;
+        canvas.width=W;canvas.height=H+padT+padB;
+        var ctx=canvas.getContext("2d");
+        ctx.fillStyle="#ffffff";ctx.fillRect(0,0,W,H+padT+padB);
+        var vals=data.map(function(d){return d.v;});
+        var max=Math.max.apply(null,vals.map(function(v){return Math.abs(v);}));
+        if(!max)max=1;
+        var minV=Math.min.apply(null,vals);
+        var maxV=Math.max.apply(null,vals);
+        var range=Math.max(Math.abs(maxV),Math.abs(minV))||1;
+        ctx.fillStyle="#01236d";ctx.font="bold 14px Arial";ctx.textAlign="center";
+        ctx.fillText(title,W/2,18);
+        // Zero line
+        var zeroY=padT+H-(0-minV)/(maxV-minV||1)*H;
+        if(minV<0&&maxV>0){
+          ctx.strokeStyle="#e5e7eb";ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(padL,zeroY);ctx.lineTo(W-padR,zeroY);ctx.stroke();
+        }
+        // Line
+        var pts=data.map(function(d,i){
+          var x=padL+i*(W-padL-padR)/(data.length-1||1);
+          var y=padT+H-(d.v-minV)/(maxV-minV||1)*H;
+          return{x:x,y:y,v:d.v};
+        });
+        ctx.strokeStyle=color||"#01236d";ctx.lineWidth=2;ctx.beginPath();
+        pts.forEach(function(p,i){if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);});
+        ctx.stroke();
+        pts.forEach(function(p){
+          ctx.fillStyle=p.v<0?(negColor||"#A32D2D"):(color||"#01236d");
+          ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fill();
+        });
+        // Labels
+        data.forEach(function(d,i){
+          var x=padL+i*(W-padL-padR)/(data.length-1||1);
+          ctx.fillStyle="#6b7280";ctx.font="10px Arial";ctx.textAlign="center";
+          ctx.fillText(d.l,x,padT+H+14);
+        });
+        return canvas.toDataURL("image/png").split(",")[1];
+      }
+
+      function makePieChart(title,pieData){
+        var canvas=document.createElement("canvas");
+        var W=600,H=280;
+        canvas.width=W;canvas.height=H;
+        var ctx=canvas.getContext("2d");
+        ctx.fillStyle="#ffffff";ctx.fillRect(0,0,W,H);
+        ctx.fillStyle="#01236d";ctx.font="bold 14px Arial";ctx.textAlign="center";
+        ctx.fillText(title,W/2,18);
+        var total=pieData.reduce(function(s,d){return s+d.v;},0);
+        if(!total)return null;
+        var cx=200,cy=150,r=110;
+        var COLORS=["#01236d","#d0b16f","#4e73df","#1cc88a","#36b9cc","#f6c23e","#e74a3b","#858796","#5a5c69","#2e59d9","#17a673","#2c9faf","#fd7e14","#6610f2"];
+        var angle=-Math.PI/2;
+        pieData.forEach(function(d,i){
+          var slice=d.v/total*Math.PI*2;
+          ctx.fillStyle=COLORS[i%COLORS.length];
+          ctx.beginPath();ctx.moveTo(cx,cy);
+          ctx.arc(cx,cy,r,angle,angle+slice);
+          ctx.closePath();ctx.fill();
+          angle+=slice;
+        });
+        // Legend
+        var lx=380,ly=40;
+        pieData.forEach(function(d,i){
+          ctx.fillStyle=COLORS[i%COLORS.length];
+          ctx.fillRect(lx,ly+i*20,12,12);
+          ctx.fillStyle="#374151";ctx.font="11px Arial";ctx.textAlign="left";
+          var pct=Math.round(d.v/total*100);
+          ctx.fillText(d.l+" ("+pct+"%)",lx+16,ly+i*20+10);
         });
         return canvas.toDataURL("image/png").split(",")[1];
       }
@@ -877,16 +971,27 @@ function App(){
         var npData=cfRows.map(function(r){return{l:r.month.replace("Month ","M"),v:r.netProfit||0};});
         var cbData=cfRows.map(function(r){return{l:r.month.replace("Month ","M"),v:r.closingBalance||0};});
         var unData=cfRows.map(function(r){return{l:r.month.replace("Month ","M"),v:r.units||0};});
+        var expPieRaw=expCats.map(function(c){
+          var tot=cfRows.reduce(function(s,r){return s+(r.expDetail&&r.expDetail[c.id]||0);},0);
+          return tot>0?{l:c.l,v:tot}:null;
+        }).filter(Boolean);
         try{
-          var npImg=makeBarChart("Net Profit / (Loss)",npData,"#01236d","#A32D2D");
-          graphChildren.push(new Paragraph({spacing:{after:100},children:[new TextRun({text:"Net Profit / (Loss)",bold:true,size:22,color:"01236d",font:FONT})]}));
-          graphChildren.push(new Paragraph({spacing:{after:200},children:[new ImageRun({data:Uint8Array.from(atob(npImg),function(c){return c.charCodeAt(0);}),transformation:{width:500,height:170},type:"png"})]}));
-          var cbImg=makeBarChart("Closing Bank Balance",cbData,"#185FA5","#993C1D");
-          graphChildren.push(new Paragraph({spacing:{after:100},children:[new TextRun({text:"Closing Bank Balance",bold:true,size:22,color:"01236d",font:FONT})]}));
-          graphChildren.push(new Paragraph({spacing:{after:200},children:[new ImageRun({data:Uint8Array.from(atob(cbImg),function(c){return c.charCodeAt(0);}),transformation:{width:500,height:170},type:"png"})]}));
           var unImg=makeBarChart("Units Sold",unData,"#d0b16f","#d0b16f");
           graphChildren.push(new Paragraph({spacing:{after:100},children:[new TextRun({text:"Units Sold",bold:true,size:22,color:"01236d",font:FONT})]}));
           graphChildren.push(new Paragraph({spacing:{after:200},children:[new ImageRun({data:Uint8Array.from(atob(unImg),function(c){return c.charCodeAt(0);}),transformation:{width:500,height:170},type:"png"})]}));
+          if(expPieRaw.length){
+            var expImg=makePieChart("Expense Breakdown",expPieRaw);
+            if(expImg){
+              graphChildren.push(new Paragraph({spacing:{after:100},children:[new TextRun({text:"Expense Breakdown",bold:true,size:22,color:"01236d",font:FONT})]}));
+              graphChildren.push(new Paragraph({spacing:{after:200},children:[new ImageRun({data:Uint8Array.from(atob(expImg),function(c){return c.charCodeAt(0);}),transformation:{width:500,height:235},type:"png"})]}));
+            }
+          }
+          var npImg=makeLineChart("Net Profit / (Loss)",npData,"#01236d","#A32D2D");
+          graphChildren.push(new Paragraph({spacing:{after:100},children:[new TextRun({text:"Net Profit / (Loss)",bold:true,size:22,color:"01236d",font:FONT})]}));
+          graphChildren.push(new Paragraph({spacing:{after:200},children:[new ImageRun({data:Uint8Array.from(atob(npImg),function(c){return c.charCodeAt(0);}),transformation:{width:500,height:200},type:"png"})]}));
+          var cbImg=makeBarChart("Closing Bank Balance",cbData,"#185FA5","#993C1D");
+          graphChildren.push(new Paragraph({spacing:{after:100},children:[new TextRun({text:"Closing Bank Balance",bold:true,size:22,color:"01236d",font:FONT})]}));
+          graphChildren.push(new Paragraph({spacing:{after:200},children:[new ImageRun({data:Uint8Array.from(atob(cbImg),function(c){return c.charCodeAt(0);}),transformation:{width:500,height:170},type:"png"})]}));
         }catch(imgErr){
           graphChildren.push(new Paragraph({children:[new TextRun({text:"(Charts not available in this export)",size:18,color:"6b7280",font:FONT})]}));
         }
@@ -1394,7 +1499,7 @@ function App(){
             </div>
             <CfTable rows={liveRows}/>
           </div>}
-          {s5key==="graphs"&&<CfCharts rows={liveRows}/>}
+          {s5key==="graphs"&&<CfCharts rows={liveRows} expCatsData={expCats}/>}
           {s5key==="whatif"&&<WhatIf liveRows={liveRows} wiRev={wiRev} wiExp={wiExp} wiCos={wiCos} setWiRev={setWiRev} setWiExp={setWiExp} setWiCos={setWiCos}/>}
         </>
       );}},
@@ -1407,10 +1512,27 @@ function App(){
     var f=fdRef.current;
     return (
       <div style={appStyle}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+          <img src={LOGO_SRC} style={{width:36,height:36,objectFit:"contain"}} alt="Logo"/>
+          <span style={{fontWeight:700,color:"#01236d",fontSize:15,marginRight:"auto"}}>B-PlanDIY</span>
+          {[
+            {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
+            {label:"Cashflow",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
+            {label:"Graphs",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("graphs");},50);}},
+            {label:"What If",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
+          ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #d0b16f",background:item.label==="Summary"?"#d0b16f":"#fff",color:item.label==="Summary"?"#fff":"#01236d",cursor:"pointer"}}>{item.label}</button>;})}
+        </div>
         <div style={cardStyle}>
-          <div style={{display:"flex",gap:3,marginBottom:22}}>
-            {stepDefs.map(function(_,i){return <div key={i} style={{flex:1,height:4,borderRadius:2,background:"#d0b16f"}}/>;}) }
-            <div style={{flex:1,height:4,borderRadius:2,background:"#01236d"}}/>
+          <div style={{display:"flex",gap:2,marginBottom:20,overflowX:"auto"}}>
+            {stepDefs.map(function(s,i){
+              return <button key={i} onClick={function(){setShowDirection(false);setStepAndSave(i);}} style={{
+                flex:1,minWidth:0,padding:"6px 4px",border:"none",borderRadius:6,cursor:"pointer",
+                background:"#f5eedd",color:"#01236d",
+                fontSize:11,fontWeight:500,
+                whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
+                borderBottom:"3px solid #d0b16f",fontFamily:"inherit"
+              }}>{"✓ "}{["Details","Market","Strategy","How","Finances"][i]||s.label}</button>;
+            })}
           </div>
           <div style={{fontSize:11,fontWeight:600,color:"#374151",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>Summary</div>
           <div style={{fontSize:18,fontWeight:700,color:"#01236d",marginBottom:8}}>Business Direction</div>
@@ -1468,6 +1590,37 @@ function App(){
             <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 28px",borderRadius:8,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
           </div>
         </div>
+        <div style={{textAlign:"center",fontSize:12,color:"#9ca3af",padding:"8px 0",display:"flex",justifyContent:"space-between"}}>
+          <button style={{fontFamily:"inherit",fontSize:12,color:"#9ca3af",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={startOver}>Clear all data</button>
+          <button style={{fontFamily:"inherit",fontSize:12,color:"#9ca3af",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){
+            var data=JSON.stringify(fdRef.current);
+            var ta=document.createElement("textarea");
+            ta.value=data;
+            ta.style.cssText="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:80%;height:200px;z-index:9999;padding:12px;font-size:12px;border:2px solid #01236d;border-radius:8px;";
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand("copy");
+            var msg=document.createElement("div");
+            msg.textContent="Data copied to clipboard! Save it somewhere safe.";
+            msg.style.cssText="position:fixed;top:calc(50% - 130px);left:50%;transform:translateX(-50%);background:#01236d;color:#fff;padding:8px 16px;border-radius:6px;font-size:13px;z-index:10000;";
+            document.body.appendChild(msg);
+            setTimeout(function(){document.body.removeChild(ta);document.body.removeChild(msg);},3000);
+          }}>Export data</button>
+          <button style={{fontFamily:"inherit",fontSize:12,color:"#9ca3af",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){
+            var input=prompt("Paste your exported data here:");
+            if(!input)return;
+            try{
+              var data=JSON.parse(input);
+              fdRef.current=data;
+              saveToStorage();
+              setGoals(Array.from({length:6},function(_,i){return data["goal"+(i+1)]||"";}));
+              setLiveRows(calcCashflow(data));
+              alert("Data restored successfully!");
+            }catch(e){alert("Invalid data. Please paste the exported text exactly as copied.");}
+          }}>Import data</button>
+          <button style={{fontFamily:"inherit",fontSize:12,color:"#d0b16f",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){setShowFeedback(true);}}>Give feedback</button>
+          <button style={{fontFamily:"inherit",fontSize:11,color:"#d1d5db",background:"none",border:"none",cursor:"pointer"}} onClick={function(){setShowAdmin(true);}}>⚙</button>
+        </div>
       </div>
     );
   }
@@ -1487,7 +1640,7 @@ function App(){
               {planHtml&&<div style={{overflowX:"auto",pointerEvents:"none"}} dangerouslySetInnerHTML={{__html:planHtml}}/>}
               {planHtml&&liveRows&&liveRows.length>0&&(
                 <div style={{marginTop:8}}>
-                  <CfCharts rows={liveRows}/>
+                  <CfCharts rows={liveRows} expCatsData={expCats}/>
                 </div>
               )}
               {planHtml&&liveRows&&liveRows.length>0&&(
@@ -1510,7 +1663,7 @@ function App(){
               {previewTab==="table"&&<CfTable rows={liveRows}/>}
             </div>
           )}
-          {tab==="graphs"&&<CfCharts rows={liveRows}/>}
+          {tab==="graphs"&&<CfCharts rows={liveRows} expCatsData={expCats}/>}
         </div>
         {showPrint&&(
           <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)",zIndex:1000,overflow:"auto"}}>
@@ -1534,9 +1687,31 @@ function App(){
   var currentStep=stepDefs[step];
   return (
     <div style={appStyle}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <img src={LOGO_SRC} style={{width:36,height:36,objectFit:"contain"}} alt="Logo"/>
+        <span style={{fontWeight:700,color:"#01236d",fontSize:15,marginRight:"auto"}}>B-PlanDIY</span>
+        {[
+          {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
+          {label:"Cashflow",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
+          {label:"Graphs",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("graphs");},50);}},
+          {label:"What If",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
+        ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #d0b16f",background:"#fff",color:"#01236d",cursor:"pointer"}}>{item.label}</button>;})}
+      </div>
       <div style={cardStyle}>
-        <div style={{display:"flex",gap:5,marginBottom:22}}>
-          {stepDefs.map(function(s,i){return <div key={i} style={{flex:1,height:4,borderRadius:2,background:i<step?"#d0b16f":i===step?"#01236d":"#e5e7eb"}}/>;}) }
+        <div style={{display:"flex",gap:2,marginBottom:20,overflowX:"auto"}}>
+          {stepDefs.map(function(s,i){
+            var active=i===step;
+            var done=i<step;
+            return <button key={i} onClick={function(){setStepAndSave(i);}} style={{
+              flex:1,minWidth:0,padding:"6px 4px",border:"none",borderRadius:6,cursor:"pointer",
+              background:active?"#01236d":done?"#f5eedd":"#f3f4f6",
+              color:active?"#fff":done?"#01236d":"#6b7280",
+              fontSize:11,fontWeight:active?700:500,
+              whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
+              borderBottom:active?"3px solid #d0b16f":done?"3px solid #d0b16f":"3px solid transparent",
+              fontFamily:"inherit"
+            }}>{done?"✓ ":""}{["Details","Market","Strategy","How","Finances"][i]||s.label}</button>;
+          })}
         </div>
         <div style={{fontSize:11,fontWeight:600,color:"#374151",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>{currentStep.label}</div>
         <div style={{fontSize:20,fontWeight:700,color:GREEN_DARK,marginBottom:4,lineHeight:1.2}}>{currentStep.title}</div>
