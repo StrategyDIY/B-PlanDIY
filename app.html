@@ -1230,23 +1230,21 @@ function App(){
       "- For Values, present them as a short list of lines starting with - so each value is visible on its own line.\n"+
       "- After those three blocks, add a ### Goals subheading and list the goals as numbered items.\n\n"+
       "SECTION 4 REQUIREMENTS - Making it Happen:\n"+
-      "- This must be the most detailed section of the plan. Aim for roughly 300-350 words.\n"+
-      "- Write in flowing prose paragraphs only. Do NOT use bullet points, dashes or numbered lists anywhere in this section.\n"+
-      "- Work through the PER-GOAL EXECUTION DETAIL above and turn it into connected narrative. For each goal that has content, explain in prose how it will be achieved, what resources and people it requires, and roughly when in the 12 months the work falls.\n"+
-      "- Where the user wrote \"not specified by the user\" for a goal's How or Resources, do not invent specifics - instead note in prose what would need to be decided.\n"+
-      "- Cover the team as it stands and any planned hires, and how marketing activity supports the goals.\n"+
-      "- Tie the effort back to the numbers: reference the estimated extra sales units and extra expenses from the goals, and explain how the activity described is expected to produce them.\n"+
-      "- Use ### subheadings sparingly if genuinely helpful, but the body must be prose.\n\n"+
+      "- For each goal in the PER-GOAL EXECUTION DETAIL above, give a SHORT summary in prose of how it will be achieved and what resources it needs. Two or three sentences per goal is enough.\n"+
+      "- Write in prose paragraphs. Do NOT use bullet points, dashes or numbered lists.\n"+
+      "- Where a goal's How or Resources says \"not specified by the user\", say briefly that it still needs to be decided rather than inventing detail.\n"+
+      "- Finish with one short paragraph covering the team, any planned hires, and the estimated extra sales units and expenses from the goals.\n"+
+      "- Keep this section to roughly 200 words.\n\n"+
       "FORMATTING:\n"+
       "- Sections 1 and 2: flowing prose paragraphs, no subheadings, no bullet points.\n"+
       "- Section 3: use only the four ### subheadings specified above. Bullet lines are allowed under Values, and numbered items under Goals, but nowhere else in this section.\n"+
       "- Section 4: flowing prose paragraphs. No bullet points, no dashes, no numbered lists.\n"+
       "- Section 5: ### subheadings and bullet points (lines starting with -) are fine.\n"+
       "- No # headings, no ---, no ** anywhere.\n"+
-      "- LENGTH: 800-950 words total. Section 4 must be the longest at roughly 300-350 words; keep sections 1, 2, 3 and 5 tight and concise to make room for it.";
+      "- LENGTH: keep the whole plan to 600-700 words total. Be concise throughout - short paragraphs, no padding, no repetition.";
 
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:2400,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1500,messages:[{role:"user",content:prompt}]})});
       var rawText=await res.text();
       var data;
       try{ data=JSON.parse(rawText); }catch(pe){ throw new Error("Response was not JSON. Status: "+res.status+". Body starts with: "+rawText.substring(0,200)); }
