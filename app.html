@@ -347,7 +347,7 @@ function CfCharts({rows,expCatsData}){
           <Bar yAxisId="right" dataKey="revenue" name="Monthly Sales ($)" radius={[3,3,0,0]} fill="#d0b16f"/>
         </BarChart>
       </ResponsiveContainer>
-      <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Expense Breakdown</div>
+      <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Expenses Breakdown</div>
       {expPieData.length>0?(<div style={{display:"flex",gap:16,alignItems:"center"}}>
         <ResponsiveContainer width="50%" height={200}>
           <Recharts.PieChart>
@@ -857,8 +857,13 @@ function App(){
       var ImageRun=docx.ImageRun;
       var FONT="Aptos";
       // Portrait: 12240 x 15840 twips (A4), Landscape: 15840 x 12240
+      // A4 = 11906 x 16838 twips.
+      // NOTE: docx flips width/height itself when orientation is LANDSCAPE
+      // (w:w = height, w:h = width). So BOTH entries below pass A4 portrait
+      // dimensions; the orientation flag alone decides the result.
+      // Passing 16838x11906 with "landscape" yields a PORTRAIT page.
       var PORTRAIT={width:11906,height:16838,orientation:"portrait"};
-      var LANDSCAPE={width:16838,height:11906,orientation:"landscape"};
+      var LANDSCAPE={width:11906,height:16838,orientation:"landscape"};
       var MARGIN={top:720,right:720,bottom:720,left:720};
 
       // --- Section 1: Business Plan (Portrait) ---
@@ -1064,8 +1069,8 @@ function App(){
           if(expPieRaw.length){
             var pieRowH=19, pieTop=44;
             var pieCH=Math.max(260,pieTop+expPieRaw.length*pieRowH+24);
-            var expImg=makePieChart("Expense Breakdown",expPieRaw);
-            if(expImg)pushChart("Expense Breakdown",expImg,IMG_W,Math.round(IMG_W*pieCH/CW));
+            var expImg=makePieChart("Expenses Breakdown",expPieRaw);
+            if(expImg)pushChart("Expenses Breakdown",expImg,IMG_W,Math.round(IMG_W*pieCH/CW));
           }
 
           pushChart("Net Profit / (Loss)",makeLineChart("Net Profit / (Loss)",npData,"#01236d","#A32D2D",true),IMG_W,IMG_H);
@@ -1155,6 +1160,17 @@ function App(){
     setLoadMsg("Generating your business plan, this may take a minute...");
     var f=fdRef.current;
     var goalsText=goals.map(function(g,i){return g?(i+1)+". "+g:"";}).filter(Boolean).join("\n")||"Not specified";
+    // Per-goal execution detail. These fields are captured in Step 4 (and by the
+    // AI Suggest button) and are the substance of the "Making it Happen" section.
+    var goalsPlanText=goals.map(function(g,i){
+      if(!g)return "";
+      var h=f["goalHow"+(i+1)]||"";
+      var r=f["goalRes"+(i+1)]||"";
+      var out=(i+1)+". GOAL: "+g;
+      out+="\n   HOW: "+(h||"not specified by the user");
+      out+="\n   RESOURCES NEEDED: "+(r||"not specified by the user");
+      return out;
+    }).filter(Boolean).join("\n")||"Not specified";
     var expText=expCats.map(function(c){return f[c.id]?c.l+": "+f[c.id]:null;}).filter(Boolean).join("; ")||"Not specified";
     var txText=txCats.map(function(c){return f[c.id]?c.l+": "+f[c.id]:null;}).filter(Boolean).join("; ")||"None";
     var onlineText=onlineCh.map(function(c){return f[c.id]?c.label+": "+f[c.id]:null;}).filter(Boolean).join(", ")||"Not provided";
@@ -1191,6 +1207,7 @@ function App(){
       " | Marketing: "+(f.execMkt||"")+" | Additional marketing: "+(f.execMktLaunch||"")+
       " | Other (assets/funding): "+(f.execOther||"")+" | Notes: "+(f.extra4||"")+
       " | Estimated extra sales units from goals: "+(f.goalSalesTotal||"0")+" | Estimated extra expenses from goals: $"+(f.goalExpTotal||"0")+
+      "\nPER-GOAL EXECUTION DETAIL (how each goal will be achieved and what it needs):\n"+goalsPlanText+
       "\n\nSTEP 5 - FINANCIAL POSITION: Plan date (month the 12-month cashflow forecast begins): "+planDate+
       " | Opening bank balance: $"+(f.openingBalance||"0")+" | Assets: "+(f.assets||"")+" | Debt: "+(f.debt||"")+
       " | Equity: "+(f.equity||"")+" | Expenses: "+expText+" | Other transactions: "+txText+
@@ -1212,11 +1229,21 @@ function App(){
       "- Under each, state that element clearly and directly in its own short paragraph. Use the wording supplied above as the basis - refine it for clarity but do not replace its meaning or invent new content.\n"+
       "- For Values, present them as a short list of lines starting with - so each value is visible on its own line.\n"+
       "- After those three blocks, add a ### Goals subheading and list the goals as numbered items.\n\n"+
+      "SECTION 4 REQUIREMENTS - Making it Happen:\n"+
+      "- This must be the most detailed section of the plan. Aim for roughly 300-350 words.\n"+
+      "- Write in flowing prose paragraphs only. Do NOT use bullet points, dashes or numbered lists anywhere in this section.\n"+
+      "- Work through the PER-GOAL EXECUTION DETAIL above and turn it into connected narrative. For each goal that has content, explain in prose how it will be achieved, what resources and people it requires, and roughly when in the 12 months the work falls.\n"+
+      "- Where the user wrote \"not specified by the user\" for a goal's How or Resources, do not invent specifics - instead note in prose what would need to be decided.\n"+
+      "- Cover the team as it stands and any planned hires, and how marketing activity supports the goals.\n"+
+      "- Tie the effort back to the numbers: reference the estimated extra sales units and extra expenses from the goals, and explain how the activity described is expected to produce them.\n"+
+      "- Use ### subheadings sparingly if genuinely helpful, but the body must be prose.\n\n"+
       "FORMATTING:\n"+
       "- Sections 1 and 2: flowing prose paragraphs, no subheadings, no bullet points.\n"+
       "- Section 3: use only the four ### subheadings specified above. Bullet lines are allowed under Values, and numbered items under Goals, but nowhere else in this section.\n"+
-      "- Sections 4 and 5: ### subheadings and bullet points (lines starting with -) are fine.\n"+
-      "- No # headings, no ---, no ** anywhere. Total 700-900 words.";
+      "- Section 4: flowing prose paragraphs. No bullet points, no dashes, no numbered lists.\n"+
+      "- Section 5: ### subheadings and bullet points (lines starting with -) are fine.\n"+
+      "- No # headings, no ---, no ** anywhere.\n"+
+      "- LENGTH: 800-950 words total. Section 4 must be the longest at roughly 300-350 words; keep sections 1, 2, 3 and 5 tight and concise to make room for it.";
 
     try{
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:2400,messages:[{role:"user",content:prompt}]})});
@@ -1271,7 +1298,7 @@ function App(){
       if(cfRows&&cfRows.length){
         html+="<div style='margin-top:36px;border-top:2px solid #f5eedd;padding-top:24px'>";
         html+="<h2 style='font-size:17px;font-weight:700;color:#01236d;margin-bottom:4px'>Graphs</h2>";
-        html+="<p style='font-size:13px;color:#6b7280;margin-bottom:16px;font-style:italic'>Units Sold, Net Profit and Closing Bank Balance charts appear below this document.</p>";
+        html+="<p style='font-size:13px;color:#6b7280;margin-bottom:16px;font-style:italic'>Units Sold &amp; Monthly Sales, Expenses Breakdown, Net Profit/(Loss) and Closing Bank Balance charts appear below.</p>";
       }
       setPlanHtml(html);
     }catch(e){
@@ -1326,7 +1353,8 @@ function App(){
   function importData(){
     var picker=document.createElement("input");
     picker.type="file";
-    picker.accept=".json,application/json";
+    // No accept filter - show all files, so backups that lost their .json
+    // extension (renamed, or saved as .txt) can still be selected.
     picker.onchange=function(){
       var file=picker.files&&picker.files[0];
       if(!file)return;
