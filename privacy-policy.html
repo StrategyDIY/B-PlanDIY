@@ -43,7 +43,8 @@ footer{text-align:center;padding:24px;font-size:13px;color:#6b7280;}
   <h2>2. What information we collect</h2>
   <p>We collect only what we need to provide our service:</p>
   <ul>
-    <li><strong>Business plan information</strong> — everything you enter into the app (business details, financials, goals etc) is saved locally on your own device using your browser's local storage. This information is never sent to or stored on our servers.</li>
+    <li><strong>Business plan information</strong> — everything you enter into the app (business details, financials, goals etc) is saved locally on your own device using your browser's local storage. We do not store it on our servers. Note that when you use the <em>Generate Business Plan</em> or <em>AI Suggest</em> features, the relevant information is sent securely to our AI provider to produce that content — see section 4.</li>
+    <li><strong>Account details</strong> — when you purchase access we collect your name, email address, phone number, how you heard about us, and your payment and access expiry dates. These are stored in our customer database (Airtable) so we can confirm your access, restore it if you change browser or device, and send you renewal reminders.</li>
     <li><strong>Feedback</strong> — if you choose to send us feedback through the app, we collect your star rating and any comments you provide. This is sent to us via email.</li>
     <li><strong>Payment information</strong> — when you purchase access, your payment is processed by our payment provider. We do not store your credit card or payment details.</li>
     <li><strong>WhatsApp group</strong> — if you choose to join our private WhatsApp community, you share your name and phone number voluntarily with the group.</li>
@@ -60,7 +61,13 @@ footer{text-align:center;padding:24px;font-size:13px;color:#6b7280;}
   <p>We do not sell your information to anyone. We do not use it for advertising.</p>
 
   <h2>4. Your business plan data</h2>
-  <p>The information you enter into the B-PlanDIY app — your business details, financials, goals and strategy — is stored entirely on your own device. It never leaves your browser. We cannot access it, and it is not stored on any of our servers. This means there are no privacy or security risks associated with the information you enter into the app.</p>
+  <p>The information you enter into the B-PlanDIY app — your business details, financials, goals and strategy — is saved on your own device in your browser's local storage. We do not keep a copy of it, we cannot browse or retrieve it, and it is not held in any database of ours.</p>
+
+  <p><strong>One important exception.</strong> When you use the <em>Generate Business Plan</em> button or an <em>AI Suggest</em> button, the information needed for that request is sent from your browser, via our server, to our AI provider (Anthropic) so the content can be written. Depending on the feature used this can include your business description, market and competitor notes, vision, values, goals, financial figures and any contact details you entered. This transmission is encrypted. Anthropic processes it to return the requested text and does not use it to train their models. If you would prefer this information were not sent to an AI provider, do not use the Generate Business Plan or AI Suggest features — the rest of the app, including the cashflow forecast, works without them.</p>
+
+  <p>Because your plan is stored on your device rather than our servers, its security depends on the security of your device and browser. Anyone with access to your device, browser profile or an unlocked screen may be able to see it.</p>
+
+  <p><strong>We hold no copy, so we cannot recover your information.</strong> It may be permanently lost if you clear your browsing data or cookies, use a browser set to clear site data on exit, use private or incognito browsing, uninstall or reset your browser, or move to a different browser, device or user profile. Your information is not synchronised between devices. The app provides <strong>Export data</strong> and <strong>Import data</strong> functions so you can keep your own backup file, and we strongly recommend you do.</p>
 
   <h2>5. Cookies</h2>
   <p>Our website may use basic cookies to help the site function. We do not use tracking or advertising cookies.</p>
@@ -68,13 +75,18 @@ footer{text-align:center;padding:24px;font-size:13px;color:#6b7280;}
   <h2>6. Third parties</h2>
   <p>We use a small number of trusted third-party services:</p>
   <ul>
-    <li><strong>Payment provider</strong> — to process your one-time payment securely</li>
+    <li><strong>Stripe</strong> — to process your one-time payment securely. We never see or store your card details.</li>
+    <li><strong>Anthropic</strong> — our AI provider, which generates the business plan text and AI suggestions (see section 4)</li>
+    <li><strong>Airtable</strong> — our customer database, holding the account details listed in section 2</li>
+    <li><strong>Resend</strong> — to send your receipt, welcome email and renewal reminders</li>
+    <li><strong>Netlify</strong> — hosts the website and the secure functions that sit between the app and the services above</li>
     <li><strong>Formspree</strong> — to receive feedback submitted through the app</li>
     <li><strong>WhatsApp</strong> — for our community group (subject to WhatsApp's own privacy policy)</li>
   </ul>
 
   <h2>7. Keeping your information safe</h2>
-  <p>We take reasonable steps to protect any personal information we hold. As most of your data stays on your own device, the main risk is with you — we recommend keeping your device secure.</p>
+  <p>We take reasonable steps to protect the personal information we hold. Access to our customer database is restricted, and information sent between your browser, our server and the services listed above is encrypted in transit.</p>
+  <p>Because your business plan itself stays on your own device, keeping that device and browser secure is important — we recommend using a password or PIN, avoiding shared or public computers for sensitive information, and keeping your browser up to date.</p>
 
   <h2>8. Your rights</h2>
   <p>Under the New Zealand Privacy Act 2020, you have the right to:</p>
