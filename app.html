@@ -1159,7 +1159,6 @@ function App(){
     setPlanHtml("");
     setLoadMsg("Generating your business plan, this may take a minute...");
     var f=fdRef.current;
-    var goalsText=goals.map(function(g,i){return g?(i+1)+". "+g:"";}).filter(Boolean).join("\n")||"Not specified";
     // Per-goal execution detail. These fields are captured in Step 4 (and by the
     // AI Suggest button) and are the substance of the "Making it Happen" section.
     var goalsPlanText=goals.map(function(g,i){
@@ -1201,7 +1200,6 @@ function App(){
       " | Notes: "+(f.extra3||"")+
       "\n\nSTEP 3 - VISION & STRATEGY: Vision: "+(f.vision||"")+" | Position: "+(f.position||"")+" | Values: "+(f.values||"")+
       " | SWOT Strengths: "+(f.swotS||"")+" | Weaknesses: "+(f.swotW||"")+" | Opportunities: "+(f.swotO||"")+" | Threats: "+(f.swotT||"")+
-      " | Goals:\n"+goalsText+
       " | Notes: "+(f.extra2||"")+
       "\n\nSTEP 4 - MAKING IT HAPPEN: Team: "+(f.execTeam||"")+" | New hires: "+(f.execTeamNew||"")+
       " | Marketing: "+(f.execMkt||"")+" | Additional marketing: "+(f.execMktLaunch||"")+
@@ -1217,28 +1215,29 @@ function App(){
       "- Never use the phrase \"launch date\", and never describe either date as a launch.\n"+
       "- If a date is \"Not specified\", simply omit it rather than guessing or inventing one.\n"+
       "\nWrite the plan with these ## sections in this exact order:\n"+
-      "## 1. Business Details\n## 2. Market & Customers\n## 3. Vision & Strategy\n## 4. Making it Happen\n## 5. Financial Position\n\n"+
+      "## 1. Business Details\n## 2. Market & Customers\n## 3. Vision & Position\n## 4. Goals & Achieving Them\n## 5. Financial Position\n\n"+
       "SECTION 2 REQUIREMENTS - Market & Customers:\n"+
       "- Describe the realistic, addressable market this business can actually reach given its size, stage, locations and resources. Do not quote large total-industry figures as if they were reachable.\n"+
       "- If the market opportunity supplied above is broad or nationwide, narrow it to the segment this business can realistically serve, and say why.\n"+
       "- For competitors, cover their strengths AND their weaknesses. Give the strengths genuine weight - do not dismiss competitors or list only their shortcomings.\n"+
       "- Then explain where this business can realistically compete against those strengths.\n\n"+
-      "SECTION 3 REQUIREMENTS - Vision & Strategy:\n"+
+      "SECTION 3 REQUIREMENTS - Vision & Position:\n"+
       "- Present Vision, Position Statement and Values as three separate labelled blocks so each stands out clearly, using these exact ### subheadings in this order:\n"+
       "### Vision\n### Position Statement\n### Values\n"+
       "- Under each, state that element clearly and directly in its own short paragraph. Use the wording supplied above as the basis - refine it for clarity but do not replace its meaning or invent new content.\n"+
       "- For Values, present them as a short list of lines starting with - so each value is visible on its own line.\n"+
-      "- After those three blocks, add a ### Goals subheading and list the goals as numbered items.\n\n"+
-      "SECTION 4 REQUIREMENTS - Making it Happen:\n"+
-      "- For each goal in the PER-GOAL EXECUTION DETAIL above, give a SHORT summary in prose of how it will be achieved and what resources it needs. Two or three sentences per goal is enough.\n"+
-      "- Write in prose paragraphs. Do NOT use bullet points, dashes or numbered lists.\n"+
+      "- Do NOT include goals in this section. Goals belong in section 4.\n\n"+
+      "SECTION 4 REQUIREMENTS - Goals & Achieving Them:\n"+
+      "- List each goal from the PER-GOAL EXECUTION DETAIL above as its own ### subheading, numbered, in this form:\n"+
+      "### Goal 1: [short version of the goal]\n"+
+      "- Directly under each goal subheading, write a SHORT prose summary (two or three sentences) of how it will be achieved and what resources it needs. Use the HOW and RESOURCES NEEDED supplied for that goal.\n"+
       "- Where a goal's How or Resources says \"not specified by the user\", say briefly that it still needs to be decided rather than inventing detail.\n"+
-      "- Finish with one short paragraph covering the team, any planned hires, and the estimated extra sales units and expenses from the goals.\n"+
-      "- Keep this section to roughly 200 words.\n\n"+
+      "- Do NOT use bullet points or dashes within the goal summaries - prose only.\n"+
+      "- After all the goals, finish the section with one short paragraph headed ### Team & Resources covering the team as it stands, any planned hires, marketing support, and the estimated extra sales units and extra expenses from the goals.\n\n"+
       "FORMATTING:\n"+
       "- Sections 1 and 2: flowing prose paragraphs, no subheadings, no bullet points.\n"+
-      "- Section 3: use only the four ### subheadings specified above. Bullet lines are allowed under Values, and numbered items under Goals, but nowhere else in this section.\n"+
-      "- Section 4: flowing prose paragraphs. No bullet points, no dashes, no numbered lists.\n"+
+      "- Section 3: use only the three ### subheadings specified above. Bullet lines are allowed under Values, but nowhere else in this section.\n"+
+      "- Section 4: ### subheadings per goal plus a ### Team & Resources block. Body text under each must be prose - no bullet points or dashes.\n"+
       "- Section 5: ### subheadings and bullet points (lines starting with -) are fine.\n"+
       "- No # headings, no ---, no ** anywhere.\n"+
       "- LENGTH: keep the whole plan to 600-700 words total. Be concise throughout - short paragraphs, no padding, no repetition.";
@@ -1570,7 +1569,7 @@ function App(){
               <input style={inp} defaultValue={fdRef.current.goalSalesTotal||""} placeholder="e.g. 100" onChange={function(e){fdRef.current.goalSalesTotal=e.target.value;saveToStorage();}}/>
             </div>
             <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>From the goals above, how much will expenses increase in total over the next 12 months?</div>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>From resources needed above, how much will expenses increase in total over the next 12 months?</div>
               <input style={inp} defaultValue={fdRef.current.goalExpTotal||""} placeholder="e.g. 5000" onChange={function(e){fdRef.current.goalExpTotal=e.target.value;saveToStorage();}}/>
             </div>
           </div>
