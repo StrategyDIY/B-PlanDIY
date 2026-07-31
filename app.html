@@ -12,6 +12,14 @@
 .spinner{width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #01236d;border-radius:50%;animation:spin 0.8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18115223677"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-18115223677');
+</script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" onerror="console.warn('jszip CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="console.warn('xlsx CDN failed')"></script>
@@ -77,8 +85,8 @@ const expCats=[
 ];
 const txCats=[
   {id:"txLoan",l:"Loan transactions",ph:"e.g. 50000 loan received, -2000 monthly repayment"},
-  {id:"txAsset",l:"Asset transactions",ph:"e.g. -$15,000 vehicle purchase"},
-  {id:"txTax",l:"Tax payments",ph:"Auto-calculated — tick to override by month"},
+  {id:"txAsset",l:"Asset transactions",ph:"e.g. 4000 equipment sale, -15000 vehicle purchase"},
+  {id:"txTax",l:"Tax payments",ph:"Auto-calculated — tick to override (enter as negative)"},
   {id:"txOther",l:"Other transactions",ph:"e.g. 10000 owner investment, -500 drawings"}
 ];
 
@@ -201,7 +209,9 @@ function calcCashflow(f){
       if(c.id==="txTax"){
         // Use entered monthly grid values only if the grid is explicitly enabled
         const entered=f["txTax_monthly"]==="1"?Math.round(txArr[c.id][i]):0;
-        v=entered!==0?entered:calcTax;
+        // Convention: money in is positive, money out is negative.
+        // Tax paid is an outflow, so the auto-calculated figure is negated.
+        v=entered!==0?entered:-calcTax;
       } else {
         v=Math.round(txArr[c.id][i]);
       }
@@ -209,7 +219,7 @@ function calcCashflow(f){
       otherTx+=v;
     });
 
-    const netCashflow=netProfit-otherTx;
+    const netCashflow=netProfit+otherTx;
     const openBal=bal;
     bal=bal+netCashflow;
 
@@ -268,7 +278,7 @@ function CfTable({rows}){
         </thead>
         <tbody>
           <tr><td style={hdr} colSpan={rows.length+2}>Key Drivers</td></tr>
-          <tr><td style={tdF}>Units sold</td>{rows.map(function(r){return <td key={r.month} style={td}>{(r.units||0).toLocaleString()}</td>;})}<td style={Object.assign({},tot,totB)}></td></tr>
+          <tr><td style={tdF}>Units sold</td>{rows.map(function(r){return <td key={r.month} style={td}>{(r.units||0).toLocaleString()}</td>;})}<td style={Object.assign({},tot,totB)}>{totals("units").toLocaleString()}</td></tr>
           <tr><td style={tdF}>Average price ($)</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.avgPrice||0)}</td>;})}<td style={Object.assign({},tot,totB)}></td></tr>
           <tr><td style={tdF}>Average cost ($)</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.avgCost||0)}</td>;})}<td style={Object.assign({},tot,totB)}></td></tr>
           <tr><td style={hdr} colSpan={rows.length+2}>Revenue</td></tr>
@@ -488,6 +498,19 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
   var start=(startMonth||1)-1;
   var verState=useState(0);var ver=verState[0];var setVer=verState[1];
   var copiedState=useState(false);var copied=copiedState[0];var setCopied=copiedState[1];
+  // Label months from the cashflow start date set in Step 5 (format "YYYY-MM").
+  // Falls back to M1..M12 until that date has been chosen.
+  var SHORT_MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var cfs=(fdRef.current&&fdRef.current.cfStartDate)||"";
+  var cfp=String(cfs).split("-");
+  var sy=parseInt(cfp[0]),sm=parseInt(cfp[1]);
+  var hasStart=!!(sy&&sm&&sm>=1&&sm<=12);
+  function monthLabel(m){
+    if(!hasStart)return "M"+(m+1);
+    var idx=(sm-1+m)%12;
+    var yr=sy+Math.floor((sm-1+m)/12);
+    return SHORT_MONTHS[idx]+" "+String(yr).slice(2);
+  }
   function mKey(m){return keyPrefix+(m+1)+post;}
   var mgStyle={display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:6};
   return (
@@ -497,7 +520,7 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
           var key=mKey(m);
           var locked=m<start;
           return (<div key={m}>
-              <label style={{fontSize:10,color:locked?"#d1d5db":"#9ca3af",marginBottom:2,display:"block",textAlign:"center"}}>M{m+1}</label>
+              <label style={{fontSize:10,color:locked?"#d1d5db":"#9ca3af",marginBottom:2,display:"block",textAlign:"center"}}>{monthLabel(m)}</label>
               <input style={Object.assign({},inp,{textAlign:"right",padding:"6px 8px",fontSize:13},locked?{background:"#f3f4f6",color:"#d1d5db",cursor:"not-allowed"}:{})} defaultValue={locked?"":fdRef.current[key]||""} placeholder={locked?"-":"0"} readOnly={locked} onChange={locked?undefined:function(e){
                 fdRef.current[key]=e.target.value;
                 var parts=Array.from({length:12},function(_,n){return n<start?"0":fdRef.current[mKey(n)]||"0";});
@@ -521,7 +544,7 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
         }
         setVer(function(n){return n+1;});
         if(onUpdate)onUpdate();
-      }}>{copied?"Clear all months":"Copy M"+(start+1)+" to all months"}</button>
+      }}>{copied?"Clear all months":"Copy "+monthLabel(start)+" to all months"}</button>
     </div>
   );
 }
@@ -777,9 +800,11 @@ function App(){
       var wb=XLSX.utils.book_new();
       var data=[];
       var header=[""].concat(mos).concat(["Total"]);
-      function dr(label,vals){
+      function dr(label,vals,opts){
+        opts=opts||{};
         var tot=vals.reduce(function(a,b){return a+(b||0);},0);
-        return [label].concat(vals.map(function(v){return v||0;})).concat([tot]);
+        // Averages must not be summed - leave their Total cell blank
+        return [label].concat(vals.map(function(v){return v||0;})).concat([opts.noTotal?"":tot]);
       }
       function sr(label){return [label].concat(Array(mos.length+1).fill(""));}
 
@@ -788,8 +813,8 @@ function App(){
       data.push(header);
       data.push(sr("KEY DRIVERS"));
       data.push(dr("Units Sold",cfRows.map(function(r){return r.units||0;})));
-      data.push(dr("Avg Price",cfRows.map(function(r){return r.avgPrice||0;})));
-      data.push(dr("Avg Cost",cfRows.map(function(r){return r.avgCost||0;})));
+      data.push(dr("Avg Price",cfRows.map(function(r){return r.avgPrice||0;}),{noTotal:true}));
+      data.push(dr("Avg Cost",cfRows.map(function(r){return r.avgCost||0;}),{noTotal:true}));
       data.push(sr("REVENUE"));
       data.push(dr("Products/Services",cfRows.map(function(r){return r.revProducts||0;})));
       data.push(dr("Other Revenue",cfRows.map(function(r){return r.revOther||0;})));
@@ -800,14 +825,14 @@ function App(){
       data.push(sr("EXPENSES"));
       expCats.forEach(function(c){
         var ev=cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;});
-        if(ev.reduce(function(a,b){return a+b;},0))data.push(dr(c.l,ev));
+        if(ev.some(function(v){return v!==0;}))data.push(dr(c.l,ev));
       });
       data.push(dr("Total Expenses",cfRows.map(function(r){return r.totalExpenses||0;})));
       data.push(dr("Net Profit/(Loss)",cfRows.map(function(r){return r.netProfit||0;})));
       data.push(sr("OTHER TRANSACTIONS"));
       txCats.forEach(function(c){
         var tv=cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;});
-        if(tv.reduce(function(a,b){return a+b;},0))data.push(dr(c.l,tv));
+        if(tv.some(function(v){return v!==0;}))data.push(dr(c.l,tv));
       });
       data.push(dr("Total Other Transactions",cfRows.map(function(r){return r.otherTx||0;})));
       data.push(sr("CASHFLOW"));
@@ -1095,23 +1120,35 @@ function App(){
         var bBg={type:ShadingType.SOLID,color:"f9fafb",fill:"f9fafb"};
         function mc(txt,o){o=o||{};return new TableCell({width:{size:o.first?LBL_W:cw,type:WidthType.DXA},margins:{top:20,bottom:20,left:50,right:50},shading:o.sh,children:[new Paragraph({alignment:o.first?AlignmentType.LEFT:AlignmentType.RIGHT,children:[new TextRun({text:String(txt||""),bold:!!o.b,color:o.c||"1a1a1a",size:16,font:FONT})]})]}); }
         function mhr(lbl){var cs=[mc(lbl,{first:true,b:true,c:"01236d",sh:hBg})];mos.forEach(function(){cs.push(mc("",{sh:hBg}));});cs.push(mc("",{sh:hBg}));return new TableRow({children:cs});}
-        function mr(lbl,vals,bold){var tot=vals.reduce(function(s,v){return s+v;},0);var s=bold?bBg:undefined;var cs=[mc(lbl,{first:true,b:bold,sh:s})];vals.forEach(function(v){cs.push(mc(v?fmtN(v):"",{b:bold,c:v<0?"A32D2D":"1a1a1a",sh:s}));});cs.push(mc(tot?fmtN(tot):"",{b:true,c:tot<0?"A32D2D":"1a1a1a",sh:s}));return new TableRow({children:cs});}
+        // opts.plain = render as a plain number (units), not currency
+        // opts.noTotal = leave the Total cell blank (averages don't sum meaningfully)
+        function mr(lbl,vals,bold,opts){
+          opts=opts||{};
+          var f=opts.plain?function(v){return Math.round(v).toLocaleString();}:fmtN;
+          var tot=vals.reduce(function(s,v){return s+v;},0);
+          var s=bold?bBg:undefined;
+          var cs=[mc(lbl,{first:true,b:bold,sh:s})];
+          vals.forEach(function(v){cs.push(mc(v?f(v):"",{b:bold,c:v<0?"A32D2D":"1a1a1a",sh:s}));});
+          var totTxt=opts.noTotal?"":(tot?f(tot):"");
+          cs.push(mc(totTxt,{b:true,c:tot<0?"A32D2D":"1a1a1a",sh:s}));
+          return new TableRow({children:cs});
+        }
         function mrk(lbl,key,bold){return mr(lbl,cfRows.map(function(r){return r[key]||0;}),bold);}
         var hc=[mc("Item",{first:true,b:true,c:"FFFFFF",sh:navy})];
         mos.forEach(function(m){hc.push(mc(m,{b:true,c:"FFFFFF",sh:navy}));});
         hc.push(mc("Total",{b:true,c:"FFFFFF",sh:navy}));
         var tblRows=[new TableRow({children:hc})];
         tblRows.push(mhr("Key Drivers"));
-        tblRows.push(mr("Units Sold",cfRows.map(function(r){return r.units||0;}),false));
-        tblRows.push(mr("Avg Price",cfRows.map(function(r){return r.avgPrice||0;}),false));
-        tblRows.push(mr("Avg Cost",cfRows.map(function(r){return r.avgCost||0;}),false));
+        tblRows.push(mr("Units Sold",cfRows.map(function(r){return r.units||0;}),false,{plain:true}));
+        tblRows.push(mr("Avg Price",cfRows.map(function(r){return r.avgPrice||0;}),false,{noTotal:true}));
+        tblRows.push(mr("Avg Cost",cfRows.map(function(r){return r.avgCost||0;}),false,{noTotal:true}));
         tblRows.push(mhr("Revenue"));tblRows.push(mrk("Products/Services","revProducts",false));tblRows.push(mrk("Other Revenue","revOther",false));tblRows.push(mrk("Total Revenue","revenue",true));
         tblRows.push(mhr("Cost of Sales"));tblRows.push(mrk("Cost of Sales","cogs",false));tblRows.push(mrk("Gross Profit","grossProfit",true));
         tblRows.push(mhr("Expenses"));
-        expCats.forEach(function(c){var t=cfRows.reduce(function(s,r){return s+(r.expDetail&&r.expDetail[c.id]||0);},0);if(t)tblRows.push(mr(c.l,cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;}),false));});
+        expCats.forEach(function(c){var vs=cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;});if(vs.some(function(v){return v!==0;}))tblRows.push(mr(c.l,cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;}),false));});
         tblRows.push(mrk("Total Expenses","totalExpenses",true));tblRows.push(mrk("Net Profit/(Loss)","netProfit",true));
         tblRows.push(mhr("Other Transactions"));
-        txCats.forEach(function(c){var t=cfRows.reduce(function(s,r){return s+(r.txDetail&&r.txDetail[c.id]||0);},0);if(t)tblRows.push(mr(c.l,cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;}),false));});
+        txCats.forEach(function(c){var vs=cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;});if(vs.some(function(v){return v!==0;}))tblRows.push(mr(c.l,cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;}),false));});
         tblRows.push(mrk("Total Other Transactions","otherTx",true));
         tblRows.push(mhr("Cashflow"));tblRows.push(mrk("Net Cashflow","netCashflow",true));tblRows.push(mrk("Closing Balance","closingBalance",true));
         cfChildren.push(new Table({width:{size:TBL_W,type:WidthType.DXA},columnWidths:colWidths,layout:TableLayoutType.FIXED,rows:tblRows}));
@@ -1692,7 +1729,11 @@ function App(){
               {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 200"} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
             </div>);})}            <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Other transactions ($)</div>
-            <span style={{fontSize:12,color:"#374151",marginBottom:8,display:"block"}}>Regular monthly or one-off</span>
+            <span style={{fontSize:12,color:"#374151",marginBottom:6,display:"block"}}>Regular monthly or one-off</span>
+            <div style={{background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:6,padding:"8px 11px",marginBottom:10,fontSize:12,color:"#6b5a33",lineHeight:1.55}}>
+              <strong style={{color:"#01236d"}}>Which sign to use:</strong> enter money coming <strong>in</strong> as a <strong>positive</strong> number, and money going <strong>out</strong> as a <strong>negative</strong> number.<br/>
+              e.g. a loan received is <strong>50000</strong>, a loan repayment is <strong>-2000</strong>.
+            </div>
             {txCats.map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
               <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}{c.id==="txTax"&&<span style={{fontSize:11,color:"#d0b16f",marginLeft:8,fontWeight:400}}>Auto-calculated from Tax rate — override with monthly amounts</span>}</div>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
