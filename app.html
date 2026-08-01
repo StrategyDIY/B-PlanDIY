@@ -86,7 +86,8 @@ const expCats=[
 const txCats=[
   {id:"txLoan",l:"Loan transactions",ph:"e.g. 50000 loan received, -2000 monthly repayment"},
   {id:"txAsset",l:"Asset transactions",ph:"e.g. 4000 equipment sale, -15000 vehicle purchase"},
-  {id:"txTax",l:"Tax payments",ph:"Auto-calculated — tick to override (enter as negative)"},
+  {id:"txTax",l:"Tax payments",ph:"Auto-calculated from the Tax rate above"},
+  {id:"txTaxOther",l:"Tax payments other",ph:"e.g. 2000 income tax refund, -1000 withholding tax payment"},
   {id:"txOther",l:"Other transactions",ph:"e.g. 10000 owner investment, -500 drawings"}
 ];
 
@@ -207,11 +208,10 @@ function calcCashflow(f){
     txCats.forEach(c=>{
       let v;
       if(c.id==="txTax"){
-        // Use entered monthly grid values only if the grid is explicitly enabled
-        const entered=f["txTax_monthly"]==="1"?Math.round(txArr[c.id][i]):0;
+        // Always auto-calculated from the Tax rate - not user editable.
         // Convention: money in is positive, money out is negative.
-        // Tax paid is an outflow, so the auto-calculated figure is negated.
-        v=entered!==0?entered:-calcTax;
+        // Tax paid is an outflow, so the calculated figure is negated.
+        v=-calcTax;
       } else {
         v=Math.round(txArr[c.id][i]);
       }
@@ -1734,11 +1734,26 @@ function App(){
               <strong style={{color:"#01236d"}}>Which sign to use:</strong> enter money coming <strong>in</strong> as a <strong>positive</strong> number, and money going <strong>out</strong> as a <strong>negative</strong> number.<br/>
               e.g. a loan received is <strong>50000</strong>, a loan repayment is <strong>-2000</strong>.
             </div>
-            {txCats.map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
-              <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}{c.id==="txTax"&&<span style={{fontSize:11,color:"#d0b16f",marginLeft:8,fontWeight:400}}>Auto-calculated from Tax rate — override with monthly amounts</span>}</div>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
-              {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={c.id==="txTax"?Object.assign({},inp,{color:"#9ca3af",fontStyle:"italic"}):inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.id==="txTax"?"Auto-calculated — tick to override by month":(c.ph||"e.g. 500")} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
-            </div>);})}
+            {txCats.map(function(c){
+              // Tax payments is derived from the Tax rate and payment months set
+              // above - it is displayed read-only so it cannot drift from the
+              // calculation. Use "Tax payments other" for anything manual.
+              if(c.id==="txTax"){
+                var taxTotal=liveRows.reduce(function(s,r){return s+(r.txDetail&&r.txDetail.txTax||0);},0);
+                return (<div key={c.id} style={{marginBottom:10}}>
+                  <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}<span style={{fontSize:11,color:"#d0b16f",marginLeft:8,fontWeight:400}}>Auto-calculated — not editable</span></div>
+                  <div style={Object.assign({},inp,{background:"#f3f4f6",color:"#6b7280",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"not-allowed"})}>
+                    <span style={{fontSize:13}}>From the Tax rate and payment months above</span>
+                    <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(taxTotal)}</span>
+                  </div>
+                </div>);
+              }
+              return (<div key={c.id} style={{marginBottom:10}}>
+                <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}</div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+                {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 500"} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
+              </div>);
+            })}
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
             <textarea key="extra5" style={ta(2)} defaultValue={fdRef.current["extra5"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra5"]=e.target.value;saveToStorage();}}/>
