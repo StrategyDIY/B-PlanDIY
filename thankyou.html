@@ -1,6 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18115223677"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-18115223677');
+</script>
+<!-- Event snippet for Purchase conversion page -->
+<script>
+  // Fire the purchase conversion once per browser session. Without this guard a
+  // page refresh or back-navigation would report a second conversion for the
+  // same sale. transaction_id lets Google de-duplicate server side as well.
+  (function(){
+    try{
+      var txId = sessionStorage.getItem('bpd_conv_id');
+      if(!txId){
+        txId = 'bpd-' + Date.now() + '-' + Math.random().toString(36).slice(2,10);
+        sessionStorage.setItem('bpd_conv_id', txId);
+        gtag('event', 'conversion', {
+          'send_to': 'AW-18115223677/LA3zCMKn8NkcEP3Agb5D',
+          'transaction_id': txId
+        });
+      }
+    }catch(e){
+      // sessionStorage unavailable (private mode) - fall back to firing once per load
+      gtag('event', 'conversion', {
+        'send_to': 'AW-18115223677/LA3zCMKn8NkcEP3Agb5D',
+        'transaction_id': ''
+      });
+    }
+  })();
+</script>
+
 <meta charset="UTF-8"/>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
@@ -52,39 +86,6 @@ footer{text-align:center;padding:24px;font-size:13px;color:#6b7280;}
 footer a{color:#01236d;}
 @media(max-width:500px){.features{grid-template-columns:1fr;}}
 </style>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18115223677"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'AW-18115223677');
-</script>
-<!-- Event snippet for Purchase conversion page -->
-<script>
-  // Fire the purchase conversion once per browser session. Without this guard a
-  // page refresh or back-navigation would report a second conversion for the
-  // same sale. transaction_id lets Google de-duplicate server side as well.
-  (function(){
-    try{
-      var txId = sessionStorage.getItem('bpd_conv_id');
-      if(!txId){
-        txId = 'bpd-' + Date.now() + '-' + Math.random().toString(36).slice(2,10);
-        sessionStorage.setItem('bpd_conv_id', txId);
-        gtag('event', 'conversion', {
-          'send_to': 'AW-18115223677/LA3zCMKn8NkcEP3Agb5D',
-          'transaction_id': txId
-        });
-      }
-    }catch(e){
-      // sessionStorage unavailable (private mode) - fall back to firing once per load
-      gtag('event', 'conversion', {
-        'send_to': 'AW-18115223677/LA3zCMKn8NkcEP3Agb5D',
-        'transaction_id': ''
-      });
-    }
-  })();
-</script>
 </head>
 <body>
 

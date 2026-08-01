@@ -1,6 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18115223677"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-18115223677');
+</script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>B-PlanDIY - Business Plan Generator</title>
@@ -12,14 +20,6 @@
 .spinner{width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #01236d;border-radius:50%;animation:spin 0.8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18115223677"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'AW-18115223677');
-</script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" onerror="console.warn('jszip CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="console.warn('xlsx CDN failed')"></script>
@@ -101,6 +101,17 @@ const STORAGE_KEY="bpg_fd";
 
 function fmtDate(v){if(!v)return"Not specified";var parts=v.split("-");var months=["January","February","March","April","May","June","July","August","September","October","November","December"];return parseInt(parts[2])+" "+months[parseInt(parts[1])-1]+" "+parts[0];}
 function fmt(n){const v=Math.round(Number(n));return(v<0?"-$":"$")+Math.abs(v).toLocaleString();}
+// Chart axis labels. Scales to the data instead of always dividing by 1000,
+// which made every tick read "$0k" for businesses turning over under $1k a
+// month. Keeps the sign, which Math.abs() alone would discard.
+function axisFmt(v){
+  const a=Math.abs(Number(v)||0);
+  const sign=v<0?"-$":"$";
+  if(a>=1000000)return sign+(a/1000000).toFixed(1).replace(/\.0$/,"")+"m";
+  if(a>=10000)return sign+Math.round(a/1000)+"k";
+  if(a>=1000)return sign+(a/1000).toFixed(1).replace(/\.0$/,"")+"k";
+  return sign+Math.round(a).toLocaleString();
+}
 
 function parseMonthly(str,def){
   if(def===undefined)def=0;
@@ -349,8 +360,8 @@ function CfCharts({rows,expCatsData}){
         <BarChart data={unitsData} margin={{top:4,right:8,left:8,bottom:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
           <XAxis dataKey="name" tick={{fontSize:10}} axisLine={false} tickLine={false} interval={0} minTickGap={0}/>
-          <YAxis yAxisId="left" tickFormatter={function(v){return v.toLocaleString();}} tick={{fontSize:11}} axisLine={false} tickLine={false} width={48}/>
-          <YAxis yAxisId="right" orientation="right" tickFormatter={function(v){return"$"+Math.abs(v/1000).toFixed(0)+"k";}} tick={{fontSize:11}} axisLine={false} tickLine={false} width={48}/>
+          <YAxis yAxisId="left" tickFormatter={function(v){return v.toLocaleString();}} tick={{fontSize:11}} axisLine={false} tickLine={false} width={62}/>
+          <YAxis yAxisId="right" orientation="right" tickFormatter={axisFmt} tick={{fontSize:11}} axisLine={false} tickLine={false} width={62}/>
           <Tooltip content={<ChartTip/>}/>
           <Legend wrapperStyle={{fontSize:11}}/>
           <Bar yAxisId="left" dataKey="units" name="Units Sold" radius={[3,3,0,0]} fill="#01236d"/>
@@ -377,10 +388,10 @@ function CfCharts({rows,expCatsData}){
       </div>):<div style={{fontSize:13,color:"#9ca3af",padding:"16px 0"}}>No expense data entered yet.</div>}
       <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Net Profit / (Loss)</div>
       <ResponsiveContainer width="100%" height={160}>
-        <LineChart data={npData} margin={{top:4,right:8,left:8,bottom:0}}>
+        <LineChart data={npData} margin={{top:4,right:24,left:8,bottom:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
           <XAxis dataKey="name" tick={{fontSize:10}} axisLine={false} tickLine={false} interval={0} minTickGap={0}/>
-          <YAxis tickFormatter={function(v){return(v<0?"-$":"$")+Math.abs(v/1000).toFixed(0)+"k";}} tick={{fontSize:11}} axisLine={false} tickLine={false} width={48}/>
+          <YAxis tickFormatter={axisFmt} tick={{fontSize:11}} axisLine={false} tickLine={false} width={62}/>
           <Tooltip content={<ChartTip/>}/>
           <ReferenceLine y={0} stroke="#d1d5db"/>
           <Line type="monotone" dataKey="value" name="Net Profit" stroke="#01236d" strokeWidth={2} dot={function(p){return <circle key={p.key} cx={p.cx} cy={p.cy} r={4} fill={p.value<0?RED:GREEN} stroke="#fff" strokeWidth={1}/>;}} activeDot={{r:5}}/>
@@ -391,7 +402,7 @@ function CfCharts({rows,expCatsData}){
         <BarChart data={cbData} margin={{top:4,right:8,left:8,bottom:0}}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
           <XAxis dataKey="name" tick={{fontSize:10}} axisLine={false} tickLine={false} interval={0} minTickGap={0}/>
-          <YAxis tickFormatter={function(v){return(v<0?"-$":"$")+Math.abs(v/1000).toFixed(0)+"k";}} tick={{fontSize:11}} axisLine={false} tickLine={false} width={48}/>
+          <YAxis tickFormatter={axisFmt} tick={{fontSize:11}} axisLine={false} tickLine={false} width={62}/>
           <Tooltip content={<ChartTip/>}/>
           <ReferenceLine y={0} stroke="#d1d5db"/>
           <Bar dataKey="value" name="Closing Balance" radius={[3,3,0,0]}>
@@ -946,11 +957,15 @@ function App(){
         };
       }
 
+      // Mirrors axisFmt() used by the on-screen charts so the same values
+      // read identically in the app and the Word document.
       function axisLabel(v){
         var a=Math.abs(v);
-        if(a>=1000000)return (v<0?"-$":"$")+(a/1000000).toFixed(1).replace(/\.0$/,"")+"m";
-        if(a>=1000)return (v<0?"-$":"$")+Math.round(a/1000)+"k";
-        return (v<0?"-$":"$")+Math.round(a);
+        var sign=v<0?"-$":"$";
+        if(a>=1000000)return sign+(a/1000000).toFixed(1).replace(/\.0$/,"")+"m";
+        if(a>=10000)return sign+Math.round(a/1000)+"k";
+        if(a>=1000)return sign+(a/1000).toFixed(1).replace(/\.0$/,"")+"k";
+        return sign+Math.round(a).toLocaleString();
       }
 
       function drawAxes(ctx,sc,padL,plotTop,plotH,plotW,isCurrency){
@@ -968,7 +983,7 @@ function App(){
 
       function makeBarChart(title,data,color,negColor,isCurrency){
         var canvas=document.createElement("canvas");
-        var W=680,padL=64,padR=16,padT=34,padB=34;
+        var W=680,padL=64,padR=28,padT=34,padB=34;
         var plotH=210,plotW=W-padL-padR;
         canvas.width=W;canvas.height=padT+plotH+padB;
         var ctx=canvas.getContext("2d");
@@ -1004,7 +1019,7 @@ function App(){
 
       function makeLineChart(title,data,color,negColor,isCurrency){
         var canvas=document.createElement("canvas");
-        var W=680,padL=64,padR=16,padT=34,padB=34;
+        var W=680,padL=64,padR=28,padT=34,padB=34;
         var plotH=210,plotW=W-padL-padR;
         canvas.width=W;canvas.height=padT+plotH+padB;
         var ctx=canvas.getContext("2d");
