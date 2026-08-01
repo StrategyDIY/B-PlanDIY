@@ -1770,10 +1770,13 @@ function App(){
       );}},
   ];
 
-  // Form steps read best narrow, but Step 5's cashflow table needs ~916px and
+  // Form content reads best narrow, but the cashflow table needs ~916px and
   // would otherwise be permanently scrolled sideways even on a large monitor.
+  // So only the Step 5 tabs that show wide data widen; its Details tab, which
+  // is a form like every other step, stays at the narrow width.
   // maxWidth only bites above the limit, so narrow devices are unaffected.
-  var appW=showOutput?900:((!showDirection&&step===4)?1080:640);
+  var wideTab=["cashflow","graphs","whatif"].indexOf(previewTab)>=0;
+  var appW=showOutput?900:((!showDirection&&step===4&&wideTab)?1080:640);
   var appStyle={fontFamily:"system-ui,sans-serif",maxWidth:appW,margin:"0 auto",padding:16,transition:"max-width 0.2s ease"};
   var cardStyle={background:"#fff",borderRadius:12,padding:"24px 20px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:16};
 
