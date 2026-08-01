@@ -638,6 +638,32 @@ function App(){
 
   var inp={width:"100%",fontFamily:"inherit",fontSize:14,color:"#1a1a1a",background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 11px",outline:"none",boxSizing:"border-box"};
   var ta=function(r){return Object.assign({},inp,{resize:"vertical",lineHeight:1.6,minHeight:r*26});};
+  // Two-column field rows. flex-basis 260px means the pair sits side by side on
+  // desktop and stacks automatically on narrow screens, with no media query.
+  // minWidth:0 stops a nested flex child (the date selects) forcing an overflow.
+  var f2row={display:"flex",gap:14,flexWrap:"wrap",marginBottom:14};
+  var f2col={flex:"1 1 260px",minWidth:0};
+  // Grow a textarea to fit its content so nothing is hidden behind a scrollbar.
+  // Height is reset to "auto" first so the box can shrink as well as grow.
+  // overflow is only hidden once we have successfully measured - if measuring
+  // fails the textarea keeps its default scrollbar rather than clipping text.
+  function autoGrow(el){
+    if(!el||typeof el.scrollHeight!=="number")return;
+    el.style.height="auto";
+    var h=el.scrollHeight;
+    if(h>0){el.style.height=h+"px";el.style.overflowY="hidden";}
+  }
+  // Callback ref: fires on mount, and again whenever a textarea's key changes -
+  // which is how the AI Suggest buttons refresh a field.
+  // The measurement is repeated on the next frame because scrollHeight can be
+  // wrong on first paint, before styles and web fonts have been applied - which
+  // left pre-filled fields stuck at their minimum height.
+  var growRef=function(el){
+    if(!el)return;
+    autoGrow(el);
+    if(typeof requestAnimationFrame==="function")requestAnimationFrame(function(){autoGrow(el);});
+  };
+  var growOn=function(e){autoGrow(e.target);};
   var sel=Object.assign({},inp,{cursor:"pointer"});
   var btnSm={fontFamily:"inherit",fontSize:12,padding:"6px 12px",borderRadius:6,border:"1px solid #e5e7eb",background:"#fff",cursor:"pointer",color:"#374151"};
   var suggestBtn={fontFamily:"inherit",fontSize:13,padding:"8px 16px",borderRadius:6,border:"none",background:"#d0b16f",cursor:"pointer",color:"#fff",fontWeight:500,flexShrink:0};
@@ -655,7 +681,7 @@ function App(){
   var refreshLive=useCallback(function(){setLiveRows(calcCashflow(fdRef.current));},[]);
 
   function RT(id,ph,rows){
-    return <textarea key={id} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
+    return <textarea ref={growRef} onInput={growOn} key={id} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
   }
   function R(id,ph){
     return <input key={id} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={inp} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
@@ -1505,58 +1531,90 @@ function App(){
   var stepDefs=[
     {label:"Step 1 of 5 - Business Details",title:"Tell us about your business",desc:"Let's start with the fundamentals.",
       render:function(){return (<>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business name</div>
-          {R("bizName","e.g. Flowly Ltd")}
-          <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Date established</div>
-          <div style={{display:"flex",gap:8}}>
-            <select style={{...sel,flex:1}} value={(fdRef.current.bizDate||"").split("-")[1]||""} onChange={function(e){var parts=(fdRef.current.bizDate||"----").split("-");parts[1]=e.target.value;fdRef.current.bizDate=parts[0]+"-"+parts[1]+"-01";saveToStorage();}}>
-              <option value="">Month</option>
-              {["01","02","03","04","05","06","07","08","09","10","11","12"].map(function(m,i){return <option key={m} value={m}>{["January","February","March","April","May","June","July","August","September","October","November","December"][i]}</option>;})}
-            </select>
-            <select style={{...sel,flex:1}} value={(fdRef.current.bizDate||"").split("-")[0]||""} onChange={function(e){var parts=(fdRef.current.bizDate||"----").split("-");parts[0]=e.target.value;fdRef.current.bizDate=parts[0]+"-"+(parts[1]||"01")+"-01";saveToStorage();}}>
-              <option value="">Year</option>
-              {Array.from({length:50},function(_,i){var y=new Date().getFullYear()-i;return <option key={y} value={String(y)}>{y}</option>;})}
-            </select>
+          <div style={f2row}>
+            <div style={f2col}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business name</div>
+              {R("bizName","e.g. Flowly Ltd")}
+            </div>
+            <div style={f2col}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Location(s)</div>
+              {R("locations","e.g. Auckland CBD, online nationwide")}
+            </div>
           </div>
-          <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Type of business</div>
-          {RS("bizType",["Company (Ltd)","Sole Trader","Partnership","Trust","Other"])}
-          <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Industry / sector</div>
-          {R("industry","e.g. SaaS, hospitality, retail")}
-          <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Location(s)</div>
-          {R("locations","e.g. Auckland CBD, online nationwide")}
-          <div style={{marginBottom:14}}/>
+          <div style={f2row}>
+            <div style={f2col}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Type of business</div>
+              {RS("bizType",["Company (Ltd)","Sole Trader","Partnership","Trust","Other"])}
+            </div>
+            <div style={f2col}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Industry / sector</div>
+              {R("industry","e.g. SaaS, hospitality, retail")}
+            </div>
+          </div>
+          <div style={f2row}>
+            <div style={f2col}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Date established</div>
+              <div style={{display:"flex",gap:8}}>
+                <select style={{...sel,flex:1,minWidth:0}} value={(fdRef.current.bizDate||"").split("-")[1]||""} onChange={function(e){var parts=(fdRef.current.bizDate||"----").split("-");parts[1]=e.target.value;fdRef.current.bizDate=(parts[0]||String(new Date().getFullYear()))+"-"+parts[1]+"-01";saveToStorage();}}>
+                  <option value="">Month</option>
+                  {["01","02","03","04","05","06","07","08","09","10","11","12"].map(function(m,i){return <option key={m} value={m}>{["January","February","March","April","May","June","July","August","September","October","November","December"][i]}</option>;})}
+                </select>
+                <select style={{...sel,flex:1,minWidth:0}} value={(fdRef.current.bizDate||"").split("-")[0]||""} onChange={function(e){var parts=(fdRef.current.bizDate||"----").split("-");parts[0]=e.target.value;fdRef.current.bizDate=parts[0]+"-"+(parts[1]||"01")+"-01";saveToStorage();}}>
+                  <option value="">Year</option>
+                  {Array.from({length:50},function(_,i){var y=new Date().getFullYear()-i;return <option key={y} value={String(y)}>{y}</option>;})}
+                </select>
+              </div>
+            </div>
+            <div style={f2col}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Current stage</div>
+              {RS("stage",["Pre-launch (idea stage)","MVP / prototype built","Early customers","Growing revenue"])}
+            </div>
+          </div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Main contact</div>
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+            {contactCh.map(function(c){
+              return (<div key={c.id} style={{flex:"1 1 210px",minWidth:0,display:"flex",gap:8}}>
+                <div style={{width:50,alignSelf:"stretch",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,flexShrink:0,background:"#f3f4f6",color:"#6b7280"}}>{c.label}</div>
+                <input style={Object.assign({},inp,{flex:1,minWidth:0})} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();}}/>
+              </div>);
+            })}
+          </div>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business description</div>
           {RT("description","Describe your product or service and who it's for...",3)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business history / origin</div>
           {RT("history","e.g. I spotted a gap in the market when...",3)}
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Current stage</div>
-          {RS("stage",["Pre-launch (idea stage)","MVP / prototype built","Early customers","Growing revenue"])}
-          <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business team</div>
           {RT("team","e.g. 2 full-time founders, 1 part-time developer...",2)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Online presence</div>
-          {onlineCh.map(function(c){var _os={display:"flex",gap:8,marginBottom:6};return (<div key={c.id} style={_os}><div style={{width:30,height:30,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,background:"#f3f4f6",color:"#6b7280"}}>{c.label}</div><input style={Object.assign({},inp,{flex:1})} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();}}/></div>);})}
-          <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Main contact</div>
-          {contactCh.map(function(c){var _cs={display:"flex",gap:8,marginBottom:6};return (<div key={c.id} style={_cs}><div style={{width:50,height:30,borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,flexShrink:0,background:"#f3f4f6",color:"#6b7280"}}>{c.label}</div><input style={Object.assign({},inp,{flex:1})} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();}}/></div>);})}
-          <div style={{marginBottom:14}}/>
+          {(function(){
+            // Badge is 44px so the longest label ("Other") fits without
+            // overflowing; a uniform width keeps every input left-aligned.
+            function onlineRow(c){
+              return (<div key={c.id} style={{display:"flex",gap:8,marginBottom:6}}>
+                <div style={{width:44,alignSelf:"stretch",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,background:"#f3f4f6",color:"#6b7280"}}>{c.label}</div>
+                <input style={Object.assign({},inp,{flex:1,minWidth:0})} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();}}/>
+              </div>);
+            }
+            return (<div style={f2row}>
+              <div style={f2col}>{onlineCh.slice(0,3).map(onlineRow)}</div>
+              <div style={f2col}>{onlineCh.slice(3).map(onlineRow)}</div>
+            </div>);
+          })()}
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Legal obligations</div>
-          {legalOpts.map(function(o){var _ls={display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",border:"1px solid "+(legalStatus===o.v?o.color:"#e5e7eb"),borderRadius:8,cursor:"pointer",background:legalStatus===o.v?o.bg:"#fff",marginBottom:6};return (<div key={o.v} style={_ls} onClick={function(){setLegalAndSave(o.v);}}>
-            <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px solid "+(legalStatus===o.v?o.color:"#d1d5db"),flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",marginTop:1}}>
-              <div style={{width:8,height:8,borderRadius:"50%",background:legalStatus===o.v?o.color:"transparent"}}></div>
-            </div>
-            <div><div style={{fontSize:14,lineHeight:1.35,color:"#1a1a1a"}}>{o.l}</div><div style={{fontSize:12,color:"#6b7280",marginTop:2}}>{o.s}</div></div>
-          </div>);})}
+          <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
+            {legalOpts.map(function(o){var _ls={flex:"1 1 260px",minWidth:0,display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",border:"1px solid "+(legalStatus===o.v?o.color:"#e5e7eb"),borderRadius:8,cursor:"pointer",background:legalStatus===o.v?o.bg:"#fff"};return (<div key={o.v} style={_ls} onClick={function(){setLegalAndSave(o.v);}}>
+              <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px solid "+(legalStatus===o.v?o.color:"#d1d5db"),flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",marginTop:1}}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:legalStatus===o.v?o.color:"transparent"}}></div>
+              </div>
+              <div><div style={{fontSize:14,lineHeight:1.35,color:"#1a1a1a"}}>{o.l}</div><div style={{fontSize:12,color:"#6b7280",marginTop:2}}>{o.s}</div></div>
+            </div>);})}
+          </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
-          <textarea key="extra1" style={ta(2)} defaultValue={fdRef.current["extra1"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra1"]=e.target.value;saveToStorage();}}/>
+          <textarea ref={growRef} onInput={growOn} key="extra1" style={ta(2)} defaultValue={fdRef.current["extra1"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra1"]=e.target.value;saveToStorage();}}/>
         </>
       );}},
     {label:"Step 2 of 5 - Market & Customers",title:"Tell us about your customers, market and competitors",desc:"Providing facts and figures is important.",
@@ -1570,19 +1628,19 @@ function App(){
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What is the target market opportunity (estimated)?</div>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={suggestBtn} onClick={suggestMarketSize}>Suggest with AI</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"ms-"+msVersion} style={{marginTop:8}}>
-            <textarea style={ta(3)} defaultValue={fdRef.current.marketSize||""} placeholder="e.g. NZ SME accounting software market ~$120M..." onChange={function(e){fdRef.current.marketSize=e.target.value;saveToStorage();}}/>
+            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.marketSize||""} placeholder="e.g. NZ SME accounting software market ~$120M..." onChange={function(e){fdRef.current.marketSize=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Who are the main competitors to your business and how does your business differ from them?</div>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={suggestBtn} onClick={suggestCompetitors}>Suggest with AI</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"comp-"+compVersion} style={{marginTop:8}}>
-            <textarea style={ta(3)} defaultValue={fdRef.current.competitors||""} placeholder="e.g. Xero (market leader, feature-rich but expensive)..." onChange={function(e){fdRef.current.competitors=e.target.value;saveToStorage();}}/>
+            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.competitors||""} placeholder="e.g. Xero (market leader, feature-rich but expensive)..." onChange={function(e){fdRef.current.competitors=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What are the strengths and weaknesses of the main competitors to your business?</div>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={suggestBtn} onClick={suggestCompSW}>Suggest with AI</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"csw-"+compSwVersion} style={{marginTop:8}}>
-            <textarea style={ta(3)} defaultValue={fdRef.current.compStrWeakness||""} placeholder="e.g. Xero: strengths - brand, integrations. Weaknesses - price..." onChange={function(e){fdRef.current.compStrWeakness=e.target.value;saveToStorage();}}/>
+            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.compStrWeakness||""} placeholder="e.g. Xero: strengths - brand, integrations. Weaknesses - price..." onChange={function(e){fdRef.current.compStrWeakness=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What is the competitive advantage or unique selling point of your business?</div>
@@ -1592,7 +1650,7 @@ function App(){
           {RT("ip","e.g. Registered trademark, proprietary software. Or: none.",2)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
-          <textarea key="extra3" style={ta(2)} defaultValue={fdRef.current["extra3"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra3"]=e.target.value;saveToStorage();}}/>
+          <textarea ref={growRef} onInput={growOn} key="extra3" style={ta(2)} defaultValue={fdRef.current["extra3"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra3"]=e.target.value;saveToStorage();}}/>
         </>
       );}},
     {label:"Step 3 of 5 - Vision & Strategy",title:"Tell us how you see the future of your business",desc:"What does success look like?",
@@ -1600,7 +1658,7 @@ function App(){
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>SWOT Analysis</div>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={suggestBtn} onClick={suggestSWOT} disabled={!!goalLoading}>{goalLoading?"Suggesting...":"Suggest SWOT from Step 1 & 2"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Strengths, Weaknesses, Opportunities, Threats the business has.</span></div>
           <div key={"swot-"+swotVersion} style={{display:"flex",flexDirection:"column",gap:10,marginTop:10}}>
-            {[{id:"swotS",l:"Strengths",h:"What your business does well",ph:"e.g. Strong technical team, first-mover advantage..."},{id:"swotW",l:"Weaknesses",h:"What your business could do better",ph:"e.g. Limited marketing budget..."},{id:"swotO",l:"Opportunities",h:"The possibilities available",ph:"e.g. Growing market, underserved segment..."},{id:"swotT",l:"Threats",h:"The risks to your business",ph:"e.g. Well-funded competitors..."}].map(function(x){return (<div key={x.id}><label style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:3,display:"block"}}>{x.l}</label><span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>{x.h}</span><textarea style={ta(2)} defaultValue={fdRef.current[x.id]||""} placeholder={x.ph} onChange={function(e){fdRef.current[x.id]=e.target.value;saveToStorage();}}/></div>);})}
+            {[{id:"swotS",l:"Strengths",h:"What your business does well",ph:"e.g. Strong technical team, first-mover advantage..."},{id:"swotW",l:"Weaknesses",h:"What your business could do better",ph:"e.g. Limited marketing budget..."},{id:"swotO",l:"Opportunities",h:"The possibilities available",ph:"e.g. Growing market, underserved segment..."},{id:"swotT",l:"Threats",h:"The risks to your business",ph:"e.g. Well-funded competitors..."}].map(function(x){return (<div key={x.id}><label style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:3,display:"block"}}>{x.l}</label><span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>{x.h}</span><textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current[x.id]||""} placeholder={x.ph} onChange={function(e){fdRef.current[x.id]=e.target.value;saveToStorage();}}/></div>);})}
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Vision</div>
@@ -1622,7 +1680,7 @@ function App(){
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
-          <textarea key="extra2" style={ta(2)} defaultValue={fdRef.current["extra2"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra2"]=e.target.value;saveToStorage();}}/>
+          <textarea ref={growRef} onInput={growOn} key="extra2" style={ta(2)} defaultValue={fdRef.current["extra2"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra2"]=e.target.value;saveToStorage();}}/>
         </>
       );}},
     {label:"Step 4 of 5 - Making it Happen",title:"Tell us how your business will achieve its goals",desc:<span>What will it take to achieve success?</span>,
@@ -1641,11 +1699,11 @@ function App(){
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}><button style={suggestBtn} disabled={!!goalCardLoading[i]} onClick={function(){suggestGoalCard(i);}}>{goalCardLoading[i]?"Suggesting...":"Suggest with AI"}</button><span style={{fontSize:11,color:"#374151",fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other ways the business will achieve its goals and resources needed.</span></div>
                   <div key={"ghow"+i+"-"+(goalCardVer[i]||0)}>
                     <div style={{fontSize:12,fontWeight:500,color:"#374151",marginBottom:3}}>How will you achieve this goal?</div>
-                    <textarea style={ta(2)} defaultValue={fdRef.current["goalHow"+(i+1)]||""} placeholder="e.g. Launch targeted social media campaign..." onChange={function(e){fdRef.current["goalHow"+(i+1)]=e.target.value;saveToStorage();}}/>
+                    <textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current["goalHow"+(i+1)]||""} placeholder="e.g. Launch targeted social media campaign..." onChange={function(e){fdRef.current["goalHow"+(i+1)]=e.target.value;saveToStorage();}}/>
                   </div>
                   <div key={"gres"+i+"-"+(goalCardVer[i]||0)}>
                     <label style={{fontSize:12,fontWeight:500,color:"#374151",marginBottom:3,display:"block"}}>Resources needed</label>
-                    <textarea style={ta(2)} defaultValue={fdRef.current["goalRes"+(i+1)]||""} placeholder="e.g. Marketing manager, design tools..." onChange={function(e){fdRef.current["goalRes"+(i+1)]=e.target.value;saveToStorage();}}/>
+                    <textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current["goalRes"+(i+1)]||""} placeholder="e.g. Marketing manager, design tools..." onChange={function(e){fdRef.current["goalRes"+(i+1)]=e.target.value;saveToStorage();}}/>
                   </div>
                 </div>
               </div>);
@@ -1664,7 +1722,7 @@ function App(){
             </div>
           </div>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
-          <textarea key="extra4" style={ta(2)} defaultValue={fdRef.current["extra4"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra4"]=e.target.value;saveToStorage();}}/>
+          <textarea ref={growRef} onInput={growOn} key="extra4" style={ta(2)} defaultValue={fdRef.current["extra4"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra4"]=e.target.value;saveToStorage();}}/>
         </>
       );}},
     {label:"Step 5 of 5 - Financial Information",title:"Tell us about your business finances",desc:<span>These numbers will determine your 12-month cashflow forecast.</span>,
@@ -1809,7 +1867,7 @@ function App(){
             })}
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
-            <textarea key="extra5" style={ta(2)} defaultValue={fdRef.current["extra5"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra5"]=e.target.value;saveToStorage();}}/>
+            <textarea ref={growRef} onInput={growOn} key="extra5" style={ta(2)} defaultValue={fdRef.current["extra5"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra5"]=e.target.value;saveToStorage();}}/>
           </>)}
           {s5key==="cashflow"&&<div>
             <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
@@ -2032,7 +2090,7 @@ function App(){
         <div style={{fontSize:13,fontWeight:600,color:"#374151",marginBottom:8}}>Admin</div>
         <input style={inp} type="password" placeholder="Password" value={adminPw} onChange={function(e){setAdminPw(e.target.value);}}/>
         {adminPw==="stratdiy2025"&&(<div style={{marginTop:8}}>
-          <textarea style={ta(2)} placeholder="Broadcast message to all users (leave blank to clear)" value={adminMsgInput} onChange={function(e){setAdminMsgInput(e.target.value);}}/>
+          <textarea ref={growRef} onInput={growOn} style={ta(2)} placeholder="Broadcast message to all users (leave blank to clear)" value={adminMsgInput} onChange={function(e){setAdminMsgInput(e.target.value);}}/>
           <div style={{display:"flex",gap:8,marginTop:8}}>
             <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){try{localStorage.setItem("bpg_admin_msg",adminMsgInput);}catch(e){}setShowAdmin(false);setAdminPw("");}}>Save & broadcast</button>
             <button style={btnSm} onClick={function(){setShowAdmin(false);setAdminPw("");}}>Cancel</button>
@@ -2047,7 +2105,7 @@ function App(){
               <div style={{display:"flex",gap:6,marginBottom:12}}>
                 {[1,2,3,4,5].map(function(n){return <button key={n} onClick={function(){setFbRating(n);}} style={{fontFamily:"inherit",fontSize:20,background:"none",border:"none",cursor:"pointer",color:n<=fbRating?"#f59e0b":"#d1d5db",padding:"2px 4px"}}>{n<=fbRating?"★":"☆"}</button>;})}
               </div>
-              <textarea style={ta(3)} placeholder="Any comments? (optional)" value={fbText} onChange={function(e){setFbText(e.target.value);}}/>
+              <textarea ref={growRef} onInput={growOn} style={ta(3)} placeholder="Any comments? (optional)" value={fbText} onChange={function(e){setFbText(e.target.value);}}/>
               <input key="fb-email" autoComplete="email" type="email" style={{...inp,marginTop:8}} placeholder="Your email (optional - so we can follow up)" value={fbEmail} onChange={function(e){setFbEmail(e.target.value);}}/>
               <div style={{display:"flex",gap:8,marginTop:8}}>
                 <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={submitFeedback} disabled={fbLoad||(!fbText.trim()&&fbRating===0)}>{fbLoad?"Sending...":"Send Feedback"}</button>
