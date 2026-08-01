@@ -310,9 +310,9 @@ function CfTable({rows}){
             <td style={Object.assign({},totals("netCashflow")<0?hlR:hlG,totB)}>{fmt(totals("netCashflow"))}</td>
           </tr>
           <tr>
-            <td style={totals("closingBalance")<0?hlRF:hlGF}>Closing Balance</td>
+            <td style={rows[rows.length-1].closingBalance<0?hlRF:hlGF}>Closing Balance</td>
             {rows.map(function(r){return <td key={r.month} style={r.closingBalance<0?hlR:hlG}>{fmt(r.closingBalance)}</td>;})}
-            <td style={Object.assign({},rows[rows.length-1].closingBalance<0?hlR:hlG,totB)}>{fmt(rows[rows.length-1].closingBalance)}</td>
+            <td style={Object.assign({},rows[rows.length-1].closingBalance<0?hlR:hlG,totB)}></td>
           </tr>
         </tbody>
       </table>
@@ -836,9 +836,9 @@ function App(){
       });
       data.push(dr("Total Other Transactions",cfRows.map(function(r){return r.otherTx||0;})));
       data.push(sr("CASHFLOW"));
-      data.push(dr("Opening Balance",cfRows.map(function(r){return r.openingBalance||0;})));
+      data.push(dr("Opening Balance",cfRows.map(function(r){return r.openingBalance||0;}),{noTotal:true}));
       data.push(dr("Net Cashflow",cfRows.map(function(r){return r.netCashflow||0;})));
-      data.push(dr("Closing Balance",cfRows.map(function(r){return r.closingBalance||0;})));
+      data.push(dr("Closing Balance",cfRows.map(function(r){return r.closingBalance||0;}),{noTotal:true}));
 
       var ws=XLSX.utils.aoa_to_sheet(data);
       var wsCols=[{wch:28}];
@@ -898,7 +898,20 @@ function App(){
       planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:320},children:[new TextRun({text:dateStr,size:20,color:"6b7280",font:FONT})]}));
       if(planHtml){
         var strippedHtml=planHtml.replace(/<div[^>]*text-align:center[\s\S]*?<\/div>\s*<\/div>/i,"").replace(/<div[^>]*text-align:center[^>]*>[\s\S]*?<\/div>/i,"").trim();
-        var clean=strippedHtml.replace(/<h2[^>]*>(.*?)<\/h2>/gi,"\n##$1\n").replace(/<h3[^>]*>(.*?)<\/h3>/gi,"\n###$1\n").replace(/<p[^>]*>(.*?)<\/p>/gi,"$1\n").replace(/<li[^>]*>(.*?)<\/li>/gi,"- $1\n").replace(/<[^>]+>/g,"").replace(/\*\*/g,"");
+        // Tags are stripped above, but HTML entities must also be decoded or
+        // they appear literally in Word (e.g. "&amp;" instead of "&").
+        // &amp; is decoded last so "&amp;lt;" correctly yields "&lt;".
+        function decodeEntities(s){
+          return String(s)
+            .replace(/&nbsp;/g," ")
+            .replace(/&lt;/g,"<")
+            .replace(/&gt;/g,">")
+            .replace(/&quot;/g,'"')
+            .replace(/&#0?39;/g,"'")
+            .replace(/&apos;/g,"'")
+            .replace(/&amp;/g,"&");
+        }
+        var clean=decodeEntities(strippedHtml.replace(/<h2[^>]*>(.*?)<\/h2>/gi,"\n##$1\n").replace(/<h3[^>]*>(.*?)<\/h3>/gi,"\n###$1\n").replace(/<p[^>]*>(.*?)<\/p>/gi,"$1\n").replace(/<li[^>]*>(.*?)<\/li>/gi,"- $1\n").replace(/<[^>]+>/g,"").replace(/\*\*/g,""));
         clean.split("\n").forEach(function(ln){
           var t=ln.trim();if(!t)return;
           if(t.startsWith("##")&&!t.startsWith("###"))planChildren.push(new Paragraph({heading:HeadingLevel.HEADING_1,spacing:{before:280,after:80},children:[new TextRun({text:t.replace(/^##\s*/,""),bold:true,color:"01236d",size:28,font:FONT})]}));
@@ -1133,7 +1146,7 @@ function App(){
           cs.push(mc(totTxt,{b:true,c:tot<0?"A32D2D":"1a1a1a",sh:s}));
           return new TableRow({children:cs});
         }
-        function mrk(lbl,key,bold){return mr(lbl,cfRows.map(function(r){return r[key]||0;}),bold);}
+        function mrk(lbl,key,bold,opts){return mr(lbl,cfRows.map(function(r){return r[key]||0;}),bold,opts);}
         var hc=[mc("Item",{first:true,b:true,c:"FFFFFF",sh:navy})];
         mos.forEach(function(m){hc.push(mc(m,{b:true,c:"FFFFFF",sh:navy}));});
         hc.push(mc("Total",{b:true,c:"FFFFFF",sh:navy}));
@@ -1150,7 +1163,7 @@ function App(){
         tblRows.push(mhr("Other Transactions"));
         txCats.forEach(function(c){var vs=cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;});if(vs.some(function(v){return v!==0;}))tblRows.push(mr(c.l,cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;}),false));});
         tblRows.push(mrk("Total Other Transactions","otherTx",true));
-        tblRows.push(mhr("Cashflow"));tblRows.push(mrk("Net Cashflow","netCashflow",true));tblRows.push(mrk("Closing Balance","closingBalance",true));
+        tblRows.push(mhr("Cashflow"));tblRows.push(mrk("Net Cashflow","netCashflow",true));tblRows.push(mrk("Closing Balance","closingBalance",true,{noTotal:true}));
         cfChildren.push(new Table({width:{size:TBL_W,type:WidthType.DXA},columnWidths:colWidths,layout:TableLayoutType.FIXED,rows:tblRows}));
       }
 
@@ -1207,8 +1220,30 @@ function App(){
       out+="\n   RESOURCES NEEDED: "+(r||"not specified by the user");
       return out;
     }).filter(Boolean).join("\n")||"Not specified";
-    var expText=expCats.map(function(c){return f[c.id]?c.l+": "+f[c.id]:null;}).filter(Boolean).join("; ")||"Not specified";
-    var txText=txCats.map(function(c){return f[c.id]?c.l+": "+f[c.id]:null;}).filter(Boolean).join("; ")||"None";
+    // Send 12-month totals, not the raw stored strings. Passing "M1:0,M2:0,M3:0,
+    // M4:200,..." makes the model expand it into one bullet per month, which is
+    // noise in a business plan and eats the word budget.
+    var cfr=liveRows||[];
+    function catTotal(detailKey,id){return cfr.reduce(function(s,r){return s+((r[detailKey]&&r[detailKey][id])||0);},0);}
+    function moneyStr(n){var v=Math.round(n);return (v<0?"-$":"$")+Math.abs(v).toLocaleString();}
+    var expText=expCats.map(function(c){
+      var tot=catTotal("expDetail",c.id);
+      return tot?c.l+": "+moneyStr(tot):null;
+    }).filter(Boolean).join("; ")||"Not specified";
+    var totalExp12=expCats.reduce(function(s,c){return s+catTotal("expDetail",c.id);},0);
+    if(totalExp12)expText+=" (total "+moneyStr(totalExp12)+" over 12 months)";
+    var txText=txCats.map(function(c){
+      var tot=catTotal("txDetail",c.id);
+      return tot?c.l+": "+moneyStr(tot)+" net":null;
+    }).filter(Boolean).join("; ")||"None";
+    var finBits=["Plan date (month the 12-month cashflow forecast begins): "+planDate,
+                 "Opening bank balance: $"+(f.openingBalance||"0")];
+    if(f.assets)finBits.push("Assets: "+f.assets);
+    if(f.debt)finBits.push("Debt: "+f.debt);
+    if(f.equity)finBits.push("Equity: "+f.equity);
+    finBits.push("Expenses: "+expText);
+    finBits.push("Other transactions: "+txText);
+    var finText=finBits.join(" | ");
     var onlineText=onlineCh.map(function(c){return f[c.id]?c.label+": "+f[c.id]:null;}).filter(Boolean).join(", ")||"Not provided";
     var contactText=[f.cName?"Name: "+f.cName:null,f.cEmail?"Email: "+f.cEmail:null,f.cMobile?"Mobile: "+f.cMobile:null].filter(Boolean).join(", ")||"Not provided";
     var legalText=(legalOpts.find(function(o){return o.v===legalStatus;})||{}).l||"Not specified";
@@ -1243,9 +1278,7 @@ function App(){
       " | Other (assets/funding): "+(f.execOther||"")+" | Notes: "+(f.extra4||"")+
       " | Estimated extra sales units from goals: "+(f.goalSalesTotal||"0")+" | Estimated extra expenses from goals: $"+(f.goalExpTotal||"0")+
       "\nPER-GOAL EXECUTION DETAIL (how each goal will be achieved and what it needs):\n"+goalsPlanText+
-      "\n\nSTEP 5 - FINANCIAL POSITION: Plan date (month the 12-month cashflow forecast begins): "+planDate+
-      " | Opening bank balance: $"+(f.openingBalance||"0")+" | Assets: "+(f.assets||"")+" | Debt: "+(f.debt||"")+
-      " | Equity: "+(f.equity||"")+" | Expenses: "+expText+" | Other transactions: "+txText+
+      "\n\nSTEP 5 - FINANCIAL POSITION: "+finText+
       "\n\nDATE TERMINOLOGY - follow exactly:\n"+
       "- Refer to the Step 1 date only as the \"establishment date\" (the month the business was established).\n"+
       "- Refer to the Step 5 date only as the \"plan date\" (the month the 12-month forecast begins).\n"+
@@ -1271,6 +1304,11 @@ function App(){
       "- Where a goal's How or Resources says \"not specified by the user\", say briefly that it still needs to be decided rather than inventing detail.\n"+
       "- Do NOT use bullet points or dashes within the goal summaries - prose only.\n"+
       "- After all the goals, finish the section with one short paragraph headed ### Team & Resources covering the team as it stands, any planned hires, marketing support, and the estimated extra sales units and extra expenses from the goals.\n\n"+
+      "SECTION 5 REQUIREMENTS - Financial Position:\n"+
+      "- Summarise the financial position. Do NOT list figures month by month, and never write a line per month such as \"Month 1: $0, Month 2: $0\".\n"+
+      "- Where spend varies across the year, describe the shape of it in words (e.g. \"marketing begins in month 4 and settles at $500 a month from month 7\") rather than itemising.\n"+
+      "- Only discuss figures that were actually supplied above. If something was not provided, leave it out entirely - do not write \"nil\", \"n/a\" or \"$0\" for it, and do not invent a value.\n"+
+      "- Keep this section to roughly 120 words.\n\n"+
       "FORMATTING:\n"+
       "- Sections 1 and 2: flowing prose paragraphs, no subheadings, no bullet points.\n"+
       "- Section 3: use only the three ### subheadings specified above. Bullet lines are allowed under Values, but nowhere else in this section.\n"+
@@ -1770,14 +1808,10 @@ function App(){
       );}},
   ];
 
-  // Form content reads best narrow, but the cashflow table needs ~916px and
-  // would otherwise be permanently scrolled sideways even on a large monitor.
-  // So only the Step 5 tabs that show wide data widen; its Details tab, which
-  // is a form like every other step, stays at the narrow width.
+  // Every screen uses the same width so nothing shifts as you move through the
+  // app. 1080px lets the cashflow table (~916px) fit without sideways scrolling.
   // maxWidth only bites above the limit, so narrow devices are unaffected.
-  var wideTab=["cashflow","graphs","whatif"].indexOf(previewTab)>=0;
-  var appW=showOutput?900:((!showDirection&&step===4&&wideTab)?1080:640);
-  var appStyle={fontFamily:"system-ui,sans-serif",maxWidth:appW,margin:"0 auto",padding:16,transition:"max-width 0.2s ease"};
+  var appStyle={fontFamily:"system-ui,sans-serif",maxWidth:1080,margin:"0 auto",padding:16};
   var cardStyle={background:"#fff",borderRadius:12,padding:"24px 20px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:16};
 
   if(showDirection&&!showOutput){
