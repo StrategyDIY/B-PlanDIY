@@ -1626,7 +1626,7 @@ function App(){
             <div style={{marginBottom:14}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Cashflow start date (Month 1)</div>
               <div style={{display:"flex",gap:8}}>
-                <select style={{...sel,flex:1}} value={(cfStart||"").split("-")[1]||""} onChange={function(e){var parts=(cfStart||"----").split("-");parts[1]=e.target.value;var newVal=parts[0]+"-"+parts[1];fdRef.current.cfStartDate=newVal;setCfStart(newVal);saveToStorage();refreshLive();}}>
+                <select style={{...sel,flex:1}} value={(cfStart||"").split("-")[1]||""} onChange={function(e){var parts=(cfStart||"----").split("-");parts[1]=e.target.value;var newVal=(parts[0]||String(new Date().getFullYear()))+"-"+parts[1];fdRef.current.cfStartDate=newVal;setCfStart(newVal);saveToStorage();refreshLive();}}>
                   <option value="">Month</option>
                   {["01","02","03","04","05","06","07","08","09","10","11","12"].map(function(m,i){return <option key={m} value={m}>{["January","February","March","April","May","June","July","August","September","October","November","December"][i]}</option>;})}
                 </select>
@@ -1770,7 +1770,11 @@ function App(){
       );}},
   ];
 
-  var appStyle={fontFamily:"system-ui,sans-serif",maxWidth:640,margin:"0 auto",padding:16};
+  // Form steps read best narrow, but Step 5's cashflow table needs ~916px and
+  // would otherwise be permanently scrolled sideways even on a large monitor.
+  // maxWidth only bites above the limit, so narrow devices are unaffected.
+  var appW=showOutput?900:((!showDirection&&step===4)?1080:640);
+  var appStyle={fontFamily:"system-ui,sans-serif",maxWidth:appW,margin:"0 auto",padding:16,transition:"max-width 0.2s ease"};
   var cardStyle={background:"#fff",borderRadius:12,padding:"24px 20px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:16};
 
   if(showDirection&&!showOutput){
