@@ -1352,98 +1352,90 @@ function App(){
       "- No # headings, no ---, no ** anywhere.\n"+
       "- Write only the sections asked for. Do not add a preamble, a closing summary, or any other section.\n";
 
-    // Streaming means length is no longer constrained by the function timeout,
-    // so the plan is generated in a single pass with all five sections in one
-    // coherent piece - no seams between separately generated halves.
-    var prompt=ctx+
-      "\nWrite the plan with these ## sections in this exact order:\n"+
-      "## 1. Business Details\n## 2. Market & Customers\n## 3. Vision & Position\n## 4. Goals & Achieving Them\n## 5. Financial Position\n\n"+
+    var SHARED_FORMAT=
+      "\n\nFORMATTING:\n"+
+      "- Use ## for the section headings exactly as given, and ### for subheadings.\n"+
+      "- No # headings, no ---, no ** anywhere.\n"+
+      "- Write only the sections asked for. Do not add a preamble, a closing summary, or any other section.\n";
+
+    var promptA=ctx+
+      "\nWrite ONLY these two sections, in this order:\n"+
+      "## 1. Business Details\n## 2. Market & Customers\n\n"+
       "SECTION 1 - Business Details: flowing prose paragraphs, no bullet points, no subheadings. Cover what the business does, its stage and establishment date, where it operates, who runs it, and its origin.\n\n"+
       "SECTION 2 REQUIREMENTS - Market & Customers (prose paragraphs, no bullet points, no subheadings):\n"+
       "- Describe the realistic, addressable market this business can actually reach given its size, stage, locations and resources. Do not quote large total-industry figures as if they were reachable.\n"+
       "- If the market opportunity supplied above is broad or nationwide, narrow it to the segment this business can realistically serve, and say why.\n"+
       "- For competitors, cover their strengths AND their weaknesses. Give the strengths genuine weight - do not dismiss competitors or list only their shortcomings.\n"+
-      "- Then explain where this business can realistically compete against those strengths.\n\n"+
+      "- Then explain where this business can realistically compete against those strengths.\n"+
+      SHARED_FORMAT+
+      "- LENGTH: 430-500 words for these two sections combined. Write in full, substantive paragraphs - this is a document a bank or investor may read.";
+
+    var promptB=ctx+
+      "\nWrite ONLY these two sections, in this order:\n"+
+      "## 3. Vision & Position\n## 4. Goals & Achieving Them\n\n"+
+      "Sections 1, 2 and 5 are being written separately - do not repeat the business description, market analysis or financial position here.\n\n"+
       "SECTION 3 REQUIREMENTS - Vision & Position:\n"+
       "- Present Vision, Position Statement and Values as three separate labelled blocks, using these exact ### subheadings in this order:\n"+
       "### Vision\n### Position Statement\n### Values\n"+
       "- Under each, state that element clearly and directly in its own paragraph. Use the wording supplied above as the basis - refine it for clarity but do not replace its meaning or invent new content.\n"+
       "- For Values, present them as a short list of lines starting with - so each value is visible on its own line.\n"+
-      "- Do NOT include goals in this section. Goals belong in section 4.\n\n"+
+      "- Do NOT include goals in this section.\n\n"+
       "SECTION 4 REQUIREMENTS - Goals & Achieving Them:\n"+
       "- List each goal from the PER-GOAL EXECUTION DETAIL above as its own ### subheading, numbered, in this form:\n"+
       "### Goal 1: [short version of the goal]\n"+
       "- Directly under each goal subheading, explain in prose how it will be achieved and what resources it needs, using the HOW and RESOURCES NEEDED supplied for that goal. Give each goal a proper explanation of several sentences rather than a single line.\n"+
       "- Where a goal's How or Resources says \"not specified by the user\", say briefly that it still needs to be decided rather than inventing detail.\n"+
       "- Do NOT use bullet points or dashes within the goal summaries - prose only.\n"+
-      "- After all the goals, finish with a paragraph headed ### Team & Resources covering the team as it stands, any planned hires, marketing support, and the estimated extra sales units and extra expenses from the goals.\n\n"+
+      "- After all the goals, finish with a paragraph headed ### Team & Resources covering the team as it stands, any planned hires, marketing support, and the estimated extra sales units and extra expenses from the goals.\n"+
+      SHARED_FORMAT+
+      "- LENGTH: 450-520 words for these two sections combined.";
+
+    var promptC=ctx+
+      "\nWrite ONLY this section:\n"+
+      "## 5. Financial Position\n\n"+
+      "Sections 1 to 4 are being written separately - do not repeat the business description, market analysis, vision or goals here.\n\n"+
       "SECTION 5 REQUIREMENTS - Financial Position:\n"+
       "- ### subheadings and bullet points (lines starting with -) are fine here.\n"+
       "- Cover the opening position, the shape of the 12-month forecast, and what the closing position means for the business.\n"+
       "- Summarise the monthly figures rather than listing all twelve months individually.\n"+
-      "- Comment on the main cost drivers and on any month where cash looks tight.\n\n"+
-      "FORMATTING:\n"+
-      "- Use ## for the section headings exactly as given, and ### for subheadings.\n"+
-      "- No # headings, no ---, no ** anywhere.\n"+
-      "- Do not add a preamble or a closing summary.\n"+
-      "- LENGTH: 1200-1500 words in total. Write in full, substantive paragraphs - this is a document a bank or investor may read.";
+      "- Comment on the main cost drivers and on any month where cash looks tight.\n"+
+      SHARED_FORMAT+
+      "- LENGTH: 260-320 words for this section.";
 
     try{
-      // Streamed so the connection never goes idle. Netlify's 26s inactivity
-      // timeout only fires when nothing is being sent, so a continuous token
-      // stream lifts the practical limit on plan length entirely.
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:4000,stream:true,messages:[{role:"user",content:prompt}]})
-      });
-
-      var text="";
-      if(res.ok&&res.body&&typeof res.body.getReader==="function"){
-        var reader=res.body.getReader();
-        var decoder=new TextDecoder();
-        var buf="";
-        var streamErr=null;
-        while(true){
-          var chunk=await reader.read();
-          if(chunk.done)break;
-          buf+=decoder.decode(chunk.value,{stream:true});
-          var lines=buf.split("\n");
-          buf=lines.pop();
-          for(var li=0;li<lines.length;li++){
-            var line=lines[li].trim();
-            if(line.indexOf("data:")!==0)continue;
-            var payload=line.slice(5).trim();
-            if(!payload||payload==="[DONE]")continue;
-            var ev=null;
-            try{ ev=JSON.parse(payload); }catch(pe){ continue; }
-            if(ev.type==="content_block_delta"&&ev.delta&&typeof ev.delta.text==="string"){
-              text+=ev.delta.text;
-              if(!genFirstChunkAt)genFirstChunkAt=Date.now()-genStart;
-              genWords=text.split(/\s+/).filter(Boolean).length;
-            } else if(ev.type==="error"){
-              streamErr=(ev.error&&ev.error.message)||"The plan service returned an error.";
+      // Three smaller requests sent together. Each is well inside Netlify's 26s
+      // buffered-function limit, so the plan can be far longer than one request
+      // could produce before timing out.
+      function requestPart(p){
+        return fetch("https://b-plandiy.com/.netlify/functions/anthropic",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1200,messages:[{role:"user",content:p}]})
+        }).then(function(res){
+          return res.text().then(function(rawText){
+            var data;
+            try{ data=JSON.parse(rawText); }
+            catch(pe){
+              if(res.status===404)throw new Error("the plan service could not be found (404). Check that netlify/functions/anthropic.js is present in GitHub and that Netlify has finished deploying.");
+              if(res.status===504||/timeout/i.test(rawText))throw new Error("the request timed out. Please try again.");
+              throw new Error("Response was not JSON. Status: "+res.status+". Body starts with: "+rawText.substring(0,200));
             }
-          }
-        }
-        if(streamErr)throw new Error(streamErr);
-        if(!text.trim())throw new Error("No plan text was returned. Please try again.");
-      } else {
-        // Streaming unavailable - fall back to a buffered read so the app still
-        // works, but say clearly that streaming is not active, because a 504
-        // here means the old non-streaming function is still deployed.
-        var rawText=await res.text();
-        var data;
-        try{ data=JSON.parse(rawText); }
-        catch(pe){
-          if(res.status===504||/timeout/i.test(rawText)){
-            throw new Error("the streaming function is not active yet, so the request hit the 26 second server limit. Check that netlify/functions/anthropic.mjs is deployed and that the old anthropic.js has been deleted.");
-          }
-          throw new Error("Response was not JSON. Status: "+res.status+". Body starts with: "+rawText.substring(0,200));
-        }
-        if(!data.content)throw new Error(data.error?data.error.message:JSON.stringify(data));
-        text=data.content.map(function(x){return x.text||"";}).join("");
+            if(!data.content)throw new Error(data.error?data.error.message:JSON.stringify(data));
+            return data.content.map(function(x){return x.text||"";}).join("");
+          });
+        });
       }
+
+      var partsDone=0;
+      function trackPart(p){
+        return requestPart(p).then(function(t){
+          partsDone++;
+          genWords+=t.split(/\s+/).filter(Boolean).length;
+          return t;
+        });
+      }
+      var parts=await Promise.all([trackPart(promptA),trackPart(promptB),trackPart(promptC)]);
+      var text=parts.map(function(p){return p.trim();}).join("\n\n");
 
       var today=new Date();
       var dateStr=today.getDate()+" "+["January","February","March","April","May","June","July","August","September","October","November","December"][today.getMonth()]+" "+today.getFullYear();
