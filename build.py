@@ -79,6 +79,9 @@ html = """<!DOCTYPE html>
 #loading{display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#01236d;font-size:18px;flex-direction:column;gap:12px;}
 .spinner{width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #01236d;border-radius:50%;animation:spin 0.8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* Pulsing dot shown inside a "Suggest with AI" button while it is working */
+@keyframes bpdPulse{0%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.75)}100%{opacity:1;transform:scale(1)}}
+.bpd-pulse{animation:bpdPulse 1s ease-in-out infinite;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" onerror="console.warn('jszip CDN failed')"></script>

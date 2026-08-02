@@ -19,6 +19,9 @@
 #loading{display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui;color:#01236d;font-size:18px;flex-direction:column;gap:12px;}
 .spinner{width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #01236d;border-radius:50%;animation:spin 0.8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* Pulsing dot shown inside a "Suggest with AI" button while it is working */
+@keyframes bpdPulse{0%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.75)}100%{opacity:1;transform:scale(1)}}
+.bpd-pulse{animation:bpdPulse 1s ease-in-out infinite;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" onerror="console.warn('jszip CDN failed')"></script>
@@ -590,6 +593,8 @@ function App(){
   var cfStartState=useState(fdRef.current.cfStartDate||"");var cfStart=cfStartState[0];var setCfStart=cfStartState[1];
   var showOutputState=useState(false);var showOutput=showOutputState[0];var setShowOutput=showOutputState[1];
   var planFailedState=useState(false);var planFailed=planFailedState[0];var setPlanFailed=planFailedState[1];
+  var showBackupHelpState=useState(false);var showBackupHelp=showBackupHelpState[0];var setShowBackupHelp=showBackupHelpState[1];
+  var backupNameState=useState("");var backupName=backupNameState[0];var setBackupName=backupNameState[1];
   var showDirectionState=useState(false);var showDirection=showDirectionState[0];var setShowDirection=showDirectionState[1];
   var planHtmlState=useState("");var planHtml=planHtmlState[0];var setPlanHtml=planHtmlState[1];
   var liveRowsState=useState(function(){return calcCashflow(fdRef.current);});
@@ -621,6 +626,10 @@ function App(){
   var avgSalesVerState=useState(0);var avgSalesVer=avgSalesVerState[0];var setAvgSalesVer=avgSalesVerState[1];
   var avgSalesPreGrowthState=useState(null);var avgSalesPreGrowth=avgSalesPreGrowthState[0];var setAvgSalesPreGrowth=avgSalesPreGrowthState[1];
   var msVersionState=useState(0);var msVersion=msVersionState[0];var setMsVersion=msVersionState[1];
+  var gsVersionState=useState(0);var gsVersion=gsVersionState[0];var setGsVersion=gsVersionState[1];
+  var gsLoadingState=useState(false);var gsLoading=gsLoadingState[0];var setGsLoading=gsLoadingState[1];
+  var geLoadingState=useState(false);var geLoading=geLoadingState[0];var setGeLoading=geLoadingState[1];
+  var geVersionState=useState(0);var geVersion=geVersionState[0];var setGeVersion=geVersionState[1];
   var compVersionState=useState(0);var compVersion=compVersionState[0];var setCompVersion=compVersionState[1];
   var compSwVersionState=useState(0);var compSwVersion=compSwVersionState[0];var setCompSwVersion=compSwVersionState[1];
   var swotVersionState=useState(0);var swotVersion=swotVersionState[0];var setSwotVersion=swotVersionState[1];
@@ -668,6 +677,11 @@ function App(){
   var sel=Object.assign({},inp,{cursor:"pointer"});
   var btnSm={fontFamily:"inherit",fontSize:12,padding:"6px 12px",borderRadius:6,border:"1px solid #e5e7eb",background:"#fff",cursor:"pointer",color:"#374151"};
   var suggestBtn={fontFamily:"inherit",fontSize:13,padding:"8px 16px",borderRadius:6,border:"none",background:"#d0b16f",cursor:"pointer",color:"#fff",fontWeight:500,flexShrink:0};
+  // Busy state. The old version only swapped the label to "Suggesting..." on the
+  // same gold button, which was easy to miss. This switches to navy with a
+  // pulsing dot so it is obvious something is happening.
+  var suggestBtnBusy=Object.assign({},suggestBtn,{background:"#01236d",cursor:"wait",fontWeight:700,boxShadow:"0 0 0 3px rgba(1,35,109,0.15)"});
+  function busyLabel(t){return <span><span className="bpd-pulse" style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#d0b16f",marginRight:8,verticalAlign:"middle"}}/>{t}</span>;}
 
   function saveToStorage(){
     try{localStorage.setItem(STORAGE_KEY,JSON.stringify(fdRef.current));}catch(e){}
@@ -761,6 +775,71 @@ function App(){
       setSwotVersion(function(v){return v+1;});
     }catch(e){}
     setGoalLoading(false);
+  }
+
+  // Reads every goal together with its How and Resources, so the estimate is
+  // grounded in what the user actually plans to do rather than guessed.
+  function goalsContextForEstimate(){
+    var out=[];
+    for(var i=0;i<6;i++){
+      var g=goals[i];
+      if(!g)continue;
+      out.push((i+1)+". GOAL: "+g+
+        "\n   HOW: "+(fdRef.current["goalHow"+(i+1)]||"not specified")+
+        "\n   RESOURCES NEEDED: "+(fdRef.current["goalRes"+(i+1)]||"not specified"));
+    }
+    return out.length?out.join("\n"):"No goals have been entered yet.";
+  }
+
+  async function suggestGoalSales(){
+    setGsLoading(true);
+    setGsVersion(function(v){return v+1;});
+    var prompt="Estimate the TOTAL additional sales units this business expects to gain over the next 12 months as a result of achieving the goals below.\n\n"+
+      "Business: "+(fdRef.current.bizName||"")+" in "+(fdRef.current.industry||"")+"\n"+
+      "Current monthly sales units: "+(fdRef.current.avgSales||"not specified")+"\n"+
+      "Average sale price: "+(fdRef.current.avgPrice||"not specified")+"\n"+
+      "Target customer: "+(fdRef.current.targetCust||"")+"\n\n"+
+      "GOALS, HOW THEY WILL BE ACHIEVED, AND RESOURCES NEEDED:\n"+goalsContextForEstimate()+"\n\n"+
+      "Consider what each goal realistically adds, and be conservative for a small business.\n"+
+      "Reply with ONLY a single whole number of additional units for the whole 12 months. No words, no units, no punctuation, no explanation.";
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:100,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      if(!data.content)return;
+      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
+      var num=(text.match(/-?[\d,]+/)||[""])[0].replace(/,/g,"");
+      if(!num)return;
+      fdRef.current.goalSalesTotal=num;
+      saveToStorage();
+      setGsVersion(function(v){return v+1;});
+    }catch(e){}
+    setGsLoading(false);
+  }
+
+  async function suggestGoalExpenses(){
+    setGeLoading(true);
+    setGeVersion(function(v){return v+1;});
+    var prompt="Estimate the TOTAL additional expenses this business will incur over the next 12 months in order to achieve the goals below.\n\n"+
+      "Business: "+(fdRef.current.bizName||"")+" in "+(fdRef.current.industry||"")+"\n"+
+      "Location: "+(fdRef.current.locations||"")+"\n"+
+      "Team now: "+(fdRef.current.execTeam||fdRef.current.team||"not specified")+"\n"+
+      "Planned new hires: "+(fdRef.current.execTeamNew||"none stated")+"\n"+
+      "Planned marketing: "+(fdRef.current.execMkt||"none stated")+"\n\n"+
+      "GOALS, HOW THEY WILL BE ACHIEVED, AND RESOURCES NEEDED:\n"+goalsContextForEstimate()+"\n\n"+
+      "Base the estimate on the RESOURCES NEEDED for each goal. Use realistic New Zealand costs and be conservative for a small business.\n"+
+      "Reply with ONLY a single whole dollar amount for the whole 12 months, digits only. No dollar sign, no commas, no words, no explanation.";
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:100,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      if(!data.content)return;
+      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
+      var num=(text.match(/-?[\d,]+/)||[""])[0].replace(/,/g,"");
+      if(!num)return;
+      fdRef.current.goalExpTotal=num;
+      saveToStorage();
+      setGeVersion(function(v){return v+1;});
+    }catch(e){}
+    setGeLoading(false);
   }
 
   async function suggestMarketSize(){
@@ -1048,6 +1127,77 @@ function App(){
         return canvas.toDataURL("image/png").split(",")[1];
       }
 
+      // Two series on separate scales, matching the on-screen chart: units as
+      // plain numbers on the left, sales as currency on the right. The single
+      // makeBarChart could only draw one series, which is why Monthly Sales was
+      // missing from the Word export.
+      function makeDualBarChart(title,data,labelA,colorA,labelB,colorB){
+        var canvas=document.createElement("canvas");
+        var W=680,padL=64,padR=68,padT=52,padB=34;
+        var plotH=210,plotW=W-padL-padR;
+        canvas.width=W;canvas.height=padT+plotH+padB;
+        var ctx=canvas.getContext("2d");
+        ctx.fillStyle="#ffffff";ctx.fillRect(0,0,W,canvas.height);
+
+        ctx.fillStyle="#01236d";ctx.font="bold 14px Arial";ctx.textAlign="center";
+        ctx.fillText(title,W/2,20);
+
+        // Legend
+        var lgY=34, sw=11;
+        ctx.font="11px Arial";
+        var wA=ctx.measureText(labelA).width, wB=ctx.measureText(labelB).width;
+        var totalW=sw+5+wA+18+sw+5+wB;
+        var lx=(W-totalW)/2;
+        ctx.fillStyle=colorA;ctx.fillRect(lx,lgY-sw+2,sw,sw);
+        ctx.fillStyle="#374151";ctx.textAlign="left";ctx.fillText(labelA,lx+sw+5,lgY);
+        lx+=sw+5+wA+18;
+        ctx.fillStyle=colorB;ctx.fillRect(lx,lgY-sw+2,sw,sw);
+        ctx.fillStyle="#374151";ctx.fillText(labelB,lx+sw+5,lgY);
+
+        var scA=chartScale(data.map(function(d){return d.a;}),padT,plotH);
+        var scB=chartScale(data.map(function(d){return d.b;}),padT,plotH);
+
+        // Gridlines and left axis (units, plain numbers)
+        ctx.textAlign="right";ctx.font="10px Arial";
+        for(var v=scA.lo; v<=scA.hi+scA.step/2; v+=scA.step){
+          var y=scA.y(v);
+          ctx.strokeStyle=(Math.abs(v)<scA.step/1000)?"#9ca3af":"#eceff4";
+          ctx.lineWidth=1;
+          ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(padL+plotW,y);ctx.stroke();
+          ctx.fillStyle="#6b7280";
+          ctx.fillText(String(Math.round(v)),padL-6,y+3);
+        }
+        // Right axis (sales, currency)
+        ctx.textAlign="left";
+        for(var v2=scB.lo; v2<=scB.hi+scB.step/2; v2+=scB.step){
+          var y2=scB.y(v2);
+          ctx.fillStyle="#6b7280";
+          ctx.fillText(axisLabel(v2),padL+plotW+6,y2+3);
+        }
+
+        var slot=plotW/data.length;
+        var barW=Math.max(3,Math.min(16,slot*0.34));
+        var gap=3;
+        data.forEach(function(d,i){
+          var cx=padL+i*slot+slot/2;
+          var zA=scA.y(0), yA=scA.y(d.a);
+          ctx.fillStyle=colorA;
+          ctx.fillRect(cx-barW-gap/2,Math.min(zA,yA),barW,Math.max(1,Math.abs(yA-zA)));
+          var zB=scB.y(0), yB=scB.y(d.b);
+          ctx.fillStyle=colorB;
+          ctx.fillRect(cx+gap/2,Math.min(zB,yB),barW,Math.max(1,Math.abs(yB-zB)));
+        });
+
+        ctx.strokeStyle="#9ca3af";ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(padL,scA.y(0));ctx.lineTo(padL+plotW,scA.y(0));ctx.stroke();
+
+        ctx.fillStyle="#6b7280";ctx.font="10px Arial";ctx.textAlign="center";
+        data.forEach(function(d,i){
+          ctx.fillText(d.l,padL+i*slot+slot/2,padT+plotH+14);
+        });
+        return canvas.toDataURL("image/png").split(",")[1];
+      }
+
       function makeLineChart(title,data,color,negColor,isCurrency){
         var canvas=document.createElement("canvas");
         var W=680,padL=64,padR=28,padT=34,padB=34;
@@ -1134,7 +1284,7 @@ function App(){
       if(cfRows&&cfRows.length){
         var npData=cfRows.map(function(r){return{l:shortMonth(r.month),v:r.netProfit||0};});
         var cbData=cfRows.map(function(r){return{l:shortMonth(r.month),v:r.closingBalance||0};});
-        var unData=cfRows.map(function(r){return{l:shortMonth(r.month),v:r.units||0};});
+        var unData=cfRows.map(function(r){return{l:shortMonth(r.month),a:r.units||0,b:r.revenue||0};});
         var expPieRaw=expCats.map(function(c){
           var tot=cfRows.reduce(function(s,r){return s+(r.expDetail&&r.expDetail[c.id]||0);},0);
           return tot>0?{l:c.l,v:tot}:null;
@@ -1148,7 +1298,7 @@ function App(){
             graphChildren.push(new Paragraph({spacing:{after:240},children:[new ImageRun({data:Uint8Array.from(atob(b64),function(ch){return ch.charCodeAt(0);}),transformation:{width:w,height:h},type:"png"})]}));
           }
 
-          pushChart("Units Sold",makeBarChart("Units Sold",unData,"#d0b16f","#d0b16f",false),IMG_W,IMG_H);
+          pushChart("Units Sold & Monthly Sales",makeDualBarChart("Units Sold & Monthly Sales",unData,"Units Sold","#01236d","Monthly Sales ($)","#d0b16f"),IMG_W,Math.round(IMG_W*296/CW));
 
           if(expPieRaw.length){
             var pieRowH=19, pieTop=44;
@@ -1523,16 +1673,27 @@ function App(){
 
   function exportData(){
     try{
-      var payload=JSON.stringify(fdRef.current,null,2);
-      var blob=new Blob([payload],{type:"application/json"});
+      // Users were opening the downloaded file expecting a document and getting
+      // a File Conversion dialog. Putting instructions in the first lines of the
+      // file means anyone who does open it sees an explanation straight away.
+      var data={};
+      for(var k in fdRef.current){ if(k!=="_README"&&k!=="_HOW_TO_RESTORE") data[k]=fdRef.current[k]; }
+      var payload=JSON.stringify(Object.assign({
+        _README:"This is a B-PlanDIY backup file. It is not a document - there is nothing to read here.",
+        _HOW_TO_RESTORE:"Go to b-plandiy.com/app.html, click 'Import data' at the bottom of the screen, and choose this file. Do not edit this file."
+      },data),null,2);
+      var blob=new Blob([payload],{type:"application/octet-stream"});
       var name=(fdRef.current.bizName||"business").replace(/[^a-z0-9]/gi,"-").toLowerCase();
       var stamp=new Date().toISOString().slice(0,10);
+      var fname="bplandiy-backup-"+name+"-"+stamp+".json";
       var a=document.createElement("a");
       a.href=URL.createObjectURL(blob);
-      a.download="bplandiy-"+name+"-"+stamp+".json";
+      a.download=fname;
       document.body.appendChild(a);a.click();
       document.body.removeChild(a);
       setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+      setBackupName(fname);
+      setShowBackupHelp(true);
     }catch(e){alert("Could not create the backup file. Please try again.");}
   }
 
@@ -1550,6 +1711,7 @@ function App(){
           var data=JSON.parse(reader.result);
           if(!data||typeof data!=="object"||Array.isArray(data))throw new Error("bad shape");
           if(!window.confirm("This will replace everything currently in the app with the contents of your backup file. Continue?"))return;
+          delete data._README; delete data._HOW_TO_RESTORE;
           fdRef.current=data;
           saveToStorage();
           setLegalStatus(data.legalStatus||"");
@@ -1569,12 +1731,45 @@ function App(){
     picker.click();
   }
 
+  // Shown immediately after a backup is saved. Without this, people open the
+  // downloaded file expecting to read it and hit a File Conversion dialog.
+  function BackupHelp(){
+    if(!showBackupHelp)return null;
+    return (
+      <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:9999}} onClick={function(){setShowBackupHelp(false);}}>
+        <div style={{background:"#fff",borderRadius:12,maxWidth:520,width:"100%",padding:"24px 26px",boxShadow:"0 10px 40px rgba(0,0,0,0.25)"}} onClick={function(e){e.stopPropagation();}}>
+          <div style={{fontSize:17,fontWeight:700,color:"#01236d",marginBottom:10}}>Backup saved</div>
+          <div style={{fontSize:14,color:"#374151",lineHeight:1.6,marginBottom:14}}>
+            Your backup has been saved to your <strong>Downloads</strong> folder as:
+            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"8px 10px",margin:"8px 0",fontSize:13,wordBreak:"break-all",color:"#01236d"}}>{backupName}</div>
+          </div>
+          <div style={{background:"#fdfaf3",border:"1px solid #e8dcc0",borderLeft:"4px solid #d0b16f",borderRadius:8,padding:"12px 14px",marginBottom:16}}>
+            <div style={{fontSize:14,fontWeight:700,color:"#01236d",marginBottom:6}}>Please don't try to open this file</div>
+            <div style={{fontSize:13,color:"#5c5340",lineHeight:1.6}}>
+              It isn't a document, so there is nothing to read in it. If you double-click it your computer may show a confusing "File Conversion" window - just close that window, the file is still fine.
+            </div>
+          </div>
+          <div style={{fontSize:14,color:"#374151",lineHeight:1.6,marginBottom:6}}><strong>What to do with it</strong></div>
+          <ul style={{margin:"0 0 18px 18px",padding:0,fontSize:13,color:"#374151",lineHeight:1.7}}>
+            <li>Move it somewhere safe - a documents folder, cloud drive, or email it to yourself.</li>
+            <li>If you ever lose your plan, come back here and click <strong>Import data</strong> at the bottom of the screen, then choose this file.</li>
+            <li>Save a fresh backup whenever you make significant changes.</li>
+          </ul>
+          <div style={{textAlign:"right"}}>
+            <button style={{fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"10px 22px",borderRadius:8,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}} onClick={function(){setShowBackupHelp(false);}}>Got it</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function BackupNote(){
     return (
       <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:8,padding:"9px 12px",marginBottom:12}}>
         <span style={{fontSize:13,lineHeight:1.5,color:"#6b5a33",flex:1}}>
           Your plan is saved in this browser only. It will be lost if you or your settings clear your browsing data or switch device.{" "}
           <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,color:"#01236d",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Save a backup file</button>
+          <span style={{display:"block",fontSize:12,color:"#8a7a52",marginTop:3}}>Saves a restore file to your Downloads folder. It isn't a document - keep it safe, don't open it.</span>
         </span>
       </div>
     );
@@ -1729,7 +1924,7 @@ function App(){
     {label:"Step 3 of 5 - Vision & Strategy",title:"Tell us how you see the future of your business",desc:"What does success look like?",
       render:function(){return (<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>SWOT Analysis</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={suggestBtn} onClick={suggestSWOT} disabled={!!goalLoading}>{goalLoading?"Suggesting...":"Suggest SWOT from Step 1 & 2"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Strengths, Weaknesses, Opportunities, Threats the business has.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={suggestSWOT} disabled={!!goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest SWOT from Step 1 & 2"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Strengths, Weaknesses, Opportunities, Threats the business has.</span></div>
           <div key={"swot-"+swotVersion} style={{display:"flex",flexDirection:"column",gap:10,marginTop:10}}>
             {[{id:"swotS",l:"Strengths",h:"What your business does well",ph:"e.g. Strong technical team, first-mover advantage..."},{id:"swotW",l:"Weaknesses",h:"What your business could do better",ph:"e.g. Limited marketing budget..."},{id:"swotO",l:"Opportunities",h:"The possibilities available",ph:"e.g. Growing market, underserved segment..."},{id:"swotT",l:"Threats",h:"The risks to your business",ph:"e.g. Well-funded competitors..."}].map(function(x){return (<div key={x.id}><label style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:3,display:"block"}}>{x.l}</label><span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>{x.h}</span><textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current[x.id]||""} placeholder={x.ph} onChange={function(e){fdRef.current[x.id]=e.target.value;saveToStorage();}}/></div>);})}
           </div>
@@ -1747,7 +1942,7 @@ function App(){
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Goals</div>
           <span style={{fontSize:12,color:"#374151",marginBottom:6,display:"block"}}>The main steps to achieve success</span>
-          <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:8}}><button style={suggestBtn} onClick={suggestGoals} disabled={goalLoading}>{goalLoading?"Suggesting...":"Suggest goals from SWOT"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Goals the business should have.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:8}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoals} disabled={goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest goals from SWOT"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Goals the business should have.</span></div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {goals.map(function(g,i){var gs={display:"flex",gap:8,alignItems:"flex-start",marginBottom:6};return (<div key={i} style={gs}><div style={{fontSize:12,fontWeight:700,color:"#6b7280",width:18,flexShrink:0,paddingTop:10}}>{i+1}</div><input style={Object.assign({},inp,{flex:1})} value={g} placeholder={"e.g. Reach 500 paying customers within 12 months..."} onChange={function(e){var n=goals.slice();n[i]=e.target.value;setGoalsAndSave(n);}}/></div>);})}
           </div>
@@ -1769,7 +1964,7 @@ function App(){
                   <div style={{fontSize:14,fontWeight:500,color:"#1a1a1a",lineHeight:1.4}}>{g}</div>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:8,paddingLeft:26}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}><button style={suggestBtn} disabled={!!goalCardLoading[i]} onClick={function(){suggestGoalCard(i);}}>{goalCardLoading[i]?"Suggesting...":"Suggest with AI"}</button><span style={{fontSize:11,color:"#374151",fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other ways the business will achieve its goals and resources needed.</span></div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}><button style={goalCardLoading[i]?suggestBtnBusy:suggestBtn} disabled={!!goalCardLoading[i]} onClick={function(){suggestGoalCard(i);}}>{goalCardLoading[i]?busyLabel("Working\u2026"):"Suggest with AI"}</button><span style={{fontSize:11,color:"#374151",fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other ways the business will achieve its goals and resources needed.</span></div>
                   <div key={"ghow"+i+"-"+(goalCardVer[i]||0)}>
                     <div style={{fontSize:12,fontWeight:500,color:"#374151",marginBottom:3}}>How will you achieve this goal?</div>
                     <textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current["goalHow"+(i+1)]||""} placeholder="e.g. Launch targeted social media campaign..." onChange={function(e){fdRef.current["goalHow"+(i+1)]=e.target.value;saveToStorage();}}/>
@@ -1787,11 +1982,13 @@ function App(){
           <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>From the goals above, how much will sales units increase in total over the next 12 months?</div>
-              <input style={inp} defaultValue={fdRef.current.goalSalesTotal||""} placeholder="e.g. 100" onChange={function(e){fdRef.current.goalSalesTotal=e.target.value;saveToStorage();}}/>
+              <div style={{marginBottom:6}}><button style={gsLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoalSales} disabled={gsLoading}>{gsLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button></div>
+              <input key={"gs-"+gsVersion} style={inp} defaultValue={fdRef.current.goalSalesTotal||""} placeholder="e.g. 100" onChange={function(e){fdRef.current.goalSalesTotal=e.target.value;saveToStorage();}}/>
             </div>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>From resources needed above, how much will expenses increase in total over the next 12 months?</div>
-              <input style={inp} defaultValue={fdRef.current.goalExpTotal||""} placeholder="e.g. 5000" onChange={function(e){fdRef.current.goalExpTotal=e.target.value;saveToStorage();}}/>
+              <div style={{marginBottom:6}}><button style={geLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoalExpenses} disabled={geLoading}>{geLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button></div>
+              <input key={"ge-"+geVersion} style={inp} defaultValue={fdRef.current.goalExpTotal||""} placeholder="e.g. 5000" onChange={function(e){fdRef.current.goalExpTotal=e.target.value;saveToStorage();}}/>
             </div>
           </div>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
@@ -1974,7 +2171,7 @@ function App(){
             {label:"What If",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
           ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #d0b16f",background:item.label==="Summary"?"#d0b16f":"#fff",color:item.label==="Summary"?"#fff":"#01236d",cursor:"pointer"}}>{item.label}</button>;})}
         </div>
-        <BackupNote/>
+        <BackupNote/><BackupHelp/>
         <div style={cardStyle}>
           <div style={{display:"flex",gap:2,marginBottom:20,overflowX:"auto"}}>
             {stepDefs.map(function(s,i){
@@ -2055,7 +2252,7 @@ function App(){
           <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setShowOutput(false);setStepAndSave(4);}}>← Edit</button>
           {!loading&&<button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer"}} onClick={function(){generateWordDoc();}}>Download Word (.docx)</button>}
         </div>
-        <BackupNote/>
+        <BackupNote/><BackupHelp/>
         <div style={cardStyle}>
           {tab==="plan"&&(
             <div>
@@ -2121,7 +2318,7 @@ function App(){
           {label:"What If",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
         ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #d0b16f",background:"#fff",color:"#01236d",cursor:"pointer"}}>{item.label}</button>;})}
       </div>
-      <BackupNote/>
+      <BackupNote/><BackupHelp/>
       <div style={cardStyle}>
         <div style={{display:"flex",gap:2,marginBottom:20,overflowX:"auto"}}>
           {stepDefs.map(function(s,i){
