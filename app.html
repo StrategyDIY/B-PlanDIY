@@ -589,6 +589,7 @@ function App(){
   var previewTabState=useState("details");var previewTab=previewTabState[0];var setPreviewTab=previewTabState[1];
   var cfStartState=useState(fdRef.current.cfStartDate||"");var cfStart=cfStartState[0];var setCfStart=cfStartState[1];
   var showOutputState=useState(false);var showOutput=showOutputState[0];var setShowOutput=showOutputState[1];
+  var planFailedState=useState(false);var planFailed=planFailedState[0];var setPlanFailed=planFailedState[1];
   var showDirectionState=useState(false);var showDirection=showDirectionState[0];var setShowDirection=showDirectionState[1];
   var planHtmlState=useState("");var planHtml=planHtmlState[0];var setPlanHtml=planHtmlState[1];
   var liveRowsState=useState(function(){return calcCashflow(fdRef.current);});
@@ -897,6 +898,10 @@ function App(){
     }
   }
   function generateWordDoc(){
+    if(planFailed||!planHtml){
+      alert("The business plan has not been generated yet. Please press Generate Business Plan first.");
+      return;
+    }
     function fmtN(n){var v=Math.round(Number(n));return(v<0?"-$":"$")+Math.abs(v).toLocaleString();}
     var f=fdRef.current;
     var cfRows=liveRows;
@@ -1247,6 +1252,7 @@ function App(){
   async function generatePlan(){
     setLoading(true);
     setShowOutput(true);
+    setPlanFailed(false);
     setPlanHtml("");
     setLoadMsg("Generating your business plan, this may take a minute...");
     var f=fdRef.current;
@@ -1300,7 +1306,7 @@ function App(){
     var establishmentDate=fmtMonthYear(f.bizDate);
     var planDate=fmtMonthYear(f.cfStartDate);
 
-    var prompt="You are an expert business consultant. Write a professional business plan following exactly these sections in this order.\n\n"+
+    var ctx="You are an expert business consultant helping write a professional business plan.\n\n"+
       "STEP 1 - BUSINESS DETAILS: Business: "+(f.bizName||"")+" | Industry: "+(f.industry||"")+" | Type: "+(f.bizType||"")+" | Stage: "+(f.stage||"")+
       " | Establishment date: "+establishmentDate+
       " | Description: "+(f.description||"")+" | History: "+(f.history||"")+
@@ -1324,50 +1330,108 @@ function App(){
       "- Refer to the Step 1 date only as the \"establishment date\" (the month the business was established).\n"+
       "- Refer to the Step 5 date only as the \"plan date\" (the month the 12-month forecast begins).\n"+
       "- Never use the phrase \"launch date\", and never describe either date as a launch.\n"+
-      "- If a date is \"Not specified\", simply omit it rather than guessing or inventing one.\n"+
+      "- If a date is \"Not specified\", simply omit it rather than guessing or inventing one.\n";
+
+    // The plan is generated in two halves that run in parallel. Netlify caps a
+    // synchronous function at 26s, and one call producing the whole plan was
+    // hitting that limit and returning a 504. Two smaller calls each finish in
+    // roughly half the time, so the total wall time is well inside the cap and
+    // there is headroom for longer plans.
+    var SHARED_FORMAT=
+      "\n\nFORMATTING:\n"+
+      "- Use ## for the section headings exactly as given, and ### for subheadings.\n"+
+      "- No # headings, no ---, no ** anywhere.\n"+
+      "- Write only the sections asked for. Do not add a preamble, a closing summary, or any other section.\n";
+
+    // Streaming means length is no longer constrained by the function timeout,
+    // so the plan is generated in a single pass with all five sections in one
+    // coherent piece - no seams between separately generated halves.
+    var prompt=ctx+
       "\nWrite the plan with these ## sections in this exact order:\n"+
       "## 1. Business Details\n## 2. Market & Customers\n## 3. Vision & Position\n## 4. Goals & Achieving Them\n## 5. Financial Position\n\n"+
-      "SECTION 2 REQUIREMENTS - Market & Customers:\n"+
+      "SECTION 1 - Business Details: flowing prose paragraphs, no bullet points, no subheadings. Cover what the business does, its stage and establishment date, where it operates, who runs it, and its origin.\n\n"+
+      "SECTION 2 REQUIREMENTS - Market & Customers (prose paragraphs, no bullet points, no subheadings):\n"+
       "- Describe the realistic, addressable market this business can actually reach given its size, stage, locations and resources. Do not quote large total-industry figures as if they were reachable.\n"+
       "- If the market opportunity supplied above is broad or nationwide, narrow it to the segment this business can realistically serve, and say why.\n"+
       "- For competitors, cover their strengths AND their weaknesses. Give the strengths genuine weight - do not dismiss competitors or list only their shortcomings.\n"+
       "- Then explain where this business can realistically compete against those strengths.\n\n"+
       "SECTION 3 REQUIREMENTS - Vision & Position:\n"+
-      "- Present Vision, Position Statement and Values as three separate labelled blocks so each stands out clearly, using these exact ### subheadings in this order:\n"+
+      "- Present Vision, Position Statement and Values as three separate labelled blocks, using these exact ### subheadings in this order:\n"+
       "### Vision\n### Position Statement\n### Values\n"+
-      "- Under each, state that element clearly and directly in its own short paragraph. Use the wording supplied above as the basis - refine it for clarity but do not replace its meaning or invent new content.\n"+
+      "- Under each, state that element clearly and directly in its own paragraph. Use the wording supplied above as the basis - refine it for clarity but do not replace its meaning or invent new content.\n"+
       "- For Values, present them as a short list of lines starting with - so each value is visible on its own line.\n"+
       "- Do NOT include goals in this section. Goals belong in section 4.\n\n"+
       "SECTION 4 REQUIREMENTS - Goals & Achieving Them:\n"+
       "- List each goal from the PER-GOAL EXECUTION DETAIL above as its own ### subheading, numbered, in this form:\n"+
       "### Goal 1: [short version of the goal]\n"+
-      "- Directly under each goal subheading, write a SHORT prose summary (two or three sentences) of how it will be achieved and what resources it needs. Use the HOW and RESOURCES NEEDED supplied for that goal.\n"+
+      "- Directly under each goal subheading, explain in prose how it will be achieved and what resources it needs, using the HOW and RESOURCES NEEDED supplied for that goal. Give each goal a proper explanation of several sentences rather than a single line.\n"+
       "- Where a goal's How or Resources says \"not specified by the user\", say briefly that it still needs to be decided rather than inventing detail.\n"+
       "- Do NOT use bullet points or dashes within the goal summaries - prose only.\n"+
-      "- After all the goals, finish the section with one short paragraph headed ### Team & Resources covering the team as it stands, any planned hires, marketing support, and the estimated extra sales units and extra expenses from the goals.\n\n"+
+      "- After all the goals, finish with a paragraph headed ### Team & Resources covering the team as it stands, any planned hires, marketing support, and the estimated extra sales units and extra expenses from the goals.\n\n"+
       "SECTION 5 REQUIREMENTS - Financial Position:\n"+
-      "- Summarise the financial position. Do NOT list figures month by month, and never write a line per month such as \"Month 1: $0, Month 2: $0\".\n"+
-      "- Where spend varies across the year, describe the shape of it in words (e.g. \"marketing begins in month 4 and settles at $500 a month from month 7\") rather than itemising.\n"+
-      "- Only discuss figures that were actually supplied above. If something was not provided, leave it out entirely - do not write \"nil\", \"n/a\" or \"$0\" for it, and do not invent a value.\n"+
-      "- Keep this section to roughly 120 words.\n\n"+
+      "- ### subheadings and bullet points (lines starting with -) are fine here.\n"+
+      "- Cover the opening position, the shape of the 12-month forecast, and what the closing position means for the business.\n"+
+      "- Summarise the monthly figures rather than listing all twelve months individually.\n"+
+      "- Comment on the main cost drivers and on any month where cash looks tight.\n\n"+
       "FORMATTING:\n"+
-      "- Sections 1 and 2: flowing prose paragraphs, no subheadings, no bullet points.\n"+
-      "- Section 3: use only the three ### subheadings specified above. Bullet lines are allowed under Values, but nowhere else in this section.\n"+
-      "- Section 4: ### subheadings per goal plus a ### Team & Resources block. Body text under each must be prose - no bullet points or dashes.\n"+
-      "- Section 5: ### subheadings and bullet points (lines starting with -) are fine.\n"+
+      "- Use ## for the section headings exactly as given, and ### for subheadings.\n"+
       "- No # headings, no ---, no ** anywhere.\n"+
-      "- LENGTH: keep the whole plan to 600-700 words total. Be concise throughout - short paragraphs, no padding, no repetition.";
+      "- Do not add a preamble or a closing summary.\n"+
+      "- LENGTH: 1200-1500 words in total. Write in full, substantive paragraphs - this is a document a bank or investor may read.";
 
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1500,messages:[{role:"user",content:prompt}]})});
-      var rawText=await res.text();
-      var data;
-      try{ data=JSON.parse(rawText); }catch(pe){ throw new Error("Response was not JSON. Status: "+res.status+". Body starts with: "+rawText.substring(0,200)); }
-      if(!data.content){
-        var errMsg=data.error?data.error.message:JSON.stringify(data);
-        throw new Error(errMsg);
+      // Streamed so the connection never goes idle. Netlify's 26s inactivity
+      // timeout only fires when nothing is being sent, so a continuous token
+      // stream lifts the practical limit on plan length entirely.
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:4000,stream:true,messages:[{role:"user",content:prompt}]})
+      });
+
+      var text="";
+      if(res.ok&&res.body&&typeof res.body.getReader==="function"){
+        var reader=res.body.getReader();
+        var decoder=new TextDecoder();
+        var buf="";
+        var streamErr=null;
+        while(true){
+          var chunk=await reader.read();
+          if(chunk.done)break;
+          buf+=decoder.decode(chunk.value,{stream:true});
+          var lines=buf.split("\n");
+          buf=lines.pop();
+          for(var li=0;li<lines.length;li++){
+            var line=lines[li].trim();
+            if(line.indexOf("data:")!==0)continue;
+            var payload=line.slice(5).trim();
+            if(!payload||payload==="[DONE]")continue;
+            var ev=null;
+            try{ ev=JSON.parse(payload); }catch(pe){ continue; }
+            if(ev.type==="content_block_delta"&&ev.delta&&typeof ev.delta.text==="string"){
+              text+=ev.delta.text;
+              setLoadMsg("Writing your plan\u2026 "+text.split(/\s+/).filter(Boolean).length+" words so far");
+            } else if(ev.type==="error"){
+              streamErr=(ev.error&&ev.error.message)||"The plan service returned an error.";
+            }
+          }
+        }
+        if(streamErr)throw new Error(streamErr);
+        if(!text.trim())throw new Error("No plan text was returned. Please try again.");
+      } else {
+        // Streaming unavailable - fall back to a single buffered request so the
+        // app still works if the function has not been redeployed yet.
+        var rawText=await res.text();
+        var data;
+        try{ data=JSON.parse(rawText); }
+        catch(pe){
+          if(res.status===504||/timeout/i.test(rawText))throw new Error("The plan took too long to generate. Please try again.");
+          throw new Error("Response was not JSON. Status: "+res.status+". Body starts with: "+rawText.substring(0,200));
+        }
+        if(!data.content)throw new Error(data.error?data.error.message:JSON.stringify(data));
+        text=data.content.map(function(x){return x.text||"";}).join("");
       }
-      var text=data.content.map(function(x){return x.text||"";}).join("");
+
       var today=new Date();
       var dateStr=today.getDate()+" "+["January","February","March","April","May","June","July","August","September","October","November","December"][today.getMonth()]+" "+today.getFullYear();
       var html="<div style='text-align:center;padding:24px 0 32px;border-bottom:2px solid #f5eedd;margin-bottom:28px'>";
@@ -1415,7 +1479,10 @@ function App(){
       }
       setPlanHtml(html);
     }catch(e){
-      setPlanHtml("<p style='color:#6b7280'>Error generating plan: "+e.message+". Please try again.</p>");
+      // Flagged so downloadWord() refuses - otherwise the error text itself
+      // was being written into the Word document as the plan body.
+      setPlanFailed(true);
+      setPlanHtml("<p style='color:#a32d2d'>Could not generate the plan: "+e.message+"</p><p style='color:#6b7280'>Your information is safe. Please press Generate Business Plan to try again.</p>");
     }
     setLoading(false);
   }
@@ -1500,7 +1567,7 @@ function App(){
     return (
       <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:8,padding:"9px 12px",marginBottom:12}}>
         <span style={{fontSize:13,lineHeight:1.5,color:"#6b5a33",flex:1}}>
-          Your plan is saved in this browser only. It will be lost if you clear your browsing data or switch device.{" "}
+          Your plan is saved in this browser only. It will be lost if you or your settings clear your browsing data or switch device.{" "}
           <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,color:"#01236d",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Save a backup file</button>
         </span>
       </div>
