@@ -1254,7 +1254,16 @@ function App(){
     setShowOutput(true);
     setPlanFailed(false);
     setPlanHtml("");
-    setLoadMsg("Generating your business plan, this may take a minute...");
+    setLoadMsg("Generating your business plan\u2026 0s");
+    var genStart=Date.now();
+    var genWords=0;
+    var genFirstChunkAt=0;
+    var genTicker=setInterval(function(){
+      var secs=Math.round((Date.now()-genStart)/1000);
+      setLoadMsg(genWords>0
+        ? "Writing your plan\u2026 "+genWords+" words \u00b7 "+secs+"s"
+        : "Generating your business plan\u2026 "+secs+"s");
+    },1000);
     var f=fdRef.current;
     // Per-goal execution detail. These fields are captured in Step 4 (and by the
     // AI Suggest button) and are the substance of the "Making it Happen" section.
@@ -1410,7 +1419,8 @@ function App(){
             try{ ev=JSON.parse(payload); }catch(pe){ continue; }
             if(ev.type==="content_block_delta"&&ev.delta&&typeof ev.delta.text==="string"){
               text+=ev.delta.text;
-              setLoadMsg("Writing your plan\u2026 "+text.split(/\s+/).filter(Boolean).length+" words so far");
+              if(!genFirstChunkAt)genFirstChunkAt=Date.now()-genStart;
+              genWords=text.split(/\s+/).filter(Boolean).length;
             } else if(ev.type==="error"){
               streamErr=(ev.error&&ev.error.message)||"The plan service returned an error.";
             }
@@ -1419,13 +1429,16 @@ function App(){
         if(streamErr)throw new Error(streamErr);
         if(!text.trim())throw new Error("No plan text was returned. Please try again.");
       } else {
-        // Streaming unavailable - fall back to a single buffered request so the
-        // app still works if the function has not been redeployed yet.
+        // Streaming unavailable - fall back to a buffered read so the app still
+        // works, but say clearly that streaming is not active, because a 504
+        // here means the old non-streaming function is still deployed.
         var rawText=await res.text();
         var data;
         try{ data=JSON.parse(rawText); }
         catch(pe){
-          if(res.status===504||/timeout/i.test(rawText))throw new Error("The plan took too long to generate. Please try again.");
+          if(res.status===504||/timeout/i.test(rawText)){
+            throw new Error("the streaming function is not active yet, so the request hit the 26 second server limit. Check that netlify/functions/anthropic.mjs is deployed and that the old anthropic.js has been deleted.");
+          }
           throw new Error("Response was not JSON. Status: "+res.status+". Body starts with: "+rawText.substring(0,200));
         }
         if(!data.content)throw new Error(data.error?data.error.message:JSON.stringify(data));
@@ -1484,6 +1497,7 @@ function App(){
       setPlanFailed(true);
       setPlanHtml("<p style='color:#a32d2d'>Could not generate the plan: "+e.message+"</p><p style='color:#6b7280'>Your information is safe. Please press Generate Business Plan to try again.</p>");
     }
+    try{ clearInterval(genTicker); }catch(e){}
     setLoading(false);
   }
 
