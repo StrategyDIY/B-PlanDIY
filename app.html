@@ -104,6 +104,12 @@ const STORAGE_KEY="bpg_fd";
 
 function fmtDate(v){if(!v)return"Not specified";var parts=v.split("-");var months=["January","February","March","April","May","June","July","August","September","October","November","December"];return parseInt(parts[2])+" "+months[parseInt(parts[1])-1]+" "+parts[0];}
 function fmt(n){const v=Math.round(Number(n));return(v<0?"-$":"$")+Math.abs(v).toLocaleString();}
+// Gross profit as a percentage of sales. Blank when there are no sales, since
+// dividing by zero would otherwise show a meaningless or infinite figure.
+function gpPct(gp,rev){
+  if(!rev)return "";
+  return (Math.round(gp/rev*1000)/10).toFixed(1)+"%";
+}
 // Chart axis labels. Scales to the data instead of always dividing by 1000,
 // which made every tick read "$0k" for businesses turning over under $1k a
 // month. Keeps the sign, which Math.abs() alone would discard.
@@ -172,6 +178,34 @@ function calcCashflow(f){
   const taxRate=parseFloat(f.taxRate)||0;
   let accTax=0;
 
+  // Extra sales and costs implied by the Step 4 goals. Opt-in, because a user
+  // may already have built the growth into the figures they typed. Spread evenly
+  // across the 12 months unless they have entered monthly amounts instead.
+  const goalUnitsTotal=parseFloat(f.goalSalesTotal)||0;
+  const goalUnitsOn=f.goalSalesApply==="1";
+  const goalUnitsArr=(f.goalSalesMonthly&&String(f.goalSalesMonthly).indexOf("M")>=0)?parseMonthly(f.goalSalesMonthly,0):null;
+  function goalUnitsFor(i){
+    if(!goalUnitsOn)return 0;
+    return goalUnitsArr?(goalUnitsArr[i]||0):goalUnitsTotal/12;
+  }
+  // Goal-driven costs are captured per expense category in Step 4, stored as
+  // "xMkt:3000|xTeam:8000", and added to that category spread evenly over the
+  // year. Landing them in the real categories keeps the cashflow readable.
+  const goalExpOn=f.goalExpApply==="1";
+  const goalExpByCat={};
+  if(goalExpOn&&f.goalExpLines){
+    String(f.goalExpLines).split("|").forEach(function(p){
+      var bits=p.split(":");
+      var id=(bits[0]||"").trim();
+      var amt=parseFloat(bits[1]);
+      if(id&&!isNaN(amt))goalExpByCat[id]=(goalExpByCat[id]||0)+amt;
+    });
+  }
+  function goalExpFor(catId,i){
+    var a=goalExpByCat[catId];
+    return a?a/12:0;
+  }
+
   let bal=open;
   const rows=[];
 
@@ -183,6 +217,7 @@ function calcCashflow(f){
     if(!hasMonthlyUnits&&i>0){
       for(let j=0;j<i;j++) units=units*(1+(unitGrowth[j]||0)/100);
     }
+    units=units+goalUnitsFor(i);
     let price=avgPrice[i]||parseFloat(f.avgPrice)||0;
     if(priceInc[i]) price=price*(1+priceInc[i]/100);
     const revProducts=Math.round(units*price);
@@ -200,7 +235,7 @@ function calcCashflow(f){
     const expDetail={};
     let totalExpenses=0;
     expCats.forEach(c=>{
-      const v=Math.round(expArr[c.id][i]);
+      const v=Math.round(expArr[c.id][i]+goalExpFor(c.id,i));
       expDetail[c.id]=v;
       totalExpenses+=v;
     });
@@ -305,6 +340,11 @@ function CfTable({rows}){
             <td style={gpTotal<0?hlRF:hlGF}>Gross Profit</td>
             {rows.map(function(r){return <td key={r.month} style={r.grossProfit<0?hlR:hlG}>{fmt(r.grossProfit)}</td>;})}
             <td style={Object.assign({},gpTotal<0?hlR:hlG,totB)}>{fmt(gpTotal)}</td>
+          </tr>
+          <tr>
+            <td style={tdF}>Gross Profit %</td>
+            {rows.map(function(r){return <td key={r.month} style={td}>{gpPct(r.grossProfit,r.revenue)}</td>;})}
+            <td style={Object.assign({},tot,totB)}>{gpPct(gpTotal,totals("revenue"))}</td>
           </tr>
           <tr><td style={hdr} colSpan={rows.length+2}>Expenses</td></tr>
           {expCats.map(function(cat){return (<tr key={cat.id}><td style={tdF}>{cat.l}</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.expDetail&&r.expDetail[cat.id]||0)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(expTotals[cat.id])}</td></tr>);})}
@@ -631,6 +671,11 @@ function App(){
   var msLoadingState=useState(false);var msLoading=msLoadingState[0];var setMsLoading=msLoadingState[1];
   var compLoadingState=useState(false);var compLoading=compLoadingState[0];var setCompLoading=compLoadingState[1];
   var cswLoadingState=useState(false);var cswLoading=cswLoadingState[0];var setCswLoading=cswLoadingState[1];
+  // Finances step: sections collapse so the tab is not one long scroll, and
+  // rarely-used expense categories stay hidden until asked for.
+  var finOpenState=useState({start:true,sales:true,tax:false,other:true,tx:false,notes:false});
+  var finOpen=finOpenState[0];var setFinOpen=finOpenState[1];
+  var showAllExpState=useState(false);var showAllExp=showAllExpState[0];var setShowAllExp=showAllExpState[1];
   var geLoadingState=useState(false);var geLoading=geLoadingState[0];var setGeLoading=geLoadingState[1];
   var geVersionState=useState(0);var geVersion=geVersionState[0];var setGeVersion=geVersionState[1];
   var compVersionState=useState(0);var compVersion=compVersionState[0];var setCompVersion=compVersionState[1];
@@ -815,6 +860,7 @@ function App(){
       if(!num)return;
       fdRef.current.goalSalesTotal=num;
       saveToStorage();
+      refreshLive();
       setGsVersion(function(v){return v+1;});
     }catch(e){}
     setGsLoading(false);
@@ -822,26 +868,36 @@ function App(){
 
   async function suggestGoalExpenses(){
     setGeLoading(true);
-    setGeVersion(function(v){return v+1;});
-    var prompt="Estimate the TOTAL additional expenses this business will incur over the next 12 months in order to achieve the goals below.\n\n"+
+    var catList=expCats.map(function(e){return e.l;}).join(", ");
+    var prompt="Work out which expense categories will increase over the next 12 months in order to achieve the goals below, and by how much in total for the year.\n\n"+
       "Business: "+(fdRef.current.bizName||"")+" in "+(fdRef.current.industry||"")+"\n"+
       "Location: "+(fdRef.current.locations||"")+"\n"+
       "Team now: "+(fdRef.current.execTeam||fdRef.current.team||"not specified")+"\n"+
       "Planned new hires: "+(fdRef.current.execTeamNew||"none stated")+"\n"+
       "Planned marketing: "+(fdRef.current.execMkt||"none stated")+"\n\n"+
       "GOALS, HOW THEY WILL BE ACHIEVED, AND RESOURCES NEEDED:\n"+goalsContextForEstimate()+"\n\n"+
-      "Base the estimate on the RESOURCES NEEDED for each goal. Use realistic New Zealand costs and be conservative for a small business.\n"+
-      "Reply with ONLY a single whole dollar amount for the whole 12 months, digits only. No dollar sign, no commas, no words, no explanation.";
+      "Choose only from these categories: "+catList+"\n"+
+      "Base the amounts on the RESOURCES NEEDED for each goal. Use realistic New Zealand costs and be conservative for a small business.\n"+
+      "Reply with ONLY lines in the form Category = amount, one per line, at most four lines. Digits only for the amount, no dollar sign, no commas, no other words.\n"+
+      "Example:\nMarketing = 6000\nTeam = 12000";
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:100,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:200,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
-      if(!data.content)return;
-      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
-      var num=(text.match(/-?[\d,]+/)||[""])[0].replace(/,/g,"");
-      if(!num)return;
-      fdRef.current.goalExpTotal=num;
-      saveToStorage();
-      setGeVersion(function(v){return v+1;});
+      if(data.content){
+        var text=data.content.map(function(x){return x.text||"";}).join("");
+        var rows=[];
+        text.split("\n").forEach(function(line){
+          var m=line.split("=");
+          if(m.length<2)return;
+          var name=m[0].replace(/[^a-z ]/gi,"").trim().toLowerCase();
+          var amt=(m[1].match(/[\d,]+/)||[""])[0].replace(/,/g,"");
+          if(!name||!amt)return;
+          var cat=expCats.filter(function(e){return e.l.toLowerCase()===name;})[0];
+          if(!cat)cat=expCats.filter(function(e){return e.l.toLowerCase().indexOf(name)>=0||name.indexOf(e.l.toLowerCase())>=0;})[0];
+          if(cat&&rows.length<6)rows.push({id:cat.id,amt:amt});
+        });
+        if(rows.length)writeGoalExpRows(rows);
+      }
     }catch(e){}
     setGeLoading(false);
   }
@@ -964,6 +1020,11 @@ function App(){
       data.push(sr("COST OF SALES"));
       data.push(dr("Cost of Sales",cfRows.map(function(r){return r.cogs||0;})));
       data.push(dr("Gross Profit",cfRows.map(function(r){return r.grossProfit||0;})));
+      (function(){
+        var gpT=cfRows.reduce(function(s,r){return s+(r.grossProfit||0);},0);
+        var revT=cfRows.reduce(function(s,r){return s+(r.revenue||0);},0);
+        data.push(["Gross Profit %"].concat(cfRows.map(function(r){return gpPct(r.grossProfit,r.revenue);})).concat([gpPct(gpT,revT)]));
+      })();
       data.push(sr("EXPENSES"));
       expCats.forEach(function(c){
         var ev=cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;});
@@ -1378,6 +1439,16 @@ function App(){
         tblRows.push(mr("Avg Cost",cfRows.map(function(r){return r.avgCost||0;}),false,{noTotal:true}));
         tblRows.push(mhr("Revenue"));tblRows.push(mrk("Products/Services","revProducts",false));tblRows.push(mrk("Other Revenue","revOther",false));tblRows.push(mrk("Total Revenue","revenue",true));
         tblRows.push(mhr("Cost of Sales"));tblRows.push(mrk("Cost of Sales","cogs",false));tblRows.push(mrk("Gross Profit","grossProfit",true));
+        // Percentage row - values are text, and the Total is the margin for the
+        // whole year rather than a sum of the monthly percentages.
+        (function(){
+          var gpT=cfRows.reduce(function(s,r){return s+(r.grossProfit||0);},0);
+          var revT=cfRows.reduce(function(s,r){return s+(r.revenue||0);},0);
+          var cs=[mc("Gross Profit %",{first:true})];
+          cfRows.forEach(function(r){cs.push(mc(gpPct(r.grossProfit,r.revenue),{}));});
+          cs.push(mc(gpPct(gpT,revT),{b:true}));
+          tblRows.push(new TableRow({children:cs}));
+        })();
         tblRows.push(mhr("Expenses"));
         expCats.forEach(function(c){var vs=cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;});if(vs.some(function(v){return v!==0;}))tblRows.push(mr(c.l,cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;}),false));});
         tblRows.push(mrk("Total Expenses","totalExpenses",true));tblRows.push(mrk("Net Profit/(Loss)","netProfit",true));
@@ -1788,6 +1859,156 @@ function App(){
     );
   }
 
+  // Collapsible section for the Finances step.
+  function sumLive(pick){
+    return (liveRows||[]).reduce(function(s,r){return s+(pick(r)||0);},0);
+  }
+  // 12-month total shown beneath a monthly field. Not used for average price,
+  // average cost or the tax rate, where summing twelve values is meaningless.
+  function AnnualTotal(props){
+    if(!liveRows||!liveRows.length)return null;
+    var v=props.value||0;
+    return (
+      <div style={{fontSize:12,color:"#6b7280",marginTop:4,textAlign:"right"}}>
+        12-month total: <strong style={{color:v<0?"#a32d2d":"#01236d",fontVariantNumeric:"tabular-nums"}}>{props.plain?Math.round(v).toLocaleString():fmt(v)}</strong>
+      </div>
+    );
+  }
+
+  function goalExpRows(){
+    var raw=fdRef.current.goalExpLines||"";
+    var rows=String(raw).split("|").filter(Boolean).map(function(p){
+      var bits=p.split(":");
+      return {id:(bits[0]||"").trim(),amt:(bits[1]||"").trim()};
+    });
+    return rows.length?rows:[{id:"",amt:""}];
+  }
+  function writeGoalExpRows(rows){
+    fdRef.current.goalExpLines=rows
+      .filter(function(r){return r.id||r.amt;})
+      .map(function(r){return r.id+":"+r.amt;}).join("|");
+    saveToStorage();refreshLive();
+    setGeVersion(function(v){return v+1;});
+  }
+  function setGoalExpRow(i,id,amt){
+    var rows=goalExpRows();
+    rows[i]={id:id,amt:String(amt).replace(/[^0-9.-]/g,"")};
+    writeGoalExpRows(rows);
+  }
+  function addGoalExpRow(){
+    var rows=goalExpRows();rows.push({id:"",amt:""});writeGoalExpRows(rows);
+  }
+  function removeGoalExpRow(i){
+    var rows=goalExpRows();rows.splice(i,1);
+    if(!rows.length)rows=[{id:"",amt:""}];
+    writeGoalExpRows(rows);
+  }
+  function goalExpTotalSum(){
+    return goalExpRows().reduce(function(s,r){var n=parseFloat(r.amt);return s+(isNaN(n)?0:n);},0);
+  }
+
+  function GoalExpApply(){
+    var rows=goalExpRows().filter(function(r){return r.id&&parseFloat(r.amt);});
+    if(!rows.length)return null;
+    var on=fdRef.current.goalExpApply==="1";
+    var total=goalExpTotalSum();
+    function labelFor(id){var m=expCats.filter(function(e){return e.id===id;})[0];return m?m.l:id;}
+    return (
+      <div style={{border:"1px solid "+(on?"#cfe3cf":"#e5e7eb"),background:on?"#f4f8f4":"#fff",borderRadius:8,padding:"10px 12px",marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <input type="checkbox" id="apply-goalExp" checked={on} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}
+            onChange={function(){fdRef.current.goalExpApply=on?"0":"1";saveToStorage();refreshLive();}}/>
+          <label htmlFor="apply-goalExp" style={{fontSize:13,color:"#374151",cursor:"pointer",flex:1}}>
+            Add the extra <strong style={{color:"#01236d"}}>{fmt(total)}</strong> of costs from your Step 4 goals
+          </label>
+        </div>
+        {on&&(<div style={{marginTop:8,fontSize:12,color:"#6b7280",lineHeight:1.6}}>
+          Spread evenly over 12 months and added to these categories:
+          <div style={{marginTop:5}}>
+            {rows.map(function(r,i){return (
+              <div key={i} style={{display:"flex",justifyContent:"space-between",maxWidth:340,padding:"2px 0"}}>
+                <span>{labelFor(r.id)}</span>
+                <span style={{color:"#01236d",fontWeight:600}}>{fmt(parseFloat(r.amt)/12)} a month</span>
+              </div>
+            );})}
+          </div>
+        </div>)}
+      </div>
+    );
+  }
+
+  function GoalApply(props){
+    var total=parseFloat(fdRef.current[props.totalKey])||0;
+    var on=fdRef.current[props.applyKey]==="1";
+    var monthly=fdRef.current[props.monthlyKey]||"";
+    var overridden=String(monthly).indexOf("M")>=0;
+    var sum=overridden?parseMonthly(monthly,0).reduce(function(a,b){return a+(b||0);},0):total;
+    var diff=Math.round(sum-total);
+    if(!total)return null;
+    return (
+      <div style={{border:"1px solid "+(on?"#cfe3cf":"#e5e7eb"),background:on?"#f4f8f4":"#fff",borderRadius:8,padding:"10px 12px",marginBottom:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <input type="checkbox" id={"apply-"+props.applyKey} checked={on} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}
+            onChange={function(){fdRef.current[props.applyKey]=on?"0":"1";saveToStorage();refreshLive();}}/>
+          <label htmlFor={"apply-"+props.applyKey} style={{fontSize:13,color:"#374151",cursor:"pointer",flex:1}}>
+            {props.label} <strong style={{color:"#01236d"}}>{props.money?fmt(total):Math.round(total).toLocaleString()}</strong> from your Step 4 goals
+          </label>
+        </div>
+        {on&&(<div style={{marginTop:8}}>
+          <div style={{fontSize:12,color:"#6b7280",marginBottom:6}}>
+            {overridden?"Using your monthly amounts below.":"Spread evenly: "+(props.money?fmt(total/12):Math.round(total/12).toLocaleString())+" a month."}
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+            <input type="checkbox" id={"grid-"+props.monthlyKey} checked={!!gridChecks[props.monthlyKey]} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}
+              onChange={function(){toggleGrid(props.monthlyKey);}}/>
+            <label htmlFor={"grid-"+props.monthlyKey} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Set the monthly amounts myself</label>
+          </div>
+          {gridChecks[props.monthlyKey]&&<MonthGrid keyPrefix={props.monthlyKey+"M"} storeKey={props.monthlyKey} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>}
+          {overridden&&Math.abs(diff)>0&&(
+            <div style={{marginTop:8,fontSize:12,background:"#fdf3f3",border:"1px solid #e8c9c9",borderRadius:6,padding:"8px 10px",color:"#a32d2d",lineHeight:1.5}}>
+              Your monthly amounts add up to <strong>{props.money?fmt(sum):Math.round(sum).toLocaleString()}</strong>, which is {props.money?fmt(Math.abs(diff)):Math.abs(diff).toLocaleString()} {diff>0?"more":"less"} than the {props.money?fmt(total):Math.round(total).toLocaleString()} from Step 4. The forecast uses the monthly amounts.
+            </div>
+          )}
+        </div>)}
+      </div>
+    );
+  }
+
+  function FinSection(props){
+    var open=!!finOpen[props.id];
+    return (
+      <div style={{border:"1px solid #e5e7eb",borderRadius:10,marginBottom:12,overflow:"hidden"}}>
+        <button
+          onClick={function(){setFinOpen(function(p){var n=Object.assign({},p);n[props.id]=!p[props.id];return n;});}}
+          style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:open?"#f8f9fc":"#fff",border:"none",borderBottom:open?"1px solid #e5e7eb":"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
+          <span style={{fontSize:12,color:"#9ca3af",transform:open?"rotate(90deg)":"none",transition:"transform 0.15s",display:"inline-block"}}>▶</span>
+          <span style={{fontSize:14,fontWeight:700,color:"#01236d",flex:1}}>{props.title}</span>
+          {props.hint&&<span style={{fontSize:11,color:"#9ca3af"}}>{props.hint}</span>}
+        </button>
+        {open&&<div style={{padding:"14px"}}>{props.children}</div>}
+      </div>
+    );
+  }
+
+  // Live result of what has been entered so far. Without this you fill in ~33
+  // numbers with no feedback until you switch to the Cashflow tab.
+  function FinSummary(){
+    if(!liveRows||!liveRows.length)return null;
+    var closing=liveRows[liveRows.length-1].closingBalance||0;
+    var low=liveRows[0],lowV=liveRows[0].closingBalance||0;
+    liveRows.forEach(function(r){ if((r.closingBalance||0)<lowV){lowV=r.closingBalance||0;low=r;} });
+    var rev=liveRows.reduce(function(s,r){return s+(r.revenue||0);},0);
+    var neg=lowV<0;
+    return (
+      <div style={{position:"sticky",top:0,zIndex:5,background:neg?"#fdf3f3":"#f4f8f4",border:"1px solid "+(neg?"#e8c9c9":"#cfe3cf"),borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
+        <div><div style={{fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em"}}>12-month revenue</div><div style={{fontSize:15,fontWeight:700,color:"#01236d"}}>{fmt(rev)}</div></div>
+        <div><div style={{fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em"}}>Closing balance</div><div style={{fontSize:15,fontWeight:700,color:closing<0?"#a32d2d":"#1e7a41"}}>{fmt(closing)}</div></div>
+        <div><div style={{fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em"}}>Lowest month</div><div style={{fontSize:15,fontWeight:700,color:neg?"#a32d2d":"#1e7a41"}}>{fmt(lowV)} <span style={{fontSize:11,fontWeight:500,color:"#6b7280"}}>{low.month}</span></div></div>
+        {neg&&<div style={{fontSize:11,color:"#a32d2d",flex:"1 1 200px",lineHeight:1.45}}>Cash goes negative in {low.month}. You may need funding, or to reduce costs, before then.</div>}
+      </div>
+    );
+  }
+
   function BackupNote(){
     return (
       <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:8,padding:"9px 12px",marginBottom:12}}>
@@ -2009,12 +2230,28 @@ function App(){
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>From the goals above, how much will sales units increase in total over the next 12 months?</div>
               <div style={{marginBottom:6}}><button style={gsLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoalSales} disabled={gsLoading}>{gsLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button></div>
-              <input key={"gs-"+gsVersion} style={inp} defaultValue={fdRef.current.goalSalesTotal||""} placeholder="e.g. 100" onChange={function(e){fdRef.current.goalSalesTotal=e.target.value;saveToStorage();}}/>
+              <input key={"gs-"+gsVersion} style={inp} defaultValue={fdRef.current.goalSalesTotal||""} placeholder="e.g. 100" onChange={function(e){fdRef.current.goalSalesTotal=e.target.value;saveToStorage();refreshLive();}}/>
             </div>
             <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>From resources needed above, how much will expenses increase in total over the next 12 months?</div>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>From resources needed above, which expenses will increase over the next 12 months?</div>
+              <span style={{fontSize:12,color:"#374151",marginBottom:6,display:"block"}}>Pick a category and give the 12-month amount. These can be added straight into your cashflow in Step 5.</span>
               <div style={{marginBottom:6}}><button style={geLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoalExpenses} disabled={geLoading}>{geLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button></div>
-              <input key={"ge-"+geVersion} style={inp} defaultValue={fdRef.current.goalExpTotal||""} placeholder="e.g. 5000" onChange={function(e){fdRef.current.goalExpTotal=e.target.value;saveToStorage();}}/>
+              <div key={"ge-"+geVersion}>
+                {goalExpRows().map(function(row,ri){return (
+                  <div key={ri} style={{display:"flex",gap:8,marginBottom:6}}>
+                    <select style={Object.assign({},sel,{flex:"1 1 auto",minWidth:0})} value={row.id} onChange={function(e){setGoalExpRow(ri,e.target.value,row.amt);}}>
+                      <option value="">Choose a category...</option>
+                      {expCats.map(function(ec){return <option key={ec.id} value={ec.id}>{ec.l}</option>;})}
+                    </select>
+                    <input style={Object.assign({},inp,{flex:"0 0 130px"})} value={row.amt} placeholder="e.g. 5000" onChange={function(e){setGoalExpRow(ri,row.id,e.target.value);}}/>
+                    <button title="Remove" style={{fontFamily:"inherit",fontSize:16,lineHeight:1,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:6,padding:"0 11px",cursor:"pointer"}} onClick={function(){removeGoalExpRow(ri);}}>&times;</button>
+                  </div>
+                );})}
+                <div style={{display:"flex",alignItems:"center",gap:12,marginTop:2}}>
+                  <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"1px dashed #d0b16f",borderRadius:6,padding:"7px 12px",cursor:"pointer"}} onClick={addGoalExpRow}>+ Add an expense</button>
+                  <span style={{fontSize:12,color:"#6b7280"}}>12-month total: <strong style={{color:"#01236d"}}>{fmt(goalExpTotalSum())}</strong></span>
+                </div>
+              </div>
             </div>
           </div>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
@@ -2030,6 +2267,8 @@ function App(){
             {s5tabs.map(function(t){var k=t.toLowerCase().replace(" ","");var active=s5key===k;return <button key={t} style={{fontFamily:"inherit",fontSize:13,padding:"8px 16px",border:"none",background:"none",cursor:"pointer",borderBottom:"2px solid "+(active?"#d0b16f":"transparent"),color:active?"#01236d":"#6b7280",fontWeight:active?600:400}} onClick={function(){setPreviewTab(k);}}>{t}</button>;})}
           </div>
           {s5key==="details"&&(<>
+            <FinSummary/>
+            <FinSection id="start" title="1. Starting position" hint="where you are today">
             <div style={{marginBottom:14}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Cashflow start date (Month 1)</div>
               <div style={{display:"flex",gap:8}}>
@@ -2045,32 +2284,32 @@ function App(){
             </div>
             <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Opening bank balance ($)</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Cash in the bank on day one ($)</div>
                 <input style={inp} defaultValue={fdRef.current.openingBalance||""} placeholder="e.g. 5000 (cash in bank at start)" onChange={function(e){fdRef.current.openingBalance=e.target.value;saveToStorage();refreshLive();}}/>
               </div>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Assets</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Assets the business owns</div>
                 <input style={inp} defaultValue={fdRef.current.assets||""} placeholder="e.g. $3,000 debtors, laptop $4,000" onChange={function(e){fdRef.current.assets=e.target.value;saveToStorage();}}/>
               </div>
             </div>
             <div style={{marginBottom:14}}/>
             <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Debt</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Money the business owes</div>
                 <input style={inp} defaultValue={fdRef.current.debt||""} placeholder="e.g. $5,000 suppliers, $10,000 loan" onChange={function(e){fdRef.current.debt=e.target.value;saveToStorage();}}/>
               </div>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Equity contributed</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Money you or investors have put in</div>
                 <input style={inp} defaultValue={fdRef.current.equity||""} placeholder="e.g. $30,000 from founder Jane Smith" onChange={function(e){fdRef.current.equity=e.target.value;saveToStorage();}}/>
               </div>
             </div>
             <div style={{marginBottom:14}}/>
 
+            </FinSection>
+            <FinSection id="sales" title="2. Money in" hint="sales and other income">
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly sales units</div>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:6}}>
-              <span style={{fontSize:12,color:"#374151"}}>Make sure you have added the sales targets from how your business is going to achieve its goals</span>
-              <div style={{flexShrink:0,fontSize:12,color:"#01236d",fontWeight:500,border:"1px solid #d0b16f",borderRadius:6,padding:"4px 10px",whiteSpace:"nowrap",background:"#d0b16f",color:"#fff"}}>From Step 4: <span style={{color:"#fff"}}>{fdRef.current.goalSalesTotal?fdRef.current.goalSalesTotal+" units over 12 months":"not set in Step 4"}</span></div>
-            </div>
+                          </div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkMonthlyUnits" checked={!!gridChecks["monthlyUnits"]} onChange={function(){toggleGrid("monthlyUnits");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkMonthlyUnits" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["monthlyUnits"]?(<div>
               <div key={"unitsGrid-"+avgSalesVer}><MonthGrid keyPrefix={"monthlyUnitsM"} storeKey={"monthlyUnits"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>
@@ -2088,6 +2327,8 @@ function App(){
                 }}>Apply growth %</button>
               </div>
             </div>):<input style={inp} defaultValue={fdRef.current.month1Units||""} placeholder="e.g. 50" onChange={function(e){fdRef.current.month1Units=e.target.value;saveToStorage();refreshLive();}}/>}
+            <AnnualTotal plain={true} value={sumLive(function(r){return r.units;})}/>
+            <GoalApply totalKey="goalSalesTotal" applyKey="goalSalesApply" monthlyKey="goalSalesMonthly" label="Add the extra" money={false}/>
 
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Average sale price ($)</div>
@@ -2098,6 +2339,13 @@ function App(){
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgCost" checked={!!gridChecks["avgCost"]} onChange={function(){toggleGrid("avgCost");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgCost" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["avgCost"]?<div key={"avgCostGrid"}><MonthGrid keyPrefix={"avgCostM"} storeKey={"avgCost"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.avgCost||""} placeholder="e.g. 12" onChange={function(e){fdRef.current.avgCost=e.target.value;saveToStorage();refreshLive();}}/>}
             <div style={{marginBottom:14}}/>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Other money coming in ($)</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkOtherRev" checked={!!gridChecks["otherRevenue"]} onChange={function(){toggleGrid("otherRevenue");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkOtherRev" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+            {gridChecks["otherRevenue"]?<div key={"otherRevGrid"}><MonthGrid keyPrefix={"otherRevM"} storeKey={"otherRevenue"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.otherRevenue||""} placeholder="e.g. 500 (grants, interest, rental income)" onChange={function(e){fdRef.current.otherRevenue=e.target.value;saveToStorage();refreshLive();}}/>}
+            <AnnualTotal value={sumLive(function(r){return r.revOther;})}/>
+            <div style={{marginBottom:14}}/>
+            </FinSection>
+            <FinSection id="tax" title="3. Tax">
             <div style={{display:"flex",gap:16,alignItems:"flex-start",flexWrap:"wrap"}}>
               <div style={{flex:"0 0 auto"}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Tax rate on products/services (%)</div>
@@ -2120,22 +2368,35 @@ function App(){
                 </div>
               </div>
             </div>
+            </FinSection>
+            <FinSection id="other" title="4. Money out" hint="your expenses">
             <div style={{marginBottom:14}}/>
-            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Other revenue ($)</div>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkOtherRev" checked={!!gridChecks["otherRevenue"]} onChange={function(){toggleGrid("otherRevenue");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkOtherRev" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
-            {gridChecks["otherRevenue"]?<div key={"otherRevGrid"}><MonthGrid keyPrefix={"otherRevM"} storeKey={"otherRevenue"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.otherRevenue||""} placeholder="e.g. 500 (grants, interest, rental income)" onChange={function(e){fdRef.current.otherRevenue=e.target.value;saveToStorage();refreshLive();}}/>}
-            <div style={{marginBottom:14}}/>
-            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly expenses (exc tax)</div>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly expenses</div>
+            <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>Do not include tax payments here - tax is calculated separately from the tax rate above.</span>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:8}}>
-              <span style={{fontSize:12,color:"#374151"}}>Make sure you have added the extra expenses from how your business is going to achieve its goals</span>
-              <div style={{flexShrink:0,fontSize:12,color:"#01236d",fontWeight:500,border:"1px solid #d0b16f",borderRadius:6,padding:"4px 10px",whiteSpace:"nowrap",background:"#d0b16f",color:"#fff"}}>From Step 4: <span style={{color:"#fff"}}>{fdRef.current.goalExpTotal?"$"+fdRef.current.goalExpTotal+" over 12 months":"not set in Step 4"}</span></div>
-            </div>
-            {expCats.map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
+                          </div>
+            {expCats.filter(function(c){
+              // Show a category if it has a value, its monthly grid is open, or
+              // it is one of the common ones. The rest stay hidden until asked for.
+              if(showAllExp)return true;
+              if(fdRef.current[c.id])return true;
+              if(gridChecks[c.id])return true;
+              return ["xAcct","xComms","xMkt","xOffice","xTeam"].indexOf(c.id)>=0;
+            }).map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
               <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}</div>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
               {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 200"} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
+                <AnnualTotal value={sumLive(function(r){return r.expDetail&&r.expDetail[c.id];})}/>
             </div>);})}            <div style={{marginBottom:14}}/>
-            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Other transactions ($)</div>
+            <div style={{marginBottom:12}}>
+              <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"1px dashed #d0b16f",borderRadius:6,padding:"7px 12px",cursor:"pointer"}} onClick={function(){setShowAllExp(function(v){return !v;});}}>
+                {showAllExp?"Show fewer expense categories":"+ Show all "+expCats.length+" expense categories"}
+              </button>
+            </div>
+            <GoalExpApply/>
+            </FinSection>
+            <FinSection id="tx" title="5. Other transactions" hint="loans, assets, drawings">
+            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Other money in and out ($)</div>
             <span style={{fontSize:12,color:"#374151",marginBottom:6,display:"block"}}>Regular monthly or one-off</span>
             <div style={{background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:6,padding:"8px 11px",marginBottom:10,fontSize:12,color:"#6b5a33",lineHeight:1.55}}>
               <strong style={{color:"#01236d"}}>Which sign to use:</strong> enter money coming <strong>in</strong> as a <strong>positive</strong> number, and money going <strong>out</strong> as a <strong>negative</strong> number.<br/>
@@ -2159,11 +2420,15 @@ function App(){
                 <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}</div>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
                 {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 500"} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
+                <AnnualTotal value={sumLive(function(r){return r.txDetail&&r.txDetail[c.id];})}/>
               </div>);
             })}
+            </FinSection>
+            <FinSection id="notes" title="6. Anything else">
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
             <textarea ref={growRef} onInput={growOn} key="extra5" style={ta(2)} defaultValue={fdRef.current["extra5"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra5"]=e.target.value;saveToStorage();}}/>
+                      </FinSection>
           </>)}
           {s5key==="cashflow"&&<div>
             <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
