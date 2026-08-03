@@ -628,6 +628,9 @@ function App(){
   var msVersionState=useState(0);var msVersion=msVersionState[0];var setMsVersion=msVersionState[1];
   var gsVersionState=useState(0);var gsVersion=gsVersionState[0];var setGsVersion=gsVersionState[1];
   var gsLoadingState=useState(false);var gsLoading=gsLoadingState[0];var setGsLoading=gsLoadingState[1];
+  var msLoadingState=useState(false);var msLoading=msLoadingState[0];var setMsLoading=msLoadingState[1];
+  var compLoadingState=useState(false);var compLoading=compLoadingState[0];var setCompLoading=compLoadingState[1];
+  var cswLoadingState=useState(false);var cswLoading=cswLoadingState[0];var setCswLoading=cswLoadingState[1];
   var geLoadingState=useState(false);var geLoading=geLoadingState[0];var setGeLoading=geLoadingState[1];
   var geVersionState=useState(0);var geVersion=geVersionState[0];var setGeVersion=geVersionState[1];
   var compVersionState=useState(0);var compVersion=compVersionState[0];var setCompVersion=compVersionState[1];
@@ -740,7 +743,8 @@ function App(){
     setGoalLoading(true);
     try{
       var prompt="Based on this business SWOT analysis, suggest 5 specific, measurable goals that maximise strengths and opportunities and address weaknesses and threats (one per line, no numbering or bullets, 10-20 words each):\n"+
-        "Business: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||"")+"\n"+
+        "Business: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\n"+
+        "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
         "Strengths: "+(fdRef.current.swotS||"")+"\n"+
         "Weaknesses: "+(fdRef.current.swotW||"")+"\n"+
         "Opportunities: "+(fdRef.current.swotO||"")+"\n"+
@@ -758,7 +762,7 @@ function App(){
   async function suggestSWOT(){
     setGoalLoading(true);
     setSwotVersion(function(v){return v+1;});
-    var prompt="Write a SWOT analysis for this business. Return ONLY the four sections in this exact format:\nStrengths: [3-4 points, comma separated]\nWeaknesses: [3-4 points, comma separated]\nOpportunities: [3-4 points, comma separated]\nThreats: [3-4 points, comma separated]\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nStage: "+(fdRef.current.stage||"")+"\nTeam: "+(fdRef.current.team||"")+"\nCompetitors: "+(fdRef.current.competitors||"")+"\nTarget market: "+(fdRef.current.targetCust||"");
+    var prompt="Write a SWOT analysis for this business. Return ONLY the four sections in this exact format:\nStrengths: [3-4 points, comma separated]\nWeaknesses: [3-4 points, comma separated]\nOpportunities: [3-4 points, comma separated]\nThreats: [3-4 points, comma separated]\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nStage: "+(fdRef.current.stage||"")+"\nTeam: "+(fdRef.current.team||"")+"\nCompetitors: "+(fdRef.current.competitors||"")+"\nTarget market: "+(fdRef.current.targetCust||"")+"\nPosition statement: "+(fdRef.current.position||"not specified");
     try{
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
@@ -843,6 +847,7 @@ function App(){
   }
 
   async function suggestMarketSize(){
+    setMsLoading(true);
     setMsVersion(function(v){return v+1;});
     var prompt="Provide a brief market size estimate (2-3 sentences, include numbers/sources where possible) for:\n"+
       "Business: "+(fdRef.current.bizName||"")+" in "+(fdRef.current.industry||"")+"\n"+
@@ -856,24 +861,43 @@ function App(){
       saveToStorage();
       setMsVersion(function(v){return v+1;});
     }catch(e){}
+    setMsLoading(false);
   }
 
   async function suggestCompetitors(){
+    setCompLoading(true);
     setCompVersion(function(v){return v+1;});
-    var prompt="List the 3-4 main competitors (name and one-line description each) for a "+
-      (fdRef.current.industry||"business")+" business called "+(fdRef.current.bizName||"this business")+
-      " in "+(fdRef.current.locations||"NZ")+". Keep it factual and concise.";
+    // The field asks two things - who the competitors are AND how this business
+    // differs - so the prompt has to answer both, and needs the positioning and
+    // target customer to do it. This text also feeds section 2 of the plan,
+    // where competitor strengths and weaknesses are required.
+    var prompt="Identify the 3-4 main competitors for this business, and for each one say what they are genuinely good at and how this business differs.\n\n"+
+      "Business: "+(fdRef.current.bizName||"this business")+"\n"+
+      "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
+      "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
+      "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
+      "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n\n"+
+      "Write one short paragraph per competitor, in this shape:\n"+
+      "[Competitor name] - [what they do and what they are genuinely strong at]. [Where this business differs or can compete].\n\n"+
+      "Rules:\n"+
+      "- Name real, plausible competitors for the stated industry and location. Include indirect alternatives (for example doing it manually, or a general-purpose tool) where those are the realistic competition.\n"+
+      "- Give each competitor genuine credit. Do not dismiss them or list only weaknesses.\n"+
+      "- Base the difference on the position statement and target customer above. If those are not specified, describe the likely basis for differentiation rather than inventing specifics.\n"+
+      "- Plain prose, no bullet points, no headings, no preamble. Keep the whole answer under 180 words.";
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:450,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.competitors=text;
       saveToStorage();
       setCompVersion(function(v){return v+1;});
     }catch(e){}
+    setCompLoading(false);
   }
 
   async function suggestCompSW(){
+    setCswLoading(true);
     setCompSwVersion(function(v){return v+1;});
     var comps=fdRef.current.competitors||"";
     if(!comps.trim()){setCompSwVersion(function(v){return v+1;});return;}
@@ -886,11 +910,12 @@ function App(){
       saveToStorage();
       setCompSwVersion(function(v){return v+1;});
     }catch(e){}
+    setCswLoading(false);
   }
 
   async function suggestGoalCard(i){
     setGoalCardLoading(function(prev){var n=Object.assign({},prev);n[i]=true;return n;});
-    var prompt="For this specific business goal, suggest:\n1. How to achieve it (2-3 concrete action steps, 1-2 sentences)\n2. Resources needed (people, tools, budget - 1-2 sentences)\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nGoal: "+(goals[i]||"")+"\n\nReturn in this exact format:\nHow: [your suggestion]\nResources: [your suggestion]";
+    var prompt="For this specific business goal, suggest:\n1. How to achieve it (2-3 concrete action steps, 1-2 sentences)\n2. Resources needed (people, tools, budget - 1-2 sentences)\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nPosition statement: "+(fdRef.current.position||"not specified")+"\nGoal: "+(goals[i]||"")+"\n\nReturn in this exact format:\nHow: [your suggestion]\nResources: [your suggestion]";
     try{
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
@@ -1468,7 +1493,7 @@ function App(){
     var ctx="You are an expert business consultant helping write a professional business plan.\n\n"+
       "STEP 1 - BUSINESS DETAILS: Business: "+(f.bizName||"")+" | Industry: "+(f.industry||"")+" | Type: "+(f.bizType||"")+" | Stage: "+(f.stage||"")+
       " | Establishment date: "+establishmentDate+
-      " | Description: "+(f.description||"")+" | History: "+(f.history||"")+
+      " | Description: "+(f.description||f.history||"")+" | History: "+(f.history||"")+
       " | Locations: "+(f.locations||"")+" | Team: "+(f.team||"")+
       " | Online: "+onlineText+" | Contact: "+contactText+" | Legal: "+legalText+
       " | Notes: "+(f.extra1||"")+
@@ -1847,11 +1872,12 @@ function App(){
               </div>);
             })}
           </div>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business description</div>
-          {RT("description","Describe your product or service and who it's for...",3)}
-          <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business history / origin</div>
           {RT("history","e.g. I spotted a gap in the market when...",3)}
+          <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Position Statement</div>
+          <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>For [customer] who [need], [business] is a [category] that [benefit]</span>
+          {RT("position","e.g. For NZ sole traders who are overwhelmed by complex accounting...",3)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business team</div>
           {RT("team","e.g. 2 full-time founders, 1 part-time developer...",2)}
@@ -1894,19 +1920,19 @@ function App(){
           {RT("currentCust","e.g. 45 paying customers, approx 2% of local market...",2)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What is the target market opportunity (estimated)?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={suggestBtn} onClick={suggestMarketSize}>Suggest with AI</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={msLoading?suggestBtnBusy:suggestBtn} onClick={suggestMarketSize} disabled={msLoading}>{msLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"ms-"+msVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.marketSize||""} placeholder="e.g. NZ SME accounting software market ~$120M..." onChange={function(e){fdRef.current.marketSize=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Who are the main competitors to your business and how does your business differ from them?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={suggestBtn} onClick={suggestCompetitors}>Suggest with AI</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={compLoading?suggestBtnBusy:suggestBtn} onClick={suggestCompetitors} disabled={compLoading}>{compLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"comp-"+compVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.competitors||""} placeholder="e.g. Xero (market leader, feature-rich but expensive)..." onChange={function(e){fdRef.current.competitors=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What are the strengths and weaknesses of the main competitors to your business?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={suggestBtn} onClick={suggestCompSW}>Suggest with AI</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={cswLoading?suggestBtnBusy:suggestBtn} onClick={suggestCompSW} disabled={cswLoading}>{cswLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"csw-"+compSwVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.compStrWeakness||""} placeholder="e.g. Xero: strengths - brand, integrations. Weaknesses - price..." onChange={function(e){fdRef.current.compStrWeakness=e.target.value;saveToStorage();}}/>
           </div>
@@ -1934,8 +1960,8 @@ function App(){
           {RT("vision","e.g. By 2027, to be the go-to invoicing tool for 10,000 NZ sole traders...",3)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Position Statement</div>
-          <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>For [customer] who [need], [business] is a [category] that [benefit]</span>
-          {RT("position","e.g. For NZ sole traders who are overwhelmed by complex accounting...",3)}
+          <div style={{fontSize:12,color:"#6b7280",marginBottom:5}}>Entered in Step 1. To change it, go back to <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={function(){setStepAndSave(0);window.scrollTo(0,0);}}>Step 1 - Business Details</button>.</div>
+          <div style={Object.assign({},ta(3),{background:"#f3f4f6",color:"#6b7280",whiteSpace:"pre-wrap",cursor:"not-allowed",overflow:"auto"})}>{fdRef.current.position||"Not yet entered - add it in Step 1."}</div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Values</div><div style={{fontSize:12,color:"#6b7280",marginBottom:6}}>The principles that guide your business</div>
           {RT("values","e.g. Simplicity - we remove complexity, not add to it...",3)}
