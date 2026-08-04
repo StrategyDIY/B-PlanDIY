@@ -491,8 +491,11 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
     var np=gp-exp;
     return Object.assign({},r,{revenue:rev,cogs:cogs,grossProfit:gp,totalExpenses:exp,netProfit:np});
   });
+  // The real forecast is bal = bal + netProfit + otherTx. Leaving otherTx out
+  // meant the adjusted closing balance never matched the baseline, even with
+  // every slider at zero - loans, asset purchases, tax and drawings were lost.
   var cb=liveRows[0].openingBalance||0;
-  adj.forEach(function(r){cb+=r.netProfit;r.closingBalance=cb;});
+  adj.forEach(function(r){cb+=r.netProfit+(r.otherTx||0);r.closingBalance=cb;});
 
   const sl={WebkitAppearance:"none",appearance:"none",width:"100%",height:4,borderRadius:2,background:"#e5e7eb",outline:"none",cursor:"pointer",accentColor:GREEN};
 
