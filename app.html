@@ -466,7 +466,7 @@ function CfCharts({rows,expCatsData}){
   );
 }
 
-function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakeven,bkLoading,bkText,suggestBtn,suggestBtnBusy,busyLabel,enteredPrice,enteredCost}){
+function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakeven,bkLoading,bkText,onClearBreakeven,suggestBtn,suggestBtnBusy,busyLabel,enteredPrice,enteredCost}){
   if(!liveRows||!liveRows.length)return null;
   var wiUnitsState=useState(0);var wiUnits=wiUnitsState[0];var setWiUnits=wiUnitsState[1];
   var wiPriceState=useState(0);var wiPrice=wiPriceState[0];var setWiPrice=wiPriceState[1];
@@ -533,7 +533,13 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
 
   return (
     <div style={{marginTop:24}}>
-      <div style={{fontSize:13,fontWeight:600,color:"#6b7280",marginBottom:16,textTransform:"uppercase",letterSpacing:"0.05em"}}>What If Scenarios</div>
+      <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:12,marginBottom:16}}>
+        <span style={{fontSize:13,fontWeight:600,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em"}}>What If Scenarios</span>
+        {(wiUnits||wiPrice||wiCostU||wiTeam||wiTotalExp)?(
+          <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"1px solid #d0b16f",borderRadius:6,padding:"5px 12px",cursor:"pointer",flexShrink:0}}
+            onClick={function(){setWiUnits(0);setWiPrice(0);setWiCostU(0);setWiTeam(0);setWiTotalExp(0);}}>Reset to baseline</button>
+        ):null}
+      </div>
       <div style={{display:"flex",gap:12,flexWrap:"wrap",position:"sticky",top:0,zIndex:5,background:"#fff",paddingBottom:12,marginBottom:20}}>
         {[{label:"Total Net Profit",base:liveRows.reduce(function(s,r){return s+r.netProfit;},0),adj:adj.reduce(function(s,r){return s+r.netProfit;},0)},
           {label:"Closing Bank Balance",base:liveRows[liveRows.length-1].closingBalance,adj:adj[adj.length-1].closingBalance}
@@ -579,7 +585,11 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
               {bkLoading?busyLabel("Working on it\u2026"):"How would I break even?"}
             </button>
             {!!bkText&&(
-              <div style={{marginTop:12,background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"12px 14px",fontSize:13,color:"#374151",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{bkText}</div>
+              <div style={{marginTop:10,background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"12px 14px"}}>
+                <div style={{fontSize:13,color:"#374151",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{bkText}</div>
+                <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:6,padding:"5px 12px",cursor:"pointer",marginTop:10}}
+                  onClick={onClearBreakeven}>Clear</button>
+              </div>
             )}
           </div>
         );
@@ -611,7 +621,6 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
           </div>
         </div>
       );})}
-      <button style={{fontFamily:"inherit",fontSize:12,color:"#6b7280",background:"none",border:"none",cursor:"pointer",padding:0,marginBottom:16,textDecoration:"underline"}} onClick={function(){setWiUnits(0);setWiPrice(0);setWiCostU(0);setWiTeam(0);setWiTotalExp(0);}}>Reset to baseline</button>
 
 
     </div>
@@ -2746,7 +2755,7 @@ function App(){
             <CfTable rows={liveRows}/>
           </div>}
           {s5key==="graphs"&&<CfCharts rows={liveRows} expCatsData={expCats}/>}
-          {s5key==="whatif"&&<WhatIf liveRows={liveRows} wiRev={wiRev} wiExp={wiExp} wiCos={wiCos} setWiRev={setWiRev} setWiExp={setWiExp} setWiCos={setWiCos} onBreakeven={suggestBreakeven} bkLoading={bkLoading} bkText={bkText} suggestBtn={suggestBtn} suggestBtnBusy={suggestBtnBusy} busyLabel={busyLabel} enteredPrice={enteredAvg("avgPrice")} enteredCost={enteredAvg("avgCost")}/>}
+          {s5key==="whatif"&&<WhatIf liveRows={liveRows} wiRev={wiRev} wiExp={wiExp} wiCos={wiCos} setWiRev={setWiRev} setWiExp={setWiExp} setWiCos={setWiCos} onBreakeven={suggestBreakeven} bkLoading={bkLoading} bkText={bkText} onClearBreakeven={function(){setBkText("");}} suggestBtn={suggestBtn} suggestBtnBusy={suggestBtnBusy} busyLabel={busyLabel} enteredPrice={enteredAvg("avgPrice")} enteredCost={enteredAvg("avgCost")}/>}
         </>
       );}},
   ];
