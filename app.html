@@ -205,7 +205,14 @@ function calcCashflow(f){
   }
   function goalExpFor(catId,i){
     var a=goalExpByCat[catId];
-    return a?a/12:0;
+    if(!a)return 0;
+    // Monthly override, if the user has set one for this category
+    var ov=f["goalExpM_"+catId];
+    if(ov&&String(ov).indexOf("M")>=0){
+      var arr=parseMonthly(ov,0);
+      return arr[i]||0;
+    }
+    return a/12;
   }
 
   let bal=open;
@@ -641,7 +648,7 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
         {Array.from({length:12},function(_,m){
           var key=mKey(m);
           var locked=m<start;
-          return (<div key={m}>
+          return (<div key={m+"-"+ver}>
               <label style={{fontSize:10,color:locked?"#d1d5db":"#9ca3af",marginBottom:2,display:"block",textAlign:"center"}}>{monthLabel(m)}</label>
               <input style={Object.assign({},inp,{textAlign:"right",padding:"6px 8px",fontSize:13},locked?{background:"#f3f4f6",color:"#d1d5db",cursor:"not-allowed"}:{})} defaultValue={locked?"":fdRef.current[key]||""} placeholder={locked?"-":"0"} readOnly={locked} onChange={locked?undefined:function(e){
                 fdRef.current[key]=e.target.value;
@@ -2138,16 +2145,37 @@ function App(){
             Add the extra <strong style={{color:"#01236d"}}>{fmt(total)}</strong> of costs from your Step 4 goals
           </label>
         </div>
-        {on&&(<div style={{marginTop:8,fontSize:12,color:"#6b7280",lineHeight:1.6}}>
-          Spread evenly over 12 months and added to these categories:
-          <div style={{marginTop:5}}>
-            {rows.map(function(r,i){return (
-              <div key={i} style={{display:"flex",justifyContent:"space-between",maxWidth:340,padding:"2px 0"}}>
-                <span>{labelFor(r.id)}</span>
-                <span style={{color:"#01236d",fontWeight:600}}>{fmt(r.amt/12)} a month</span>
+        {on&&(<div style={{marginTop:10}}>
+          <div style={{fontSize:12,color:"#6b7280",marginBottom:6}}>Added to these expense categories:</div>
+          {rows.map(function(r,i){
+            var gk="goalExpM_"+r.id;
+            var ov=fdRef.current[gk]||"";
+            var overridden=String(ov).indexOf("M")>=0;
+            var sum=overridden?parseMonthly(ov,0).reduce(function(a,b){return a+(b||0);},0):r.amt;
+            var diff=Math.round(sum-r.amt);
+            return (
+              <div key={i} style={{border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 11px",marginBottom:8,background:"#fff"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8}}>
+                  <span style={{fontSize:13,color:"#01236d",fontWeight:600}}>{labelFor(r.id)}</span>
+                  <span style={{fontSize:12,color:"#6b7280"}}>
+                    12-month total <strong style={{color:"#01236d"}}>{fmt(sum)}</strong>
+                    {!overridden&&<span> &middot; {fmt(r.amt/12)} a month</span>}
+                  </span>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:6}}>
+                  <input type="checkbox" id={"gx-"+r.id} checked={!!gridChecks[gk]} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}
+                    onChange={function(){toggleGrid(gk);}}/>
+                  <label htmlFor={"gx-"+r.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Set the monthly amounts myself</label>
+                </div>
+                {gridChecks[gk]&&<div style={{marginTop:6}}><MonthGrid keyPrefix={gk+"M"} storeKey={gk} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>}
+                {overridden&&Math.abs(diff)>0&&(
+                  <div style={{marginTop:7,fontSize:12,background:"#fdf3f3",border:"1px solid #e8c9c9",borderRadius:6,padding:"7px 10px",color:"#a32d2d",lineHeight:1.5}}>
+                    Your monthly amounts add up to <strong>{fmt(sum)}</strong>, {fmt(Math.abs(diff))} {diff>0?"more":"less"} than the {fmt(r.amt)} from Step 4. The forecast uses the monthly amounts.
+                  </div>
+                )}
               </div>
-            );})}
-          </div>
+            );
+          })}
         </div>)}
       </div>
     );
