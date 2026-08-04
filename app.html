@@ -608,7 +608,18 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
   var post=keyPostfix||"";
   var start=(startMonth||1)-1;
   var verState=useState(0);var ver=verState[0];var setVer=verState[1];
-  var copiedState=useState(false);var copied=copiedState[0];var setCopied=copiedState[1];
+  // Whether the months are currently all the same is read from the data, not
+  // held as a toggle. A stale toggle meant that after applying a growth rate the
+  // button still offered "Clear all months", so the first click wiped the values
+  // instead of copying the new first month across.
+  function allMonthsMatchFirst(){
+    var v=fdRef.current[mKey(start)];
+    if(!v||v==="0")return false;
+    for(var m=start;m<12;m++){
+      if(String(fdRef.current[mKey(m)]||"")!==String(v))return false;
+    }
+    return true;
+  }
   // Label months from the cashflow start date set in Step 5 (format "YYYY-MM").
   // Falls back to M1..M12 until that date has been chosen.
   var SHORT_MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -642,23 +653,21 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
         })}
       </div>
       <button style={Object.assign({},btnSm,{marginTop:6,fontSize:11})} onClick={function(){
-        if(copied){
+        if(allMonthsMatchFirst()){
           Array.from({length:12},function(_,m){if(m>=start)fdRef.current[mKey(m)]="";});
           fdRef.current[storeKey]="";
-          setCopied(false);
         } else {
           var v=fdRef.current[mKey(start)]||"";
           if(!v||v==="0")return;   // guarded by the disabled state below
           Array.from({length:12},function(_,m){if(m>=start)fdRef.current[mKey(m)]=v;});
           fdRef.current[storeKey]=Array.from({length:12},function(_,m){return "M"+(m+1)+":"+(m<start?"0":fdRef.current[mKey(m)]||"0");}).join(",");
-          setCopied(true);
         }
         setVer(function(n){return n+1;});
         if(onUpdate)onUpdate();
       }}
-        disabled={!copied&&!(fdRef.current[mKey(start)]&&fdRef.current[mKey(start)]!=="0")}
-        title={!copied&&!(fdRef.current[mKey(start)]&&fdRef.current[mKey(start)]!=="0")?"Enter an amount in "+monthLabel(start)+" first":""}
-        >{copied?"Clear all months":"Copy "+monthLabel(start)+" to all months"}</button>
+        disabled={!allMonthsMatchFirst()&&!(fdRef.current[mKey(start)]&&fdRef.current[mKey(start)]!=="0")}
+        title={!allMonthsMatchFirst()&&!(fdRef.current[mKey(start)]&&fdRef.current[mKey(start)]!=="0")?"Enter an amount in "+monthLabel(start)+" first":""}
+        >{allMonthsMatchFirst()?"Clear all months":"Copy "+monthLabel(start)+" to all months"}</button>
     </div>
   );
 }
@@ -1020,7 +1029,7 @@ function App(){
           var gi=parseInt(m[1])-1;
           if(gi>=0&&gi<6&&goals[gi])map[gi]=m[2].replace(/,/g,"");
         });
-        if(Object.keys(map).length)writeGoalSales(map);
+        if(Object.keys(map).length)writeGoalSales(map,true);
       }
     }catch(e){}
     setGsLoading(false);
@@ -1060,7 +1069,7 @@ function App(){
           if(!cat)cat=expCats.filter(function(e){return e.l.toLowerCase().indexOf(name)>=0||name.indexOf(e.l.toLowerCase())>=0;})[0];
           if(cat)map[gi]={id:cat.id,amt:amt};
         });
-        if(Object.keys(map).length)writeGoalExp(map);
+        if(Object.keys(map).length)writeGoalExp(map,true);
       }
     }catch(e){}
     setGeLoading(false);
@@ -2054,7 +2063,7 @@ function App(){
     Object.keys(m).forEach(function(k){var n=parseFloat(m[k]);if(!isNaN(n))t+=n;});
     return t;
   }
-  function writeGoalSales(map){
+  function writeGoalSales(map,remount){
     fdRef.current.goalSalesLines=Object.keys(map)
       .filter(function(k){return String(map[k]).length;})
       .map(function(k){return k+":"+map[k];}).join("|");
@@ -2063,7 +2072,9 @@ function App(){
     Object.keys(map).forEach(function(k){var n=parseFloat(map[k]);if(!isNaN(n))t+=n;});
     fdRef.current.goalSalesTotal=t?String(Math.round(t)):"";
     saveToStorage();refreshLive();
-    setGsVersion(function(v){return v+1;});
+    // Only remount when values are replaced wholesale (the AI button). Doing it
+    // on every keystroke destroyed the input the user was typing into.
+    if(remount)setGsVersion(function(v){return v+1;});
   }
   function setGoalSalesFor(gi,val){
     var m=goalSalesMap();
@@ -2083,12 +2094,12 @@ function App(){
     return m;
   }
   function goalExpFor2(gi){ return goalExpMap()[gi]||{id:"",amt:""}; }
-  function writeGoalExp(map){
+  function writeGoalExp(map,remount){
     fdRef.current.goalExpLines=Object.keys(map)
       .filter(function(k){return map[k]&&(map[k].id||String(map[k].amt).length);})
       .map(function(k){return k+":"+map[k].id+":"+map[k].amt;}).join("|");
     saveToStorage();refreshLive();
-    setGeVersion(function(v){return v+1;});
+    if(remount)setGeVersion(function(v){return v+1;});
   }
   function setGoalExpFor(gi,id,amt){
     var m=goalExpMap();
@@ -2448,7 +2459,7 @@ function App(){
                       <span style={{flex:1,minWidth:0,fontSize:12,color:"#374151",lineHeight:1.4}}>
                         <strong style={{color:"#01236d"}}>Goal {gi+1}:</strong> {g.length>70?g.slice(0,69)+"\u2026":g}
                       </span>
-                      <input style={Object.assign({},inp,{flex:"0 0 110px",textAlign:"right"})} value={goalSalesFor(gi)} placeholder="0" onChange={function(e){setGoalSalesFor(gi,e.target.value);}}/>
+                      <input style={Object.assign({},inp,{flex:"0 0 110px",textAlign:"right"})} defaultValue={goalSalesFor(gi)} placeholder="0" onChange={function(e){setGoalSalesFor(gi,e.target.value);}}/>
                     </div>
                   );
                 })}
@@ -2478,7 +2489,7 @@ function App(){
                           <option value="">No extra cost</option>
                           {expCats.map(function(ec){return <option key={ec.id} value={ec.id}>{ec.l}</option>;})}
                         </select>
-                        <input style={Object.assign({},inp,{flex:"0 0 120px",textAlign:"right"})} value={row.amt} placeholder="0" onChange={function(e){setGoalExpFor(gi,row.id,e.target.value);}}/>
+                        <input style={Object.assign({},inp,{flex:"0 0 120px",textAlign:"right"})} defaultValue={row.amt} placeholder="0" onChange={function(e){setGoalExpFor(gi,row.id,e.target.value);}}/>
                       </div>
                     </div>
                   );
