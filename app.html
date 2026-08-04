@@ -466,7 +466,7 @@ function CfCharts({rows,expCatsData}){
   );
 }
 
-function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakeven,bkLoading,bkText,suggestBtn,suggestBtnBusy,busyLabel}){
+function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakeven,bkLoading,bkText,suggestBtn,suggestBtnBusy,busyLabel,enteredPrice,enteredCost}){
   if(!liveRows||!liveRows.length)return null;
   var wiUnitsState=useState(0);var wiUnits=wiUnitsState[0];var setWiUnits=wiUnitsState[1];
   var wiPriceState=useState(0);var wiPrice=wiPriceState[0];var setWiPrice=wiPriceState[1];
@@ -496,10 +496,16 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
 
   const sl={WebkitAppearance:"none",appearance:"none",width:"100%",height:4,borderRadius:2,background:"#e5e7eb",outline:"none",cursor:"pointer",accentColor:GREEN};
 
+  // Price and cost come straight from Average sale price and Average cost per
+  // unit on the Details tab, so the slider baseline matches what was entered.
+  // Falls back to deriving them from the forecast if those fields are blank.
+  var totUnits=liveRows.reduce(function(s,r){return s+(r.units||0);},0);
+  var totRevProducts=liveRows.reduce(function(s,r){return s+(r.revProducts||0);},0);
+  var totCogs=liveRows.reduce(function(s,r){return s+(r.cogs||0);},0);
   var baseValues={
-    units:liveRows.reduce(function(s,r){return s+(r.units||0);},0)/12,
-    price:liveRows.reduce(function(s,r){return s+(r.units>0?r.revProducts/r.units:0);},0)/12,
-    cost:liveRows.reduce(function(s,r){return s+(r.units>0?r.cogs/r.units:0);},0)/12,
+    units:totUnits/12,
+    price:enteredPrice||(totUnits>0?totRevProducts/totUnits:0),
+    cost:enteredCost||(totUnits>0?totCogs/totUnits:0),
     team:liveRows.reduce(function(s,r){return s+(r.expDetail&&r.expDetail.xTeam||0);},0)/12,
     totalExp:liveRows.reduce(function(s,r){return s+r.totalExpenses;},0)/12,
   };
@@ -544,6 +550,40 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
             <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>Baseline: {fmt(item.base)}</div>
           </div>);
         })}
+        {(function(){
+        // Breakeven is arithmetic, so it is worked out here rather than asked
+        // for. The AI is used for how to get there, not for the number itself.
+        var tUnits=liveRows.reduce(function(s,r){return s+(r.units||0);},0);
+        var tCogs=liveRows.reduce(function(s,r){return s+(r.cogs||0);},0);
+        var tExp=liveRows.reduce(function(s,r){return s+(r.totalExpenses||0);},0);
+        var tRevP=liveRows.reduce(function(s,r){return s+(r.revProducts||0);},0);
+        var tNp=liveRows.reduce(function(s,r){return s+(r.netProfit||0);},0);
+        var price=tUnits?tRevP/tUnits:0;
+        var cost=tUnits?tCogs/tUnits:0;
+        var contrib=price-cost;
+        var beUnits=contrib>0?Math.ceil(tExp/contrib):null;
+        return (
+          <div style={{flex:"1 1 260px",minWidth:240,border:"1px solid #e5e7eb",borderRadius:10,padding:"12px 16px",background:"#fbfcfe"}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:8}}>Breakeven</div>
+            {contrib>0?(
+              <div style={{fontSize:13,color:"#374151",lineHeight:1.6,marginBottom:10}}>
+                Each unit contributes <strong>{fmt(Math.round(contrib*100)/100)}</strong> after its cost. To cover {fmt(Math.round(tExp))} of expenses you need to sell about <strong>{beUnits.toLocaleString()} units</strong> over the year — you are forecasting <strong>{Math.round(tUnits).toLocaleString()}</strong>.
+                {tUnits>=beUnits?<span style={{color:"#1e7a41"}}> That is above breakeven.</span>:<span style={{color:"#a32d2d"}}> That is {Math.round(beUnits-tUnits).toLocaleString()} short.</span>}
+              </div>
+            ):(
+              <div style={{fontSize:13,color:"#a32d2d",lineHeight:1.6,marginBottom:10}}>
+                Each unit costs at least as much as it sells for, so no level of sales will reach breakeven until the price or the unit cost changes.
+              </div>
+            )}
+            <button style={bkLoading?suggestBtnBusy:suggestBtn} onClick={onBreakeven} disabled={bkLoading}>
+              {bkLoading?busyLabel("Working on it\u2026"):"How would I break even?"}
+            </button>
+            {!!bkText&&(
+              <div style={{marginTop:12,background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"12px 14px",fontSize:13,color:"#374151",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{bkText}</div>
+            )}
+          </div>
+        );
+        })()}
       </div>
       {sliders.map(function(s){
         // Units slider is a percentage; the rest are absolute dollar changes.
@@ -573,40 +613,7 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
       );})}
       <button style={{fontFamily:"inherit",fontSize:12,color:"#6b7280",background:"none",border:"none",cursor:"pointer",padding:0,marginBottom:16,textDecoration:"underline"}} onClick={function(){setWiUnits(0);setWiPrice(0);setWiCostU(0);setWiTeam(0);setWiTotalExp(0);}}>Reset to baseline</button>
 
-      {(function(){
-        // Breakeven is arithmetic, so it is worked out here rather than asked
-        // for. The AI is used for how to get there, not for the number itself.
-        var tUnits=liveRows.reduce(function(s,r){return s+(r.units||0);},0);
-        var tCogs=liveRows.reduce(function(s,r){return s+(r.cogs||0);},0);
-        var tExp=liveRows.reduce(function(s,r){return s+(r.totalExpenses||0);},0);
-        var tRevP=liveRows.reduce(function(s,r){return s+(r.revProducts||0);},0);
-        var tNp=liveRows.reduce(function(s,r){return s+(r.netProfit||0);},0);
-        var price=tUnits?tRevP/tUnits:0;
-        var cost=tUnits?tCogs/tUnits:0;
-        var contrib=price-cost;
-        var beUnits=contrib>0?Math.ceil(tExp/contrib):null;
-        return (
-          <div style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"14px 16px",marginBottom:20,background:"#fbfcfe"}}>
-            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:8}}>Breakeven</div>
-            {contrib>0?(
-              <div style={{fontSize:13,color:"#374151",lineHeight:1.6,marginBottom:10}}>
-                Each unit contributes <strong>{fmt(Math.round(contrib*100)/100)}</strong> after its cost. To cover {fmt(Math.round(tExp))} of expenses you need to sell about <strong>{beUnits.toLocaleString()} units</strong> over the year — you are forecasting <strong>{Math.round(tUnits).toLocaleString()}</strong>.
-                {tUnits>=beUnits?<span style={{color:"#1e7a41"}}> That is above breakeven.</span>:<span style={{color:"#a32d2d"}}> That is {Math.round(beUnits-tUnits).toLocaleString()} short.</span>}
-              </div>
-            ):(
-              <div style={{fontSize:13,color:"#a32d2d",lineHeight:1.6,marginBottom:10}}>
-                Each unit costs at least as much as it sells for, so no level of sales will reach breakeven until the price or the unit cost changes.
-              </div>
-            )}
-            <button style={bkLoading?suggestBtnBusy:suggestBtn} onClick={onBreakeven} disabled={bkLoading}>
-              {bkLoading?busyLabel("Working on it\u2026"):"How would I break even?"}
-            </button>
-            {!!bkText&&(
-              <div style={{marginTop:12,background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"12px 14px",fontSize:13,color:"#374151",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{bkText}</div>
-            )}
-          </div>
-        );
-      })()}
+
     </div>
   );
 }
@@ -752,9 +759,16 @@ function App(){
   var gridChecksState=useState(function(){
     var d=fdRef.current;
     var out={};
-    ["avgPrice","avgCost","otherRevenue","monthlyUnits"].forEach(function(k){out[k]=d[k+"_monthly"]==="1";});
-    expCats.forEach(function(c){out[c.id]=d[c.id+"_monthly"]==="1";});
-    txCats.forEach(function(c){out[c.id]=d[c.id+"_monthly"]==="1";});
+    // Rebuilt from every saved "<key>_monthly" flag rather than a fixed list.
+    // The list missed the goal override grids, so after a reload their tick was
+    // lost even though the monthly amounts were still saved.
+    try{
+      Object.keys(d).forEach(function(k){
+        if(k.length>8&&k.slice(-8)==="_monthly"&&d[k]==="1"){
+          out[k.slice(0,-8)]=true;
+        }
+      });
+    }catch(e){}
     return out;
   });
   var gridChecks=gridChecksState[0];var setGridChecks=gridChecksState[1];
@@ -957,6 +971,18 @@ function App(){
 
   // Reads the actual forecast rather than the raw inputs, so the advice reflects
   // what the cashflow is really doing - including months where cash runs out.
+  // The figure the user actually typed on the Details tab. parseMonthly returns
+  // twelve copies of a single value, or the twelve entered amounts when the
+  // monthly grid is open, so averaging works for both cases.
+  function enteredAvg(key){
+    var raw=fdRef.current[key];
+    if(raw===undefined||raw===null||raw==="")return 0;
+    var arr=parseMonthly(raw,0);
+    var used=arr.filter(function(v){return v!==0;});
+    if(!used.length)return 0;
+    return used.reduce(function(a,b){return a+b;},0)/used.length;
+  }
+
   async function suggestBreakeven(){
     setBkLoading(true);
     setBkText("");
@@ -2720,7 +2746,7 @@ function App(){
             <CfTable rows={liveRows}/>
           </div>}
           {s5key==="graphs"&&<CfCharts rows={liveRows} expCatsData={expCats}/>}
-          {s5key==="whatif"&&<WhatIf liveRows={liveRows} wiRev={wiRev} wiExp={wiExp} wiCos={wiCos} setWiRev={setWiRev} setWiExp={setWiExp} setWiCos={setWiCos} onBreakeven={suggestBreakeven} bkLoading={bkLoading} bkText={bkText} suggestBtn={suggestBtn} suggestBtnBusy={suggestBtnBusy} busyLabel={busyLabel}/>}
+          {s5key==="whatif"&&<WhatIf liveRows={liveRows} wiRev={wiRev} wiExp={wiExp} wiCos={wiCos} setWiRev={setWiRev} setWiExp={setWiExp} setWiCos={setWiCos} onBreakeven={suggestBreakeven} bkLoading={bkLoading} bkText={bkText} suggestBtn={suggestBtn} suggestBtnBusy={suggestBtnBusy} busyLabel={busyLabel} enteredPrice={enteredAvg("avgPrice")} enteredCost={enteredAvg("avgCost")}/>}
         </>
       );}},
   ];
