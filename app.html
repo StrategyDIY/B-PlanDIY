@@ -748,6 +748,29 @@ function App(){
   var showOutputState=useState(false);var showOutput=showOutputState[0];var setShowOutput=showOutputState[1];
   var planFailedState=useState(false);var planFailed=planFailedState[0];var setPlanFailed=planFailedState[1];
   var showBackupHelpState=useState(false);var showBackupHelp=showBackupHelpState[0];var setShowBackupHelp=showBackupHelpState[1];
+  // Shown once, on the first visit only. The flag is separate from the plan data
+  // so importing a backup does not bring the welcome screen back.
+  var showWelcomeState=useState(function(){
+    try{ return localStorage.getItem("bpd_seen_welcome")!=="1"; }catch(e){ return false; }
+  });
+  var showWelcome=showWelcomeState[0];var setShowWelcome=showWelcomeState[1];
+  function dismissWelcome(){
+    try{ localStorage.setItem("bpd_seen_welcome","1"); }catch(e){}
+    setShowWelcome(false);
+  }
+
+  // Shown the first time the Finances step is opened - it lists what the user
+  // needs to hand before starting the cashflow.
+  var showFinIntroState=useState(false);
+  var showFinIntro=showFinIntroState[0];var setShowFinIntro=showFinIntroState[1];
+  function maybeShowFinIntro(){
+    try{ if(localStorage.getItem("bpd_seen_finances")==="1")return; }catch(e){ return; }
+    setShowFinIntro(true);
+  }
+  function dismissFinIntro(){
+    try{ localStorage.setItem("bpd_seen_finances","1"); }catch(e){}
+    setShowFinIntro(false);
+  }
   var backupNameState=useState("");var backupName=backupNameState[0];var setBackupName=backupNameState[1];
   var showDirectionState=useState(false);var showDirection=showDirectionState[0];var setShowDirection=showDirectionState[1];
   var planHtmlState=useState("");var planHtml=planHtmlState[0];var setPlanHtml=planHtmlState[1];
@@ -880,6 +903,9 @@ function App(){
     setStep(n);
     try{localStorage.setItem("bpg_step",String(n));}catch(e){}
     window.scrollTo(0,0);
+    // Step 5 is the Finances step. Every route in - Next, Back and the progress
+    // bar - passes through here, so this is the one place it needs checking.
+    if(n===4)maybeShowFinIntro();
   }
 
   var refreshLive=useCallback(function(){setLiveRows(calcCashflow(fdRef.current));},[]);
@@ -2047,6 +2073,34 @@ function App(){
 
   // Shown immediately after a backup is saved. Without this, people open the
   // downloaded file expecting to read it and hit a File Conversion dialog.
+  function FinancesIntro(){
+    if(!showFinIntro)return null;
+    return (
+      <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:10000,overflowY:"auto"}}>
+        <div style={{background:"#fff",borderRadius:14,maxWidth:620,width:"100%",padding:"20px 20px 22px",boxShadow:"0 12px 44px rgba(0,0,0,0.28)",margin:"auto"}}>
+          <img src="img/finances.png" alt="It's all about the money. You will need: a balance sheet or opening balances, expected sales including price, costs of making those sales, expenses normally incurred, tax rates and when payments are due, and any other transactions such as drawings or assets." style={{width:"100%",height:"auto",display:"block",borderRadius:8}}/>
+          <button
+            style={{width:"100%",marginTop:16,fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"13px 20px",borderRadius:9,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}}
+            onClick={dismissFinIntro}>Got it, let's do the numbers &rarr;</button>
+        </div>
+      </div>
+    );
+  }
+
+  function WelcomeScreen(){
+    if(!showWelcome)return null;
+    return (
+      <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:10000,overflowY:"auto"}}>
+        <div style={{background:"#fff",borderRadius:14,maxWidth:620,width:"100%",padding:"20px 20px 22px",boxShadow:"0 12px 44px rgba(0,0,0,0.28)",margin:"auto"}}>
+          <img src="img/welcome.png" alt="Congratulations - you are on your way to planning for success. This tool takes you through five steps to create your integrated business plan and cashflow forecast, and should take less than an hour to complete." style={{width:"100%",height:"auto",display:"block",borderRadius:8}}/>
+          <button
+            style={{width:"100%",marginTop:16,fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"13px 20px",borderRadius:9,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}}
+            onClick={dismissWelcome}>Let's get started &rarr;</button>
+        </div>
+      </div>
+    );
+  }
+
   function BackupHelp(){
     if(!showBackupHelp)return null;
     return (
@@ -2383,8 +2437,8 @@ function App(){
           {RT("history","e.g. I spotted a gap in the market when...",3)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Position Statement</div>
-          <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>For [customer] who [need], [business] is a [category] that [benefit]</span>
-          {RT("position","e.g. For NZ sole traders who are overwhelmed by complex accounting...",3)}
+          <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>For (customer) who (needs), (your business) is a (product/service) that will (benefit).</span>
+          {RT("position","e.g. For sole traders who need accurate financials, Flowly is accounting software that will take the complexity out of keeping your accounts up to date.",3)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business team</div>
           {RT("team","e.g. 2 full-time founders, 1 part-time developer...",2)}
@@ -2783,7 +2837,7 @@ function App(){
             {label:"What If",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
           ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #d0b16f",background:item.label==="Summary"?"#d0b16f":"#fff",color:item.label==="Summary"?"#fff":"#01236d",cursor:"pointer"}}>{item.label}</button>;})}
         </div>
-        <BackupNote/><BackupHelp/>
+        <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
         <div style={cardStyle}>
           <div style={{display:"flex",gap:2,marginBottom:20,overflowX:"auto"}}>
             {stepDefs.map(function(s,i){
@@ -2864,13 +2918,13 @@ function App(){
           <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setShowOutput(false);setStepAndSave(4);}}>← Edit</button>
           {!loading&&<button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer"}} onClick={function(){generateWordDoc();}}>Download Word (.docx)</button>}
         </div>
-        <BackupNote/><BackupHelp/>
+        <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
         <div style={cardStyle}>
           {tab==="plan"&&(
             <div>
               {loading&&<div style={{textAlign:"center",padding:"40px 16px",color:"#6b7280",fontSize:14}}>{loadMsg}</div>}
               {!loading&&!planHtml&&<div style={{textAlign:"center",padding:"40px 16px",color:"#6b7280",fontSize:14}}><button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none",fontSize:14,padding:"10px 20px"})} onClick={generatePlan}>Generate Business Plan</button></div>}
-              {planHtml&&<div style={{overflowX:"auto",pointerEvents:"none"}} dangerouslySetInnerHTML={{__html:planHtml}}/>}
+              {planHtml&&<div style={{overflowX:"auto",pointerEvents:"none",maxWidth:780,marginLeft:"auto",marginRight:"auto"}} dangerouslySetInnerHTML={{__html:planHtml}}/>}
               {planHtml&&liveRows&&liveRows.length>0&&(
                 <div style={{marginTop:8}}>
                   <CfCharts rows={liveRows} expCatsData={expCats}/>
@@ -2910,7 +2964,7 @@ function App(){
                 <div style={{fontSize:16,fontWeight:500,color:"#d0b16f",marginBottom:6}}>Business Plan and Cashflow Forecast</div>
                 <div style={{fontSize:13,color:"#6b7280"}}>{fmtDate(new Date().toISOString().slice(0,10))}</div>
               </div>
-              {planHtml&&<div style={{overflowX:"auto",pointerEvents:"none"}} dangerouslySetInnerHTML={{__html:planHtml}}/>}
+              {planHtml&&<div style={{overflowX:"auto",pointerEvents:"none",maxWidth:780,marginLeft:"auto",marginRight:"auto"}} dangerouslySetInnerHTML={{__html:planHtml}}/>}
             </div>
           </div>
         )}
@@ -2930,7 +2984,7 @@ function App(){
           {label:"What If",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
         ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #d0b16f",background:"#fff",color:"#01236d",cursor:"pointer"}}>{item.label}</button>;})}
       </div>
-      <BackupNote/><BackupHelp/>
+      <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
       <div style={cardStyle}>
         <div style={{display:"flex",gap:2,marginBottom:20,overflowX:"auto"}}>
           {stepDefs.map(function(s,i){
