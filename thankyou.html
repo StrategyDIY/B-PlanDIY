@@ -47,7 +47,7 @@ body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f8f9f
 nav{background:#01236d;padding:0 24px;height:72px;display:flex;align-items:center;gap:12px;}
 nav img{width:52px;height:52px;object-fit:contain;}
 nav span{font-size:18px;font-weight:700;color:#d0b16f;}
-.hero{background:#01236d;color:white;text-align:center;padding:56px 24px 48px;}
+.hero{background:#01236d;color:white;text-align:center;padding:24px 24px 40px;}
 .hero h1{font-size:clamp(26px,4vw,40px);font-weight:800;margin-bottom:12px;}
 .hero h1 em{color:#d0b16f;font-style:normal;}
 .hero p{font-size:16px;color:rgba(255,255,255,0.75);max-width:480px;margin:0 auto;}
@@ -96,13 +96,13 @@ footer a{color:#01236d;}
 
 <div class="hero">
   <h1>🎉 Welcome to <em>B-PlanDIY!</em></h1>
-  <p>Your payment was successful. Fill in your details below so we can add you to our private WhatsApp community and keep you updated on free seminars.</p>
+  <p id="heroSub">Your payment was successful. Fill in your details below so we can add you to our private WhatsApp community and keep you updated on free seminars.</p>
 </div>
 
 <div class="card">
   <div class="card-header">
-    <h2>Just a few quick details</h2>
-    <p>Takes less than a minute — then you're into the app!</p>
+    <h2 id="cardTitle">Just a few quick details</h2>
+    <p id="cardSub">Takes less than a minute — then you're into the app!</p>
   </div>
   <div class="card-body">
     <form id="welcomeForm">
@@ -208,6 +208,18 @@ footer a{color:#01236d;}
 </footer>
 
 <script>
+function showSuccessState(){
+  document.getElementById('welcomeForm').style.display = 'none';
+  document.getElementById('successMsg').style.display = 'block';
+  // These lines described the form the user has just finished with
+  var sub = document.getElementById('heroSub');
+  if (sub) sub.textContent = 'Thanks - your details are in. Have a quick read of the note below before you start.';
+  var t = document.getElementById('cardTitle');
+  if (t) t.textContent = 'All done';
+  var cs = document.getElementById('cardSub');
+  if (cs) cs.textContent = 'One thing to check before you begin';
+}
+
 document.getElementById('welcomeForm').addEventListener('submit', function(e) {
   e.preventDefault();
 
@@ -242,15 +254,13 @@ document.getElementById('welcomeForm').addEventListener('submit', function(e) {
   .then(function(result) {
     var expiry = result.expiry || (Date.now() + (90 * 24 * 60 * 60 * 1000));
     localStorage.setItem('bpd_access_expiry', String(expiry));
-    document.getElementById('welcomeForm').style.display = 'none';
-    document.getElementById('successMsg').style.display = 'block';
+    showSuccessState();
   })
   .catch(function() {
     // If function fails, still grant access
     var expiry = Date.now() + (90 * 24 * 60 * 60 * 1000);
     localStorage.setItem('bpd_access_expiry', String(expiry));
-    document.getElementById('welcomeForm').style.display = 'none';
-    document.getElementById('successMsg').style.display = 'block';
+    showSuccessState();
   });
 });
 </script>
