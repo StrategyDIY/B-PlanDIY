@@ -192,27 +192,32 @@ function calcCashflow(f){
   // "xMkt:3000|xTeam:8000", and added to that category spread evenly over the
   // year. Landing them in the real categories keeps the cashflow readable.
   const goalExpOn=f.goalExpApply==="1";
-  const goalExpByCat={};
+  // Per category, the amount charged in each of the 12 months. Keeping this by
+  // month rather than as an annual total means a salary starting partway
+  // through the year lands only in the months it is actually paid.
+  const goalExpMonthly={};
   if(goalExpOn&&f.goalExpLines){
     String(f.goalExpLines).split("|").forEach(function(p){
       var bits=p.split(":");
-      // "goal:category:amount", or the older "category:amount"
-      var id,amt;
-      if(bits.length>=3){ id=(bits[1]||"").trim(); amt=parseFloat(bits[2]); }
-      else { id=(bits[0]||"").trim(); amt=parseFloat(bits[1]); }
-      if(id&&!isNaN(amt))goalExpByCat[id]=(goalExpByCat[id]||0)+amt;
+      var id,amt,start;
+      if(bits.length>=3){ id=(bits[1]||"").trim(); amt=parseFloat(bits[2]); start=parseInt(bits[3]); }
+      else { id=(bits[0]||"").trim(); amt=parseFloat(bits[1]); start=NaN; }   // older two-part rows
+      if(!id||isNaN(amt))return;
+      if(isNaN(start)||start<1||start>12)start=1;
+      if(!goalExpMonthly[id])goalExpMonthly[id]=Array(12).fill(0);
+      for(var m=start;m<=12;m++)goalExpMonthly[id][m-1]+=amt/12;
     });
   }
   function goalExpFor(catId,i){
-    var a=goalExpByCat[catId];
-    if(!a)return 0;
+    var arr0=goalExpMonthly[catId];
+    if(!arr0)return 0;
     // Monthly override, if the user has set one for this category
     var ov=f["goalExpM_"+catId];
     if(ov&&String(ov).indexOf("M")>=0){
       var arr=parseMonthly(ov,0);
       return arr[i]||0;
     }
-    return a/12;
+    return arr0[i]||0;
   }
 
   let bal=open;
@@ -472,12 +477,33 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
   var wiPriceState=useState(0);var wiPrice=wiPriceState[0];var setWiPrice=wiPriceState[1];
   var wiCostState=useState(0);var wiCostU=wiCostState[0];var setWiCostU=wiCostState[1];
   var wiTeamState=useState(0);var wiTeam=wiTeamState[0];var setWiTeam=wiTeamState[1];
+  var wiHiresState=useState([]);var wiHires=wiHiresState[0];var setWiHires=wiHiresState[1];
   var wiTotalExpState=useState(0);var wiTotalExp=wiTotalExpState[0];var setWiTotalExp=wiTotalExpState[1];
 
   // Units Sold stays a percentage - a percentage change in volume is the natural
   // way to think about it. Everything else is a dollar amount, so the slider
   // says exactly what it does: price and cost per unit, expenses per month.
-  const adj=liveRows.map(function(r){
+  // Month labels taken from the forecast itself, so they match the cashflow
+  // start date exactly as they do elsewhere in the app.
+  function wiMonthLabel(m){
+    var r=liveRows[m-1];
+    return r&&r.month?shortMonth(r.month):("month "+m);
+  }
+
+  // Cost of any "what if I hired" people, month by month. Start months mean the
+  // cost is not flat, so this is an array rather than a single figure.
+  var wiHireMonthly=Array.from({length:12},function(_,i){
+    return wiHires.reduce(function(s,h){
+      var n=parseFloat(h.amt);
+      if(isNaN(n))return s;
+      var st=parseInt(h.start);
+      if(isNaN(st)||st<1||st>12)st=1;
+      return s+((i+1)>=st?n/12:0);
+    },0);
+  });
+  var wiHireTotal=wiHireMonthly.reduce(function(s,v){return s+v;},0);
+
+  const adj=liveRows.map(function(r,ri){
     var units=Math.round((r.units||0)*(1+wiUnits/100));
     var price=(r.units>0?(r.revProducts/r.units):0)+wiPrice;
     var cost=(r.units>0?(r.cogs/r.units):0)+wiCostU;
@@ -486,7 +512,7 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
     var rev=Math.round(units*price)+(r.revOther||0);
     var cogs=Math.round(units*cost);
     var gp=rev-cogs;
-    var exp=Math.round(r.totalExpenses+wiTeam+wiTotalExp);
+    var exp=Math.round(r.totalExpenses+wiTeam+wiTotalExp+(wiHireMonthly[ri]||0));
     if(exp<0)exp=0;
     var np=gp-exp;
     return Object.assign({},r,{revenue:rev,cogs:cogs,grossProfit:gp,totalExpenses:exp,netProfit:np});
@@ -530,7 +556,6 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
     {label:"Units Sold",sub:"% change in volume",val:wiUnits,set:setWiUnits,posColor:GREEN_DARK,negColor:RED,base:baseValues.units,isUnits:true,min:-50,max:50,step:1},
     {label:"Average Price",sub:"$ per unit",val:wiPrice,set:setWiPrice,posColor:GREEN_DARK,negColor:RED,base:baseValues.price,isDollar:true,min:-rPrice.max,max:rPrice.max,step:rPrice.step},
     {label:"Average Cost",sub:"$ per unit",val:wiCostU,set:setWiCostU,posColor:RED,negColor:GREEN_DARK,base:baseValues.cost,isDollar:true,min:-rCost.max,max:rCost.max,step:rCost.step},
-    {label:"Team Expenses",sub:"$ per month",val:wiTeam,set:setWiTeam,posColor:RED,negColor:GREEN_DARK,base:baseValues.team,isDollar:true,min:-rTeam.max,max:rTeam.max,step:rTeam.step},
     {label:"Total Expenses",sub:"$ per month",val:wiTotalExp,set:setWiTotalExp,posColor:RED,negColor:GREEN_DARK,base:baseValues.totalExp,isDollar:true,min:-rTotal.max,max:rTotal.max,step:rTotal.step},
   ];
 
@@ -538,9 +563,9 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
     <div style={{marginTop:24}}>
       <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:12,marginBottom:16}}>
         <span style={{fontSize:13,fontWeight:600,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em"}}>What If Scenarios</span>
-        {(wiUnits||wiPrice||wiCostU||wiTeam||wiTotalExp)?(
+        {(wiUnits||wiPrice||wiCostU||wiTeam||wiTotalExp||wiHires.length)?(
           <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"1px solid #d0b16f",borderRadius:6,padding:"5px 12px",cursor:"pointer",flexShrink:0}}
-            onClick={function(){setWiUnits(0);setWiPrice(0);setWiCostU(0);setWiTeam(0);setWiTotalExp(0);}}>Reset to baseline</button>
+            onClick={function(){setWiUnits(0);setWiPrice(0);setWiCostU(0);setWiTeam(0);setWiTotalExp(0);setWiHires([]);}}>Reset to baseline</button>
         ):null}
       </div>
       <div style={{display:"flex",gap:12,flexWrap:"wrap",position:"sticky",top:0,zIndex:5,background:"#fff",paddingBottom:12,marginBottom:20}}>
@@ -598,6 +623,38 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
         );
         })()}
       </div>
+      <div style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"14px 16px",marginBottom:20,background:"#fbfcfe"}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4}}>What if I took someone on?</div>
+        <div style={{fontSize:12,color:"#6b7280",marginBottom:10,lineHeight:1.5}}>
+          Add a person to see what they would do to your profit and cash. This is a scenario only - it does not change your plan.
+        </div>
+        {wiHires.map(function(h,hi){return (
+          <div key={hi} style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+            <input style={Object.assign({},inp,{flex:"1 1 140px",minWidth:0,fontSize:13})} placeholder="Name or role" value={h.name}
+              onChange={function(e){var a=wiHires.slice();a[hi]=Object.assign({},a[hi],{name:e.target.value});setWiHires(a);}}/>
+            <input style={Object.assign({},inp,{flex:"0 0 115px",textAlign:"right",fontSize:13})} placeholder="Annual $" value={h.amt}
+              onChange={function(e){var a=wiHires.slice();a[hi]=Object.assign({},a[hi],{amt:e.target.value.replace(/[^0-9.-]/g,"")});setWiHires(a);}}/>
+            <select style={Object.assign({},sel,{flex:"0 0 138px",fontSize:13})} value={h.start||""}
+              onChange={function(e){var a=wiHires.slice();a[hi]=Object.assign({},a[hi],{start:e.target.value});setWiHires(a);}}>
+              <option value="">From {wiMonthLabel(1)}</option>
+              {Array.from({length:11},function(_,k){var m=k+2;return <option key={m} value={String(m)}>From {wiMonthLabel(m)}</option>;})}
+            </select>
+            <button title="Remove" style={{fontFamily:"inherit",fontSize:16,lineHeight:1,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:6,padding:"0 11px",cursor:"pointer"}}
+              onClick={function(){var a=wiHires.slice();a.splice(hi,1);setWiHires(a);}}>&times;</button>
+          </div>
+        );})}
+        <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"1px dashed #d0b16f",borderRadius:6,padding:"7px 12px",cursor:"pointer"}}
+          onClick={function(){setWiHires(wiHires.concat([{name:"",amt:"",start:""}]));}}>+ Add a person</button>
+        {wiHireTotal>0&&(
+          <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #e5e7eb",fontSize:13,color:"#374151",lineHeight:1.6}}>
+            Adds <strong style={{color:"#a32d2d"}}>{fmt(Math.round(wiHireTotal))}</strong> of cost over the 12 months
+            {Math.round(Math.min.apply(null,wiHireMonthly))!==Math.round(Math.max.apply(null,wiHireMonthly))
+              ? <span> &mdash; {fmt(Math.round(Math.min.apply(null,wiHireMonthly)))} to {fmt(Math.round(Math.max.apply(null,wiHireMonthly)))} a month</span>
+              : <span> &mdash; {fmt(Math.round(wiHireMonthly[0]))} a month</span>}
+          </div>
+        )}
+      </div>
+
       {sliders.map(function(s){
         // Units slider is a percentage; the rest are absolute dollar changes.
         var adjVal=s.isDollar?(s.base+s.val):Math.round(s.base*(1+s.val/100));
@@ -822,6 +879,18 @@ function App(){
   var finOpenState=useState({start:true,sales:true,tax:false,other:true,tx:false,notes:false});
   var finOpen=finOpenState[0];var setFinOpen=finOpenState[1];
   function toggleFin(id){setFinOpen(function(p){var n=Object.assign({},p);n[id]=!p[id];return n;});}
+  // Voice input. recKey is the field currently listening; voiceVer forces a
+  // textarea to re-read its value after dictation or a tidy-up.
+  var recKeyState=useState("");var recKey=recKeyState[0];var setRecKey=recKeyState[1];
+  var voiceVerState=useState({});var voiceVer=voiceVerState[0];var setVoiceVer=voiceVerState[1];
+  var tidyKeyState=useState("");var tidyKey=tidyKeyState[0];var setTidyKey=tidyKeyState[1];
+  var undoTextState=useState({});var undoText=undoTextState[0];var setUndoText=undoTextState[1];
+  var recRef=useRef(null);
+  var peopleOpenState=useState({});var peopleOpen=peopleOpenState[0];var setPeopleOpen=peopleOpenState[1];
+  var acOpenState=useState(false);var acOpen=acOpenState[0];var setAcOpen=acOpenState[1];
+  var acTotalState=useState("");var acTotal=acTotalState[0];var setAcTotal=acTotalState[1];
+  var apOpenState=useState(false);var apOpen=apOpenState[0];var setApOpen=apOpenState[1];
+  var apTotalState=useState("");var apTotal=apTotalState[0];var setApTotal=apTotalState[1];
   var showAllExpState=useState(false);var showAllExp=showAllExpState[0];var setShowAllExp=showAllExpState[1];
   // Which expense rows are on screen. Seeded from saved data and from the grid
   // toggles, then only added to - never recomputed from the current input value,
@@ -911,7 +980,10 @@ function App(){
   var refreshLive=useCallback(function(){setLiveRows(calcCashflow(fdRef.current));},[]);
 
   function RT(id,ph,rows){
-    return <textarea ref={growRef} onInput={growOn} key={id} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
+    return (<div>
+      <textarea ref={growRef} onInput={growOn} key={id+"-"+(voiceVer[id]||0)} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>
+      {VoiceTools(id)}
+    </div>);
   }
   function R(id,ph){
     return <input key={id} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={inp} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
@@ -971,10 +1043,11 @@ function App(){
     setGoalLoading(false);
   }
 
-  async function suggestSWOT(){
+  async function suggestSWOT(mode,note){
     setGoalLoading(true);
     setSwotVersion(function(v){return v+1;});
     var prompt="Write a SWOT analysis for this business. Return ONLY the four sections in this exact format:\nStrengths: [3-4 points, comma separated]\nWeaknesses: [3-4 points, comma separated]\nOpportunities: [3-4 points, comma separated]\nThreats: [3-4 points, comma separated]\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nStage: "+(fdRef.current.stage||"")+"\nTeam: "+(fdRef.current.team||"")+"\nCompetitors: "+(fdRef.current.competitors||"")+"\nTarget market: "+(fdRef.current.targetCust||"")+"\nPosition statement: "+(fdRef.current.position||"not specified");
+    prompt+=revisionNote(mode,["Strengths: "+(fdRef.current.swotS||""),"Weaknesses: "+(fdRef.current.swotW||""),"Opportunities: "+(fdRef.current.swotO||""),"Threats: "+(fdRef.current.swotT||"")].join("\n"),note);
     try{
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
@@ -995,6 +1068,50 @@ function App(){
 
   // Reads every goal together with its How and Resources, so the estimate is
   // grounded in what the user actually plans to do rather than guessed.
+  // Appended when the user asks to revise an existing suggestion. Sending the
+  // current answer back matters - without it the model tends to return
+  // something almost identical.
+  var reviseOpenState=useState("");var reviseOpen=reviseOpenState[0];var setReviseOpen=reviseOpenState[1];
+  var reviseNoteState=useState("");var reviseNote2=reviseNoteState[0];var setReviseNote2=reviseNoteState[1];
+  var reviseBtn={fontFamily:"inherit",fontSize:12,fontWeight:600,padding:"6px 12px",borderRadius:6,border:"1px solid #d0b16f",background:"none",color:"#01236d",cursor:"pointer",marginLeft:8};
+  // Only offered once there is an answer to revise.
+  function ReviseButtons(props){
+    if(!props.has||props.loading)return null;
+    var open=reviseOpen===props.id;
+    return (
+      <span>
+        <button style={reviseBtn} title="Same points, different wording" onClick={function(){setReviseOpen("");props.run("reword");}}>Reword</button>
+        <button style={reviseBtn} title="Different points, optionally with a steer" onClick={function(){setReviseNote2("");setReviseOpen(open?"":props.id);}}>Rethink</button>
+        {open&&(
+          <div style={{marginTop:8,background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:8,padding:"10px 12px"}}>
+            <div style={{fontSize:12,color:"#6b5a33",marginBottom:6}}>What should it focus on? Leave blank for a fresh take.</div>
+            <input style={Object.assign({},inp,{fontSize:13})} placeholder="e.g. focus on online competitors, or on the Auckland market"
+              value={reviseNote2} onChange={function(e){setReviseNote2(e.target.value);}}
+              onKeyDown={function(e){ if(e.key==="Enter"){ setReviseOpen(""); props.run("rethink",reviseNote2); } }}/>
+            <div style={{display:"flex",gap:8,marginTop:8}}>
+              <button style={Object.assign({},reviseBtn,{marginLeft:0,background:"#01236d",color:"#fff",border:"none"})}
+                onClick={function(){setReviseOpen("");props.run("rethink",reviseNote2);}}>Rethink it</button>
+              <button style={Object.assign({},reviseBtn,{marginLeft:0})} onClick={function(){setReviseOpen("");}}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </span>
+    );
+  }
+
+  function revisionNote(mode,current,note){
+    if(!mode||!current||!String(current).trim())return "";
+    var cur="\n\nTHE CURRENT ANSWER IS:\n"+String(current).trim()+"\n\n";
+    if(mode==="reword"){
+      return cur+"Keep the same substance, facts and figures, but rewrite it in different words with a different sentence structure. Do not repeat the phrasing above.";
+    }
+    var out=cur+"Take a genuinely different angle. Raise different points from those above rather than restating them differently.";
+    if(note&&String(note).trim()){
+      out+="\n\nThe user has asked you to focus on this in particular:\n"+String(note).trim()+"\nTreat that as the main steer for the new answer.";
+    }
+    return out;
+  }
+
   function goalsContextForEstimate(){
     var out=[];
     for(var i=0;i<6;i++){
@@ -1146,13 +1263,14 @@ function App(){
     setGeLoading(false);
   }
 
-  async function suggestMarketSize(){
+  async function suggestMarketSize(mode,note){
     setMsLoading(true);
     setMsVersion(function(v){return v+1;});
     var prompt="Provide a brief market size estimate (2-3 sentences, include numbers/sources where possible) for:\n"+
       "Business: "+(fdRef.current.bizName||"")+" in "+(fdRef.current.industry||"")+"\n"+
       "Location: "+(fdRef.current.locations||"")+"\n"+
       "Target customer: "+(fdRef.current.targetCust||"");
+    prompt+=revisionNote(mode,fdRef.current.marketSize,note);
     try{
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
@@ -1164,7 +1282,7 @@ function App(){
     setMsLoading(false);
   }
 
-  async function suggestCompetitors(){
+  async function suggestCompetitors(mode,note){
     setCompLoading(true);
     setCompVersion(function(v){return v+1;});
     // The field asks two things - who the competitors are AND how this business
@@ -1185,6 +1303,7 @@ function App(){
       "- Give each competitor genuine credit. Do not dismiss them or list only weaknesses.\n"+
       "- Base the difference on the position statement and target customer above. If those are not specified, describe the likely basis for differentiation rather than inventing specifics.\n"+
       "- Plain prose, no bullet points, no headings, no preamble. Keep the whole answer under 180 words.";
+    prompt+=revisionNote(mode,fdRef.current.competitors,note);
     try{
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:450,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
@@ -1196,12 +1315,13 @@ function App(){
     setCompLoading(false);
   }
 
-  async function suggestCompSW(){
+  async function suggestCompSW(mode,note){
     setCswLoading(true);
     setCompSwVersion(function(v){return v+1;});
     var comps=fdRef.current.competitors||"";
     if(!comps.trim()){setCompSwVersion(function(v){return v+1;});return;}
     var prompt="Based ONLY on the following competitors already identified, summarise their key strengths and weaknesses. Do not introduce any other competitors.\n\nCompetitors:\n"+comps+"\n\nFormat each as '[Competitor name]: Strengths - ... Weaknesses - ...' Keep it concise.";
+    prompt+=revisionNote(mode,fdRef.current.compStrWeakness,note);
     try{
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
@@ -1213,9 +1333,10 @@ function App(){
     setCswLoading(false);
   }
 
-  async function suggestGoalCard(i){
+  async function suggestGoalCard(i,mode,note){
     setGoalCardLoading(function(prev){var n=Object.assign({},prev);n[i]=true;return n;});
     var prompt="For this specific business goal, suggest:\n1. How to achieve it (2-3 concrete action steps, 1-2 sentences)\n2. Resources needed (people, tools, budget - 1-2 sentences)\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nPosition statement: "+(fdRef.current.position||"not specified")+"\nGoal: "+(goals[i]||"")+"\n\nReturn in this exact format:\nHow: [your suggestion]\nResources: [your suggestion]";
+    prompt+=revisionNote(mode,["How: "+(fdRef.current["goalHow"+(i+1)]||""),"Resources: "+(fdRef.current["goalRes"+(i+1)]||"")].join("\n"),note);
     try{
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
@@ -2187,35 +2308,51 @@ function App(){
       var b=p.split(":");
       if(b.length>=3){
         var gi=parseInt(b[0]);
-        if(!isNaN(gi))m[gi]={id:(b[1]||"").trim(),amt:(b[2]||"").trim()};
+        // Fourth part is the start month, used for salaries that begin partway
+        // through the year. Absent means the whole 12 months.
+        if(!isNaN(gi))m[gi]={id:(b[1]||"").trim(),amt:(b[2]||"").trim(),start:(b[3]||"").trim()};
       }
     });
     return m;
   }
-  function goalExpFor2(gi){ return goalExpMap()[gi]||{id:"",amt:""}; }
+  function goalExpFor2(gi){ return goalExpMap()[gi]||{id:"",amt:"",start:""}; }
   function writeGoalExp(map,remount){
     fdRef.current.goalExpLines=Object.keys(map)
       .filter(function(k){return map[k]&&(map[k].id||String(map[k].amt).length);})
-      .map(function(k){return k+":"+map[k].id+":"+map[k].amt;}).join("|");
+      .map(function(k){return k+":"+map[k].id+":"+map[k].amt+":"+(map[k].start||"");}).join("|");
     saveToStorage();refreshLive();
     if(remount)setGeVersion(function(v){return v+1;});
   }
-  function setGoalExpFor(gi,id,amt){
+  function setGoalExpFor(gi,id,amt,start){
     var m=goalExpMap();
-    m[gi]={id:id,amt:String(amt).replace(/[^0-9.-]/g,"")};
+    var prev=m[gi]||{};
+    m[gi]={id:id,amt:String(amt).replace(/[^0-9.-]/g,""),start:(start!==undefined?start:(prev.start||""))};
+    // A start month only makes sense for a salary
+    if(!PEOPLE_CATS[id])m[gi].start="";
     writeGoalExp(m);
+  }
+  function goalExpMonthsFor(row){
+    var s=parseInt(row.start);
+    if(isNaN(s)||s<1||s>12)return 12;
+    return 12-s+1;
+  }
+  // The 12-month cost. A salary starting in month 7 costs half its annual value.
+  function goalExpRowCost(row){
+    var n=parseFloat(row.amt);
+    if(isNaN(n))return 0;
+    return n*goalExpMonthsFor(row)/12;
   }
   function goalExpTotalSum(){
     var m=goalExpMap(),t=0;
-    Object.keys(m).forEach(function(k){var n=parseFloat(m[k].amt);if(!isNaN(n))t+=n;});
+    Object.keys(m).forEach(function(k){t+=goalExpRowCost(m[k]);});
     return t;
   }
   // Aggregated by category, for the Step 5 summary and the cashflow.
   function goalExpByCategory(){
     var m=goalExpMap(),out={};
     Object.keys(m).forEach(function(k){
-      var r=m[k],n=parseFloat(r.amt);
-      if(r.id&&!isNaN(n))out[r.id]=(out[r.id]||0)+n;
+      var r=m[k];
+      if(r.id)out[r.id]=(out[r.id]||0)+goalExpRowCost(r);
     });
     return out;
   }
@@ -2330,6 +2467,375 @@ function App(){
 
   // Live result of what has been entered so far. Without this you fill in ~33
   // numbers with no feedback until you switch to the Cashflow tab.
+  // Labels the dropdown with real months when a cashflow start date is set.
+  function monthNameFor(m){
+    var SM=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var p=String(fdRef.current.cfStartDate||"").split("-");
+    var y=parseInt(p[0]),sm=parseInt(p[1]);
+    if(!y||!sm||sm<1||sm>12)return "month "+m;
+    var idx=(sm-1+(m-1))%12;
+    var yr=y+Math.floor((sm-1+(m-1))/12);
+    return SM[idx]+" "+String(yr).slice(2);
+  }
+
+  // Storage key per category. xTeam keeps its original key so existing plans
+  // and backups keep working.
+  function peopleKey(cat){ return cat==="xTeam"?"teamLines":cat+"Lines"; }
+  function teamRows(cat){
+    var rows=String(fdRef.current[peopleKey(cat)]||"").split("|").filter(Boolean).map(function(p){
+      var b=p.split(":");
+      // "name:amount:startMonth" - older two-part rows default to month 1
+      return {name:(b[0]||"").trim(),amt:(b[1]||"").trim(),start:(b[2]||"").trim()};
+    });
+    return rows.length?rows:[{name:"",amt:"",start:""}];
+  }
+  function writeTeamRows(cat,rows,remount){
+    fdRef.current[peopleKey(cat)]=rows.filter(function(r){return r.name||r.amt;})
+      .map(function(r){return r.name.replace(/[:|]/g,"")+":"+r.amt+":"+(r.start||"");}).join("|");
+    saveToStorage();refreshLive();
+    if(remount)setAvgSalesVer(function(v){return v+1;});
+  }
+  // Months this person is actually paid within the 12-month forecast. Blank
+  // start means they are there from the beginning, so the full year.
+  function teamMonths(r){
+    var s=parseInt(r.start);
+    if(isNaN(s)||s<1||s>12)return 12;
+    return 12-s+1;
+  }
+  // The amount entered is an annual salary, so a mid-year start is pro-rated.
+  function teamRowCost(r){
+    var n=parseFloat(r.amt);
+    if(isNaN(n))return 0;
+    return n*teamMonths(r)/12;
+  }
+  // Cost in each of the 12 months. A flat annual-total-over-12 would put a
+  // later hire's salary into months they are not employed, which is exactly
+  // what a cashflow forecast needs to get right.
+  function teamMonthlyCosts(cat){
+    var rows=teamRows(cat);
+    return Array.from({length:12},function(_,i){
+      var m=i+1;
+      return rows.reduce(function(s,r){
+        var n=parseFloat(r.amt);
+        if(isNaN(n))return s;
+        var st=parseInt(r.start);
+        if(isNaN(st)||st<1||st>12)st=1;
+        return s+(m>=st?n/12:0);
+      },0);
+    });
+  }
+  function teamCostsVary(cat){
+    var a=teamMonthlyCosts(cat).map(function(v){return Math.round(v);});
+    return a.some(function(v){return v!==a[0];});
+  }
+
+  function teamAnnualTotal(cat){
+    return teamRows(cat).reduce(function(s,r){return s+teamRowCost(r);},0);
+  }
+  function goalTeamHires(cat){
+    var m=goalExpMap(),out=[];
+    Object.keys(m).forEach(function(k){
+      var r=m[k];
+      if(r.id===cat&&parseFloat(r.amt))out.push({goal:parseInt(k),row:r});
+    });
+    return out;
+  }
+
+  // Shared by Team and Contractors - same shape, different wording.
+  var PEOPLE_CATS={
+    xTeam:{word:"team member",   instr:"List each person and their annual salary. If someone starts partway through, set their start month and we will only count the months they are paid."},
+    xCon: {word:"contractor",    instr:"List each contractor and what they will be paid over a full year. If one starts partway through, set their start month and we will only count the months they are engaged."}
+  };
+  function speechSupported(){
+    try{ return !!(window.SpeechRecognition||window.webkitSpeechRecognition); }catch(e){ return false; }
+  }
+  function bumpVoice(id){
+    setVoiceVer(function(p){var n=Object.assign({},p);n[id]=(n[id]||0)+1;return n;});
+  }
+  function stopRecording(){
+    try{ if(recRef.current){recRef.current.stop();recRef.current=null;} }catch(e){}
+    setRecKey("");
+  }
+  function startRecording(id){
+    var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR)return;
+    stopRecording();
+    var r=new SR();
+    r.lang="en-NZ";
+    r.continuous=true;
+    r.interimResults=false;
+    r.onresult=function(ev){
+      var said="";
+      for(var i=ev.resultIndex;i<ev.results.length;i++){
+        if(ev.results[i].isFinal)said+=ev.results[i][0].transcript;
+      }
+      if(!said.trim())return;
+      // Append rather than replace, so a second burst of dictation adds to what
+      // is already there instead of wiping it.
+      var cur=fdRef.current[id]||"";
+      fdRef.current[id]=(cur?cur.replace(/\s*$/,"")+" ":"")+said.trim();
+      saveToStorage();
+      bumpVoice(id);
+    };
+    r.onerror=function(){ stopRecording(); };
+    r.onend=function(){ setRecKey(""); recRef.current=null; };
+    recRef.current=r;
+    setRecKey(id);
+    try{ r.start(); }catch(e){ stopRecording(); }
+  }
+
+  async function tidyField(id){
+    var cur=(fdRef.current[id]||"").trim();
+    if(!cur)return;
+    setTidyKey(id);
+    setUndoText(function(p){var n=Object.assign({},p);n[id]=cur;return n;});
+    var prompt="The text below was dictated by a business owner, so it may be unpunctuated and contain filler words.\n\n"+
+      "Rewrite it as clear, well-punctuated prose.\n"+
+      "- Keep the meaning, the facts and the person's own voice. Do not add anything they did not say.\n"+
+      "- Remove filler like um, uh, you know, sort of, basically.\n"+
+      "- Fix sentence breaks, capitals and punctuation.\n"+
+      "- Keep it about the same length. Do not summarise.\n"+
+      "- Reply with the tidied text only. No preamble, no quotation marks.\n\n"+
+      "THE TEXT:\n"+cur;
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:900,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      if(data.content){
+        var out=data.content.map(function(x){return x.text||"";}).join("").trim();
+        if(out){ fdRef.current[id]=out; saveToStorage(); bumpVoice(id); }
+      }
+    }catch(e){}
+    setTidyKey("");
+  }
+  function undoTidy(id){
+    var prev=undoText[id];
+    if(prev===undefined)return;
+    fdRef.current[id]=prev;
+    saveToStorage();
+    bumpVoice(id);
+    setUndoText(function(p){var n=Object.assign({},p);delete n[id];return n;});
+  }
+
+  // Row of controls under a long text field.
+  function VoiceTools(id){
+    var has=!!(fdRef.current[id]||"").trim();
+    var listening=recKey===id;
+    var tidying=tidyKey===id;
+    var canUndo=undoText[id]!==undefined;
+    var btn={fontFamily:"inherit",fontSize:12,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #e5e7eb",background:"#fff",color:"#374151",cursor:"pointer"};
+    return (
+      <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginTop:5}}>
+        {speechSupported()&&(
+          <button style={listening?Object.assign({},btn,{background:"#a32d2d",color:"#fff",border:"none"}):btn}
+            onClick={function(){ listening?stopRecording():startRecording(id); }}>
+            {listening?"\u25A0 Stop":"\uD83C\uDFA4 Speak"}
+          </button>
+        )}
+        {has&&(
+          <button style={tidying?Object.assign({},btn,{background:"#01236d",color:"#fff",border:"none"}):btn}
+            onClick={function(){ if(!tidying)tidyField(id); }} disabled={tidying}>
+            {tidying?"Tidying\u2026":"\u2728 Tidy this up"}
+          </button>
+        )}
+        {canUndo&&!tidying&&(
+          <button style={btn} onClick={function(){undoTidy(id);}}>Undo tidy</button>
+        )}
+        {has&&(
+          <button style={Object.assign({},btn,{color:"#9ca3af"})}
+            onClick={function(){ if(window.confirm("Clear this field?")){fdRef.current[id]="";saveToStorage();bumpVoice(id);} }}>Clear</button>
+        )}
+        {listening&&<span style={{fontSize:11,color:"#a32d2d"}}>Listening&hellip; speak now</span>}
+      </div>
+    );
+  }
+
+  function PeopleCostHelper(cat){
+    var meta=PEOPLE_CATS[cat];
+    var open=!!peopleOpen[cat];
+    var rows=teamRows(cat);
+    var annual=teamAnnualTotal(cat);
+    var monthly=annual/12;
+    function setRows(rs,remount){ writeTeamRows(cat,rs,remount); }
+    return (
+      <div style={{marginTop:6,marginBottom:4}}>
+        <button style={open?Object.assign({},suggestBtn,{background:"#01236d"}):suggestBtn}
+          onClick={function(){setPeopleOpen(function(p){var n=Object.assign({},p);n[cat]=!p[cat];return n;});}}>
+          {open?"Close":"Help me work this out"}
+        </button>
+        {open&&(
+          <div style={{marginTop:8,background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:8,padding:"12px 14px"}}>
+            <div style={{fontSize:13,color:"#6b5a33",marginBottom:10,lineHeight:1.55}}>{meta.instr}</div>
+            {rows.map(function(row,ri){return (
+              <div key={ri} style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                <input style={Object.assign({},inp,{flex:"1 1 150px",minWidth:0,fontSize:13})} placeholder="Name or role" defaultValue={row.name}
+                  onChange={function(e){var rs=teamRows(cat);rs[ri]={name:e.target.value,amt:rs[ri].amt,start:rs[ri].start};setRows(rs);}}/>
+                <input style={Object.assign({},inp,{flex:"0 0 120px",textAlign:"right",fontSize:13})} placeholder="Annual $" defaultValue={row.amt}
+                  onChange={function(e){var rs=teamRows(cat);rs[ri]={name:rs[ri].name,amt:e.target.value.replace(/[^0-9.-]/g,""),start:rs[ri].start};setRows(rs);}}/>
+                <select style={Object.assign({},sel,{flex:"0 0 152px",fontSize:13})} value={row.start||""}
+                  onChange={function(e){var rs=teamRows(cat);rs[ri]={name:rs[ri].name,amt:rs[ri].amt,start:e.target.value};setRows(rs,true);}}>
+                  <option value="">Starts {monthNameFor(1)}</option>
+                  {Array.from({length:11},function(_,k){var m=k+2;return <option key={m} value={String(m)}>Starts {monthNameFor(m)}</option>;})}
+                </select>
+                <button title="Remove" style={{fontFamily:"inherit",fontSize:16,lineHeight:1,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:6,padding:"0 11px",cursor:"pointer"}}
+                  onClick={function(){var rs=teamRows(cat);rs.splice(ri,1);if(!rs.length)rs=[{name:"",amt:"",start:""}];setRows(rs,true);}}>&times;</button>
+              </div>
+            );})}
+            <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"1px dashed #d0b16f",borderRadius:6,padding:"7px 12px",cursor:"pointer",marginTop:2}}
+              onClick={function(){var rs=teamRows(cat);rs.push({name:"",amt:"",start:""});setRows(rs,true);}}>+ Add a {meta.word}</button>
+
+            {(function(){
+              var hires=goalTeamHires(cat);
+              if(!hires.length)return null;
+              var on=fdRef.current.goalExpApply==="1";
+              var tot=hires.reduce(function(s,h){return s+goalExpRowCost(h.row);},0);
+              return (
+                <div style={{marginTop:12,borderTop:"1px solid #e8dcc0",paddingTop:10}}>
+                  <div style={{fontSize:12,color:"#6b5a33",marginBottom:6,lineHeight:1.5}}>
+                    Already coming from your Step 4 goals{on?"":" (not currently switched on)"} &mdash; do not list these again above:
+                  </div>
+                  {hires.map(function(h,hi){return (
+                    <div key={hi} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#6b7280",padding:"3px 0"}}>
+                      <span>Goal {h.goal+1}{h.row.start&&parseInt(h.row.start)>1?" (from "+monthNameFor(parseInt(h.row.start))+")":""}</span>
+                      <span style={{fontWeight:600,color:on?"#01236d":"#9ca3af"}}>{fmt(goalExpRowCost(h.row))}</span>
+                    </div>
+                  );})}
+                  {on&&(
+                    <div style={{fontSize:12,color:"#374151",marginTop:8,paddingTop:8,borderTop:"1px dashed #e8dcc0"}}>
+                      Combined cost over 12 months <strong style={{color:"#01236d"}}>{fmt(annual+tot)}</strong>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {annual>0&&(
+              <div style={{marginTop:12,fontSize:13,color:"#374151",lineHeight:1.7,borderTop:"1px solid #e8dcc0",paddingTop:10}}>
+                Total over 12 months <strong>{fmt(annual)}</strong><br/>
+                {teamCostsVary(cat)
+                  ? <span>Because start months differ, the cost changes through the year: from <strong style={{color:"#01236d"}}>{fmt(Math.round(Math.min.apply(null,teamMonthlyCosts(cat))))}</strong> to <strong style={{color:"#01236d",fontSize:16}}>{fmt(Math.round(Math.max.apply(null,teamMonthlyCosts(cat))))}</strong> a month. We will fill in all twelve months for you.</span>
+                  : <span>{fmt(annual)} &divide; 12 = <strong style={{color:"#01236d",fontSize:16}}>{fmt(Math.round(monthly))}</strong> a month</span>}
+                <div style={{marginTop:10}}>
+                  <button style={Object.assign({},suggestBtn,{background:"#01236d"})}
+                    onClick={function(){
+                      var mc=teamMonthlyCosts(cat);
+                      if(teamCostsVary(cat)){
+                        fdRef.current[cat]=mc.map(function(v,i){return "M"+(i+1)+":"+Math.round(v);}).join(",");
+                        fdRef.current[cat+"_monthly"]="1";
+                        setGridChecks(function(p){var n=Object.assign({},p);n[cat]=true;return n;});
+                      } else {
+                        fdRef.current[cat]=String(Math.round(mc[0]));
+                        fdRef.current[cat+"_monthly"]="";
+                        setGridChecks(function(p){var n=Object.assign({},p);n[cat]=false;return n;});
+                      }
+                      revealExp(cat);
+                      saveToStorage();refreshLive();
+                      setPeopleOpen(function(p){var n=Object.assign({},p);n[cat]=false;return n;});
+                      setAvgSalesVer(function(v){return v+1;});
+                    }}>Use this figure</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function AvgCostHelper(){
+    var units=(liveRows||[]).reduce(function(s,r){return s+(r.units||0);},0);
+    var total=parseFloat(String(acTotal).replace(/[^0-9.-]/g,""));
+    var cost=(units>0&&!isNaN(total)&&total>0)?total/units:null;
+    return (
+      <div style={{marginBottom:8}}>
+        <button style={acOpen?Object.assign({},suggestBtn,{background:"#01236d"}):suggestBtn}
+          onClick={function(){setAcOpen(!acOpen);}}>
+          {acOpen?"Close":"Help me work this out"}
+        </button>
+        {acOpen&&(
+          <div style={{marginTop:8,background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:8,padding:"12px 14px"}}>
+            {units>0?(
+              <div>
+                <div style={{fontSize:13,color:"#6b5a33",marginBottom:8,lineHeight:1.55}}>
+                  You have entered <strong>{Math.round(units).toLocaleString()} units</strong> over the 12 months. Enter what those sales will cost you to deliver and we will work out the cost per unit.
+                </div>
+                <div style={{fontSize:12,color:"#374151",marginBottom:4}}>Total cost of making those sales over 12 months ($)</div>
+                <input style={Object.assign({},inp,{fontSize:14})} placeholder="e.g. 48000" value={acTotal}
+                  onChange={function(e){setAcTotal(e.target.value);}}/>
+                {cost!==null&&(
+                  <div style={{marginTop:10,fontSize:13,color:"#374151",lineHeight:1.6}}>
+                    {fmt(total)} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236d",fontSize:16}}>{fmt(Math.round(cost*100)/100)}</strong> per unit
+                    <div style={{marginTop:10}}>
+                      <button style={Object.assign({},suggestBtn,{background:"#01236d"})}
+                        onClick={function(){
+                          fdRef.current.avgCost=String(Math.round(cost*100)/100);
+                          saveToStorage();refreshLive();
+                          setAcOpen(false);setAcTotal("");
+                          setAvgSalesVer(function(v){return v+1;});
+                        }}>Use this figure</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ):(
+              <div style={{fontSize:13,color:"#a32d2d",lineHeight:1.55}}>
+                Enter your monthly sales units above first, then we can work out the cost per unit from your total costs.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function AvgPriceHelper(){
+    // Deterministic arithmetic rather than a model call - instant, free, and it
+    // cannot get the sum wrong. Units come from liveRows so the figure matches
+    // the forecast, including monthly grids and goal-driven units.
+    var units=(liveRows||[]).reduce(function(s,r){return s+(r.units||0);},0);
+    var total=parseFloat(String(apTotal).replace(/[^0-9.-]/g,""));
+    var price=(units>0&&!isNaN(total)&&total>0)?total/units:null;
+    return (
+      <div style={{marginBottom:8}}>
+        <button style={apOpen?Object.assign({},suggestBtn,{background:"#01236d"}):suggestBtn}
+          onClick={function(){setApOpen(!apOpen);}}>
+          {apOpen?"Close":"Help me work this out"}
+        </button>
+        {apOpen&&(
+          <div style={{marginTop:8,background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:8,padding:"12px 14px"}}>
+            {units>0?(
+              <div>
+                <div style={{fontSize:13,color:"#6b5a33",marginBottom:8,lineHeight:1.55}}>
+                  You have entered <strong>{Math.round(units).toLocaleString()} units</strong> over the 12 months. Enter the total sales you expect and we will work out the average price per unit.
+                </div>
+                <div style={{fontSize:12,color:"#374151",marginBottom:4}}>Total sales expected over 12 months ($)</div>
+                <input style={Object.assign({},inp,{fontSize:14})} placeholder="e.g. 120000" value={apTotal}
+                  onChange={function(e){setApTotal(e.target.value);}}/>
+                {price!==null&&(
+                  <div style={{marginTop:10,fontSize:13,color:"#374151",lineHeight:1.6}}>
+                    {fmt(total)} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236d",fontSize:16}}>{fmt(Math.round(price*100)/100)}</strong> per unit
+                    <div style={{marginTop:10}}>
+                      <button style={Object.assign({},suggestBtn,{background:"#01236d"})}
+                        onClick={function(){
+                          fdRef.current.avgPrice=String(Math.round(price*100)/100);
+                          saveToStorage();refreshLive();
+                          setApOpen(false);setApTotal("");
+                          setAvgSalesVer(function(v){return v+1;});
+                        }}>Use this figure</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ):(
+              <div style={{fontSize:13,color:"#a32d2d",lineHeight:1.55}}>
+                Enter your monthly sales units above first, then we can work out the average price from your expected total sales.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function FinSummary(){
     if(!liveRows||!liveRows.length)return null;
     var closing=liveRows[liveRows.length-1].closingBalance||0;
@@ -2481,19 +2987,19 @@ function App(){
           {RT("currentCust","e.g. 45 paying customers, approx 2% of local market...",2)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What is the target market opportunity (estimated)?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={msLoading?suggestBtnBusy:suggestBtn} onClick={suggestMarketSize} disabled={msLoading}>{msLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={msLoading?suggestBtnBusy:suggestBtn} onClick={suggestMarketSize} disabled={msLoading}>{msLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"ms",has:!!(fdRef.current.marketSize||"").trim(),loading:msLoading,run:suggestMarketSize})}<span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"ms-"+msVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.marketSize||""} placeholder="e.g. NZ SME accounting software market ~$120M..." onChange={function(e){fdRef.current.marketSize=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Who are the main competitors to your business and how does your business differ from them?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={compLoading?suggestBtnBusy:suggestBtn} onClick={suggestCompetitors} disabled={compLoading}>{compLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={compLoading?suggestBtnBusy:suggestBtn} onClick={suggestCompetitors} disabled={compLoading}>{compLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"comp",has:!!(fdRef.current.competitors||"").trim(),loading:compLoading,run:suggestCompetitors})}<span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"comp-"+compVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.competitors||""} placeholder="e.g. Xero (market leader, feature-rich but expensive)..." onChange={function(e){fdRef.current.competitors=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What are the strengths and weaknesses of the main competitors to your business?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={cswLoading?suggestBtnBusy:suggestBtn} onClick={suggestCompSW} disabled={cswLoading}>{cswLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={cswLoading?suggestBtnBusy:suggestBtn} onClick={suggestCompSW} disabled={cswLoading}>{cswLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"csw",has:!!(fdRef.current.compStrWeakness||"").trim(),loading:cswLoading,run:suggestCompSW})}<span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"csw-"+compSwVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.compStrWeakness||""} placeholder="e.g. Xero: strengths - brand, integrations. Weaknesses - price..." onChange={function(e){fdRef.current.compStrWeakness=e.target.value;saveToStorage();}}/>
           </div>
@@ -2511,7 +3017,7 @@ function App(){
     {label:"Step 3 of 5 - Vision & Strategy",title:"Tell us how you see the future of your business",desc:"What does success look like?",
       render:function(){return (<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>SWOT Analysis</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={suggestSWOT} disabled={!!goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest SWOT from Step 1 & 2"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Strengths, Weaknesses, Opportunities, Threats the business has.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={suggestSWOT} disabled={!!goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest SWOT from Step 1 & 2"}</button>{ReviseButtons({id:"swot",has:!!((fdRef.current.swotS||"")+(fdRef.current.swotW||"")).trim(),loading:!!goalLoading,run:suggestSWOT})}<span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Strengths, Weaknesses, Opportunities, Threats the business has.</span></div>
           <div key={"swot-"+swotVersion} style={{display:"flex",flexDirection:"column",gap:10,marginTop:10}}>
             {[{id:"swotS",l:"Strengths",h:"What your business does well",ph:"e.g. Strong technical team, first-mover advantage..."},{id:"swotW",l:"Weaknesses",h:"What your business could do better",ph:"e.g. Limited marketing budget..."},{id:"swotO",l:"Opportunities",h:"The possibilities available",ph:"e.g. Growing market, underserved segment..."},{id:"swotT",l:"Threats",h:"The risks to your business",ph:"e.g. Well-funded competitors..."}].map(function(x){return (<div key={x.id}><label style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:3,display:"block"}}>{x.l}</label><span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>{x.h}</span><textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current[x.id]||""} placeholder={x.ph} onChange={function(e){fdRef.current[x.id]=e.target.value;saveToStorage();}}/></div>);})}
           </div>
@@ -2551,7 +3057,7 @@ function App(){
                   <div style={{fontSize:14,fontWeight:500,color:"#1a1a1a",lineHeight:1.4}}>{g}</div>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:8,paddingLeft:26}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}><button style={goalCardLoading[i]?suggestBtnBusy:suggestBtn} disabled={!!goalCardLoading[i]} onClick={function(){suggestGoalCard(i);}}>{goalCardLoading[i]?busyLabel("Working\u2026"):"Suggest with AI"}</button><span style={{fontSize:11,color:"#374151",fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other ways the business will achieve its goals and resources needed.</span></div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}><button style={goalCardLoading[i]?suggestBtnBusy:suggestBtn} disabled={!!goalCardLoading[i]} onClick={function(){suggestGoalCard(i);}}>{goalCardLoading[i]?busyLabel("Working\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"gc"+i,has:!!((fdRef.current["goalHow"+(i+1)]||"")+(fdRef.current["goalRes"+(i+1)]||"")).trim(),loading:!!goalCardLoading[i],run:function(m,nt){suggestGoalCard(i,m,nt);}})}<span style={{fontSize:11,color:"#374151",fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other ways the business will achieve its goals and resources needed.</span></div>
                   <div key={"ghow"+i+"-"+(goalCardVer[i]||0)}>
                     <div style={{fontSize:12,fontWeight:500,color:"#374151",marginBottom:3}}>How will you achieve this goal?</div>
                     <textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current["goalHow"+(i+1)]||""} placeholder="e.g. Launch targeted social media campaign..." onChange={function(e){fdRef.current["goalHow"+(i+1)]=e.target.value;saveToStorage();}}/>
@@ -2570,6 +3076,7 @@ function App(){
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>How many extra sales units will each goal deliver over the next 12 months?</div>
               <span style={{fontSize:12,color:"#374151",marginBottom:6,display:"block"}}>One line per goal, so the total is easy to check. Leave a goal blank if it does not add sales.</span>
+              <div style={{fontSize:12,color:"#6b5a33",background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
               <div style={{marginBottom:6}}><button style={gsLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoalSales} disabled={gsLoading}>{gsLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button></div>
               <div key={"gs-"+gsVersion}>
                 {goals.map(function(g,gi){
@@ -2593,7 +3100,7 @@ function App(){
             </div>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Which expenses will increase to deliver each goal?</div>
-              <span style={{fontSize:12,color:"#374151",marginBottom:6,display:"block"}}>Pick the category and give the 12-month amount. Leave a goal blank if it adds no cost.</span>
+              <span style={{fontSize:12,color:"#374151",marginBottom:6,display:"block"}}>Pick the category and give the 12-month amount. For a new hire or contractor, choose Team or Contractors and enter the annual amount and start month.</span>
               <div style={{marginBottom:6}}><button style={geLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoalExpenses} disabled={geLoading}>{geLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button></div>
               <div key={"ge-"+geVersion}>
                 {goals.map(function(g,gi){
@@ -2604,13 +3111,26 @@ function App(){
                       <div style={{fontSize:12,color:"#374151",marginBottom:3,lineHeight:1.4}}>
                         <strong style={{color:"#01236d"}}>Goal {gi+1}:</strong> {g.length>70?g.slice(0,69)+"\u2026":g}
                       </div>
-                      <div style={{display:"flex",gap:8}}>
-                        <select style={Object.assign({},sel,{flex:"1 1 auto",minWidth:0})} value={row.id} onChange={function(e){setGoalExpFor(gi,e.target.value,row.amt);}}>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        <select style={Object.assign({},sel,{flex:"1 1 180px",minWidth:0})} value={row.id} onChange={function(e){setGoalExpFor(gi,e.target.value,row.amt);}}>
                           <option value="">No extra cost</option>
                           {expCats.map(function(ec){return <option key={ec.id} value={ec.id}>{ec.l}</option>;})}
                         </select>
-                        <input style={Object.assign({},inp,{flex:"0 0 120px",textAlign:"right"})} defaultValue={row.amt} placeholder="0" onChange={function(e){setGoalExpFor(gi,row.id,e.target.value);}}/>
+                        <input style={Object.assign({},inp,{flex:"0 0 130px",textAlign:"right"})} defaultValue={row.amt} placeholder={PEOPLE_CATS[row.id]?"Annual $":"0"} onChange={function(e){setGoalExpFor(gi,row.id,e.target.value);}}/>
+                        {PEOPLE_CATS[row.id]&&(
+                          <select style={Object.assign({},sel,{flex:"0 0 150px"})} value={row.start||""} onChange={function(e){setGoalExpFor(gi,row.id,row.amt,e.target.value);}}>
+                            <option value="">Starts {monthNameFor(1)}</option>
+                            {Array.from({length:11},function(_,k){var m=k+2;return <option key={m} value={String(m)}>Starts {monthNameFor(m)}</option>;})}
+                          </select>
+                        )}
                       </div>
+                      {PEOPLE_CATS[row.id]&&!!parseFloat(row.amt)&&(
+                        <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>
+                          {row.start&&parseInt(row.start)>1
+                            ? <span>Paid for {goalExpMonthsFor(row)} of the 12 months &mdash; <strong style={{color:"#01236d"}}>{fmt(goalExpRowCost(row))}</strong> in this forecast</span>
+                            : <span>Full year &mdash; <strong style={{color:"#01236d"}}>{fmt(goalExpRowCost(row))}</strong> in this forecast</span>}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -2677,6 +3197,7 @@ function App(){
             </FinSection>
             <FinSection open={finOpen.sales} onToggle={function(){toggleFin("sales");}} title="2. Money in" hint="sales and other income">
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly sales units</div>
+            <div style={{fontSize:12,color:"#6b5a33",background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:6}}>
                           </div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkMonthlyUnits" checked={!!gridChecks["monthlyUnits"]} onChange={function(){toggleGrid("monthlyUnits");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkMonthlyUnits" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
@@ -2704,10 +3225,13 @@ function App(){
 
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Average sale price ($)</div>
+            {AvgPriceHelper()}
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgPrice" checked={!!gridChecks["avgPrice"]} onChange={function(){toggleGrid("avgPrice");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgPrice" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["avgPrice"]?<div key={"avgPriceGrid"}><MonthGrid keyPrefix={"avgPriceM"} storeKey={"avgPrice"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.avgPrice||""} placeholder="e.g. 49" onChange={function(e){fdRef.current.avgPrice=e.target.value;saveToStorage();refreshLive();}}/>}
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Average cost per unit ($)</div>
+            <div style={{fontSize:12,color:"#6b5a33",background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, your average cost per unit may be zero.</div>
+            {AvgCostHelper()}
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgCost" checked={!!gridChecks["avgCost"]} onChange={function(){toggleGrid("avgCost");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgCost" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["avgCost"]?<div key={"avgCostGrid"}><MonthGrid keyPrefix={"avgCostM"} storeKey={"avgCost"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.avgCost||""} placeholder="e.g. 12" onChange={function(e){fdRef.current.avgCost=e.target.value;saveToStorage();refreshLive();}}/>}
             <FinWarn show={lossMakingMonths().length>0}>
@@ -2762,6 +3286,7 @@ function App(){
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
               {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 200"} onChange={function(e){fdRef.current[c.id]=e.target.value;if(e.target.value)revealExp(c.id);saveToStorage();refreshLive();}}/>}
                 {AnnualTotal({value:sumLive(function(r){return r.expDetail&&r.expDetail[c.id];})})}
+                {PEOPLE_CATS[c.id]?PeopleCostHelper(c.id):null}
             </div>);})}            <div style={{marginBottom:14}}/>
             <div style={{marginBottom:12}}>
               <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"1px dashed #d0b16f",borderRadius:6,padding:"7px 12px",cursor:"pointer"}} onClick={function(){setShowAllExp(function(v){return !v;});}}>
@@ -3034,7 +3559,12 @@ function App(){
         </div>)}
       </div>)}
       {showFeedback&&(
-        <div style={{background:"#f9fafb",borderRadius:8,padding:16,marginTop:8,border:"1px solid #e5e7eb"}}>
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:9998,overflowY:"auto"}}
+          onClick={function(){setShowFeedback(false);}}>
+          <div style={{background:"#fff",borderRadius:12,maxWidth:460,width:"100%",padding:"20px 22px",boxShadow:"0 10px 40px rgba(0,0,0,0.25)",margin:"auto"}}
+            onClick={function(e){e.stopPropagation();}}>
+            <div style={{fontSize:16,fontWeight:700,color:"#01236d",marginBottom:12}}>Give feedback</div>
+            <div style={{background:"#f9fafb",borderRadius:8,padding:16,marginTop:8,border:"1px solid #e5e7eb"}}>
           {fbDone?<div style={{textAlign:"center",color:"#d0b16f",fontSize:14,padding:"8px 0"}}>Thank you for your feedback!</div>:(
             <div>
               <div style={{fontSize:13,fontWeight:500,color:"#374151",marginBottom:8}}>How would you rate your experience?</div>
@@ -3049,6 +3579,8 @@ function App(){
               </div>
             </div>
           )}
+            </div>
+          </div>
         </div>
       )}
     </div>
