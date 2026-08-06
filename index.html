@@ -64,6 +64,19 @@ nav{background:var(--white);border-bottom:1px solid #e5e7eb;padding:0 24px;posit
 .hero-points>div+div{border-top:1px solid rgba(208,177,111,0.35);margin-top:16px;padding-top:16px;}
 .hero-points>div+div::before{top:16px;}
 .hero-points .gold{color:var(--gold);}
+/* Hero illustration crossfade - each question gets its own moment rather than
+   competing side by side. Pure CSS, no script, and it pauses for anyone who
+   has asked their system to reduce motion. */
+.hero-pic{position:relative;overflow:hidden;}
+.hero-pic img{position:absolute;inset:2px;width:calc(100% - 4px);height:auto;margin:auto;}
+.hero-pic img.a{animation:heroFadeA 9s ease-in-out infinite;}
+.hero-pic img.b{animation:heroFadeB 9s ease-in-out infinite;}
+@keyframes heroFadeA{0%,42%{opacity:1}50%,92%{opacity:0}100%{opacity:1}}
+@keyframes heroFadeB{0%,42%{opacity:0}50%,92%{opacity:1}100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){
+  .hero-pic img.a{animation:none;opacity:1;}
+  .hero-pic img.b{animation:none;opacity:0;}
+}
 .hero-pic{background:#fff;border-radius:10px;padding:2px;display:flex;align-items:center;}
 .hero-pic img{width:100%;height:auto;display:block;border-radius:8px;}
 @media(max-width:780px){.hero-cols{grid-template-columns:1fr;}.hero-points{text-align:center;}}
@@ -230,7 +243,9 @@ footer a{color:var(--gold);}
         <div>Simple - no complex templates</div>
       </div>
       <div class="hero-pic">
-        <img src="img/questions.png" alt="Two business owners asking: why are my competitors selling more than I am, and I have a great business idea but what do I do next?" width="900" height="397"/>
+        <img class="spacer" src="img/selling.png" alt="" aria-hidden="true" width="700" height="560" style="position:relative;visibility:hidden;"/>
+        <img class="a" src="img/selling.png" alt="A business owner asking why competitors are selling more than they are" width="700" height="560"/>
+        <img class="b" src="img/idea.png" alt="A business owner wondering what to do next after having a business idea" width="560" height="448"/>
       </div>
     </div>
   </div>
