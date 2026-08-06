@@ -52,6 +52,19 @@ nav{background:var(--white);border-bottom:1px solid #e5e7eb;padding:0 24px;posit
 .hero-sub{font-size:17px;color:rgba(255,255,255,0.72);max-width:500px;margin:0 auto 36px;line-height:1.7;}
 .btn-primary{background:var(--gold);color:var(--white);padding:15px 36px;border-radius:8px;font-size:16px;font-weight:700;border:none;cursor:pointer;transition:opacity 0.15s;display:inline-block;}
 .btn-primary:hover{opacity:0.88;}
+/* Hero block: one wrapper sets the width, both rows fill it exactly.
+   Grid 1fr 1fr guarantees two equal columns - no flex basis, no per-cell
+   max-width, and no inline-block shrink-to-fit to work around. */
+.hero-block{max-width:1120px;margin:0 auto;}
+.hero-headline{background:rgba(208,177,111,0.2);color:#fff;font-size:clamp(16px,2.2vw,26px);font-weight:700;line-height:1.4;padding:14px 32px;border-radius:12px;margin:0 0 14px;text-align:center;}
+.hero-cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch;margin-bottom:18px;}
+.hero-points{border:2px solid var(--gold);border-radius:10px;padding:22px 24px;display:flex;flex-direction:column;justify-content:center;text-align:left;}
+.hero-points>div{font-size:clamp(15px,2.1vw,25px);font-weight:700;line-height:1.35;color:#fff;}
+.hero-points>div+div{border-top:1px solid rgba(208,177,111,0.35);margin-top:16px;padding-top:16px;}
+.hero-points .gold{color:var(--gold);}
+.hero-pic{background:#fff;border-radius:10px;padding:2px;display:flex;align-items:center;}
+.hero-pic img{width:100%;height:auto;display:block;border-radius:8px;}
+@media(max-width:780px){.hero-cols{grid-template-columns:1fr;}.hero-points{text-align:center;}}
 .hero-note{margin-top:18px;display:flex;gap:20px;justify-content:center;flex-wrap:wrap;font-size:16px;color:rgba(255,255,255,0.85);font-weight:500;}.hero-note span{display:flex;align-items:center;gap:6px;}
 
 /* STEP WALKTHROUGH */
@@ -206,21 +219,18 @@ footer a{color:var(--gold);}
 
 <!-- HERO -->
 <section class="hero">
-  <div style="max-width:1120px;margin:0 auto;">
-  <div class="hero-eyebrow" style="display:block;color:#fff;font-size:clamp(16px,2.2vw,26px);padding:14px 32px;margin:0 auto 12px;max-width:100%;width:100%;line-height:1.4;font-weight:700;text-align:center;text-transform:none;letter-spacing:0;border-radius:12px;">Create an integrated business plan and cashflow forecast in under an hour</div>
-  <div style="width:100%;margin:10px auto 16px;display:flex;gap:18px;align-items:stretch;justify-content:center;flex-wrap:wrap;">
-
-    <div style="flex:1 1 340px;display:flex;flex-direction:column;justify-content:center;text-align:left;border:2px solid var(--gold);border-radius:10px;padding:22px 24px;">
-      <div style="font-size:clamp(16px,2.2vw,25px);font-weight:700;color:#fff;line-height:1.35;padding-bottom:16px;border-bottom:1px solid rgba(208,177,111,0.35);">For small businesses and startups</div>
-      <div style="font-size:clamp(16px,2.2vw,25px);font-weight:700;color:var(--gold);line-height:1.35;padding:16px 0;border-bottom:1px solid rgba(208,177,111,0.35);">A simple way to plan for success</div>
-      <div style="font-size:clamp(16px,2.2vw,25px);font-weight:700;color:#fff;line-height:1.35;padding-top:16px;">Simple - no complex templates</div>
+  <div class="hero-block">
+    <div class="hero-headline">Create an integrated business plan and cashflow forecast in under an hour</div>
+    <div class="hero-cols">
+      <div class="hero-points">
+        <div>For small businesses and startups</div>
+        <div class="gold">A simple way to plan for success</div>
+        <div>Simple - no complex templates</div>
+      </div>
+      <div class="hero-pic">
+        <img src="img/questions.png" alt="Two business owners asking: why are my competitors selling more than I am, and I have a great business idea but what do I do next?" width="900" height="397"/>
+      </div>
     </div>
-
-    <div style="flex:1 1 340px;background:#fff;border-radius:10px;padding:2px;display:flex;align-items:center;">
-      <img src="img/questions.png" alt="Two business owners asking: why are my competitors selling more than I am, and I have a great business idea but what do I do next?" width="900" height="397" style="width:100%;height:auto;display:block;border-radius:8px;"/>
-    </div>
-
-  </div>
   </div>
   <div style="display:flex;align-items:center;justify-content:center;gap:22px;flex-wrap:wrap;">
     <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="btn-primary">Get Started</a>
