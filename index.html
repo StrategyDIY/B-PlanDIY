@@ -58,9 +58,11 @@ nav{background:var(--white);border-bottom:1px solid #e5e7eb;padding:0 24px;posit
 .hero-block{max-width:1120px;margin:0 auto;}
 .hero-headline{background:rgba(208,177,111,0.2);color:#fff;font-size:clamp(16px,2.6vw,30px);font-weight:700;line-height:1.4;padding:14px 8px;border-radius:12px;margin:0 0 38px;text-align:center;}
 .hero-cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:stretch;margin-bottom:46px;}
-.hero-points{border:2px solid var(--gold);border-radius:10px;padding:22px 24px;display:flex;flex-direction:column;justify-content:center;text-align:left;}
-.hero-points>div{font-size:clamp(15px,2.1vw,25px);font-weight:700;line-height:1.35;color:#fff;}
+.hero-points{border:4px solid var(--gold);border-radius:10px;padding:22px 24px;display:flex;flex-direction:column;justify-content:center;text-align:left;}
+.hero-points>div{font-size:clamp(15px,2.3vw,27px);font-weight:700;line-height:1.35;color:#fff;position:relative;padding-left:26px;}
+.hero-points>div::before{content:"\2022";position:absolute;left:2px;top:0;line-height:1.35;}
 .hero-points>div+div{border-top:1px solid rgba(208,177,111,0.35);margin-top:16px;padding-top:16px;}
+.hero-points>div+div::before{top:16px;}
 .hero-points .gold{color:var(--gold);}
 .hero-pic{background:#fff;border-radius:10px;padding:2px;display:flex;align-items:center;}
 .hero-pic img{width:100%;height:auto;display:block;border-radius:8px;}
@@ -224,7 +226,7 @@ footer a{color:var(--gold);}
     <div class="hero-cols">
       <div class="hero-points">
         <div>For small businesses and startups</div>
-        <div class="gold">An easy way to plan for success</div>
+        <div>An easy way to plan for success</div>
         <div>Simple - no complex templates</div>
       </div>
       <div class="hero-pic">
