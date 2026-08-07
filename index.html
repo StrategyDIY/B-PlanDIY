@@ -39,6 +39,11 @@ nav{background:var(--white);border-bottom:1px solid #e5e7eb;padding:0 24px;posit
 .nav-logo span{font-size:17px;font-weight:700;color:var(--navy);letter-spacing:-0.02em;}
 .nav-links{display:flex;gap:28px;font-size:15px;color:var(--navy);font-weight:700;}
 .nav-links a:hover{color:var(--gold);}
+.nav-right{display:flex;align-items:center;gap:18px;}
+.nav-paid{font-size:14px;color:var(--grey);white-space:nowrap;}
+.nav-paid a{color:var(--navy);font-weight:600;text-decoration:underline;}
+.nav-paid a:hover{color:var(--gold);}
+@media(max-width:860px){.nav-paid{display:none;}}
 .nav-cta{background:var(--gold);color:var(--white);padding:9px 22px;border-radius:6px;font-size:14px;font-weight:600;transition:opacity 0.15s;}
 .nav-cta:hover{opacity:0.88;}
 @media(max-width:600px){.nav-links{display:none;}}
@@ -240,7 +245,10 @@ footer a{color:var(--gold);}
     <a href="#plan-sample">Sample output</a>
     <a href="#pricing">Pricing</a>
   </div>
-  <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="nav-cta">Get Started</a>
+  <div class="nav-right">
+    <span class="nav-paid">Already paid? <a href="https://b-plandiy.com/verify.html">Verify your email</a></span>
+    <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="nav-cta">Get Started</a>
+  </div>
 </nav>
 
 <!-- HERO -->
