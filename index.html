@@ -68,15 +68,26 @@ nav{background:var(--white);border-bottom:1px solid #e5e7eb;padding:0 24px;posit
 /* Hero illustration crossfade - each question gets its own moment rather than
    competing side by side. Pure CSS, no script, and it pauses for anyone who
    has asked their system to reduce motion. */
-.hero-pic{background:#fff;border-radius:10px;padding:2px;position:relative;overflow:hidden;height:210px;max-width:445px;margin:0 auto;}
+.hero-pic{background:#fff;border-radius:10px;padding:2px;position:relative;overflow:hidden;height:310px;max-width:400px;margin:0 auto;}
 .hero-pic img{position:absolute;top:0;left:0;right:0;bottom:0;margin:auto;max-height:calc(100% - 8px);max-width:calc(100% - 8px);width:auto;height:auto;display:block;border-radius:8px;}
-@media(max-width:780px){.hero-pic{height:165px;}}
-.hero-pic img.a{animation:heroFadeA 9s ease-in-out infinite;}
-.hero-pic img.b{animation:heroFadeB 9s ease-in-out infinite;}
-@keyframes heroFadeA{0%,42%{opacity:1}50%,92%{opacity:0}100%{opacity:1}}
-@keyframes heroFadeB{0%,42%{opacity:0}50%,92%{opacity:1}100%{opacity:0}}
-@media(prefers-reduced-motion:reduce){
-  .hero-pic img.a{animation:none;opacity:1;}
+@media(max-width:780px){.hero-pic{height:240px;}}
+@keyframes heroFade0{0.0%{opacity:1};10.25%{opacity:1};12.5%{opacity:0};97.75%{opacity:0};100.0%{opacity:1}}
+.hero-pic img.f0{animation:heroFade0 24s linear infinite;}
+@keyframes heroFade1{0.0%{opacity:0};10.25%{opacity:0};12.5%{opacity:1};22.75%{opacity:1};25.0%{opacity:0};100.0%{opacity:0}}
+.hero-pic img.f1{animation:heroFade1 24s linear infinite;}
+@keyframes heroFade2{0.0%{opacity:0};22.75%{opacity:0};25.0%{opacity:1};35.25%{opacity:1};37.5%{opacity:0};100.0%{opacity:0}}
+.hero-pic img.f2{animation:heroFade2 24s linear infinite;}
+@keyframes heroFade3{0.0%{opacity:0};35.25%{opacity:0};37.5%{opacity:1};47.75%{opacity:1};50.0%{opacity:0};100.0%{opacity:0}}
+.hero-pic img.f3{animation:heroFade3 24s linear infinite;}
+@keyframes heroFade4{0.0%{opacity:0};47.75%{opacity:0};50.0%{opacity:1};60.25%{opacity:1};62.5%{opacity:0};100.0%{opacity:0}}
+.hero-pic img.f4{animation:heroFade4 24s linear infinite;}
+@keyframes heroFade5{0.0%{opacity:0};60.25%{opacity:0};62.5%{opacity:1};72.75%{opacity:1};75.0%{opacity:0};100.0%{opacity:0}}
+.hero-pic img.f5{animation:heroFade5 24s linear infinite;}
+@keyframes heroFade6{0.0%{opacity:0};72.75%{opacity:0};75.0%{opacity:1};85.25%{opacity:1};87.5%{opacity:0};100.0%{opacity:0}}
+.hero-pic img.f6{animation:heroFade6 24s linear infinite;}
+@keyframes heroFade7{0.0%{opacity:0};85.25%{opacity:0};87.5%{opacity:1};97.75%{opacity:1};100.0%{opacity:0}}
+.hero-pic img.f7{animation:heroFade7 24s linear infinite;}
+@media(prefers-reduced-motion:reduce){.hero-pic img.f0{animation:none;opacity:1;}.hero-pic img.f1{animation:none;opacity:0;}.hero-pic img.f2{animation:none;opacity:0;}.hero-pic img.f3{animation:none;opacity:0;}.hero-pic img.f4{animation:none;opacity:0;}.hero-pic img.f5{animation:none;opacity:0;}.hero-pic img.f6{animation:none;opacity:0;}.hero-pic img.f7{animation:none;opacity:0;}}
   .hero-pic img.b{animation:none;opacity:0;}
 }
 
@@ -244,8 +255,14 @@ footer a{color:var(--gold);}
         <div>Simple process - no complex templates</div>
       </div>
       <div class="hero-pic">
-        <img class="a" src="img/selling.png" alt="A business owner asking why competitors are selling more than they are" width="1288" height="549"/>
-        <img class="b" src="img/idea.png" alt="A business owner wondering what to do next after having a business idea" width="795" height="538"/>
+        <img class="f0" src="img/idea.png" alt="A business owner wondering what to do next after having a business idea" width="480" height="480"/>
+        <img class="f1" src="img/selling.png" alt="A business owner asking why competitors are selling more, as customers walk past to a busier shop" width="620" height="426"/>
+        <img class="f2" src="img/complex.png" alt="A business owner asking why business planning is so complicated, faced with PDF and spreadsheet templates" width="480" height="480"/>
+        <img class="f3" src="img/targets.png" alt="A business owner looking at a rising sales chart" width="480" height="480"/>
+        <img class="f4" src="img/bank.png" alt="A business owner holding a phone showing a healthy bank balance" width="480" height="480"/>
+        <img class="f5" src="img/goals.png" alt="A business owner viewing goals and a profit statement, saying B-PlanDIY makes it easy to plan for success" width="480" height="480"/>
+        <img class="f6" src="img/selling2.png" alt="A business owner whose shop is now busier than the competitor down the road" width="620" height="350"/>
+        <img class="f7" src="img/newbusiness.png" alt="A business owner celebrating outside their new shop, having turned an idea into a real business" width="620" height="444"/>
       </div>
     </div>
   </div>
