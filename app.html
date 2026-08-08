@@ -80,6 +80,13 @@ a{transition:color .15s ease;}
   *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important;}
   button:not(:disabled):hover{transform:none;}
 }
+/* Consistent 26px rhythm between form rows */
+.bpd-field{margin-bottom:26px;}
+input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus{
+  border-color:#2A9D9F !important;
+  box-shadow:0 0 0 3px rgba(42,157,159,0.18) !important;
+}
+select{border-radius:10px !important;padding:13px 12px !important;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" onerror="console.warn('jszip CDN failed')"></script>
@@ -996,7 +1003,7 @@ function App(){
   var adminPwState=useState("");var adminPw=adminPwState[0];var setAdminPw=adminPwState[1];
   var adminMsgInputState=useState("");var adminMsgInput=adminMsgInputState[0];var setAdminMsgInput=adminMsgInputState[1];
 
-  var inp={width:"100%",fontFamily:"inherit",fontSize:15,color:"#29384A",background:"#fff",border:"1px solid #E7EAED",borderRadius:6,padding:"9px 11px",outline:"none",boxSizing:"border-box"};
+  var inp={width:"100%",fontFamily:"inherit",fontSize:15,color:"#29384A",background:"#fff",border:"1px solid #E7EAED",borderRadius:10,padding:"14px 14px",outline:"none",boxSizing:"border-box"};
   var ta=function(r){return Object.assign({},inp,{resize:"vertical",lineHeight:1.6,minHeight:r*26});};
   // Two-column field rows. flex-basis 260px means the pair sits side by side on
   // desktop and stacks automatically on narrow screens, with no media query.
@@ -2947,21 +2954,37 @@ function App(){
   }
 
   function BackupNote(){
+    var linkStyle={fontFamily:"inherit",fontSize:14,fontWeight:700,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"};
     return (
-      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"9px 12px",marginBottom:12}}>
-        <span style={{fontSize:13,lineHeight:1.5,color:"#1F5C5D",flex:1}}>
-          Your plan is saved in this browser only. It will be lost if you or your settings clear your browsing data.{" "}
-          <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Save a backup file</button>
-          {" "}saves a restore file to your Downloads folder.
-          <span style={{display:"block",fontSize:13,color:"#1F5C5D",marginTop:6,paddingTop:6,borderTop:"1px solid #BFE3E1"}}>
-            If you are finished and on a shared or public computer{" "}
-            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={clearDevice}>Clear plan from this device</button>
-            {" "}so that anyone else who uses this computer can't open your plan.
-          </span>
-        </span>
+      <div style={{display:"flex",gap:18,alignItems:"stretch",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:12,padding:"16px 20px",marginBottom:22}}>
+        <div style={{flex:"0 0 auto",display:"flex",alignItems:"center",paddingRight:18,borderRight:"1px solid #BFE3E1"}}>
+          <div style={{width:56,height:56,borderRadius:"50%",border:"2px solid #2A9D9F",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2A9D9F" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 16.5a3.5 3.5 0 0 0-.7-6.93A5 5 0 0 0 7.2 9.2 3.9 3.9 0 0 0 8 16.5"/>
+              <path d="M12 12v7M9.5 14.5 12 12l2.5 2.5"/>
+            </svg>
+          </div>
+        </div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{display:"flex",gap:10,alignItems:"flex-start",paddingBottom:12,borderBottom:"1px solid #BFE3E1"}}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#2A9D9F" style={{flexShrink:0,marginTop:2}}><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 14.5-4-4L8.4 11 11 13.6 15.6 9 17 10.4z"/></svg>
+            <span style={{fontSize:14,lineHeight:1.55,color:"#29384A"}}>
+              Your plan is saved in this browser only. It will be lost if you or your settings clear your browsing data.{" "}
+              <button style={linkStyle} onClick={exportData}>Save a backup file</button>{" "}saves a restore file to your Downloads folder.
+            </span>
+          </div>
+          <div style={{display:"flex",gap:10,alignItems:"flex-start",paddingTop:12}}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2A9D9F" strokeWidth="2" style={{flexShrink:0,marginTop:2}}><circle cx="12" cy="12" r="10"/><path d="M12 16v-5M12 8h.01" strokeLinecap="round"/></svg>
+            <span style={{fontSize:14,lineHeight:1.55,color:"#29384A"}}>
+              If you are finished and on a shared or public computer{" "}
+              <button style={linkStyle} onClick={clearDevice}>Clear plan from this device</button>{" "}so that anyone else who uses this computer can't open your plan.
+            </span>
+          </div>
+        </div>
       </div>
     );
   }
+
 
   function AppFooter(){
     return (
@@ -3453,21 +3476,21 @@ function App(){
   // app. 1080px lets the cashflow table (~916px) fit without sideways scrolling.
   // maxWidth only bites above the limit, so narrow devices are unaffected.
   var appStyle={fontFamily:"system-ui,sans-serif",maxWidth:1080,margin:"0 auto",padding:16};
-  var cardStyle={background:"#fff",borderRadius:12,padding:"24px 20px",boxShadow:"0 1px 3px rgba(0,0,0,0.08)",marginBottom:16};
+  var cardStyle={background:"#fff",borderRadius:12,padding:"28px 26px",boxShadow:"0 1px 2px rgba(41,56,74,0.06),0 6px 20px rgba(41,56,74,0.07)",marginBottom:16};
 
   if(showDirection&&!showOutput){
     var f=fdRef.current;
     return (
       <div style={appStyle}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:12,padding:"8px 12px"}}>
-          <img src={LOGO_SRC} style={{width:36,height:36,objectFit:"contain"}} alt="Logo"/>
-          <span style={{fontWeight:700,color:"#01236D",fontSize:15,marginRight:"auto"}}>B-PlanDIY</span>
+        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:22,flexWrap:"wrap",background:"#fff",borderBottom:"2px solid #D0B16F",borderRadius:0,padding:"14px 4px 16px"}}>
+          <img src={LOGO_SRC} style={{width:46,height:46,objectFit:"contain"}} alt="Logo"/>
+          <span style={{fontWeight:800,color:"#01236D",fontSize:22,letterSpacing:"-0.01em",marginRight:"auto",borderBottom:"3px solid #D0B16F",paddingBottom:3,lineHeight:1.1}}>B-PlanDIY</span>
           {[
             {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
             {label:"Cashflow",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
             {label:"Graphs",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("graphs");},50);}},
             {label:"What If",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
-          ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"9px 16px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",whiteSpace:"nowrap",boxShadow:"0 1px 3px rgba(1,35,109,0.2)"}}>{item.label}</button>;})}
+          ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, item.label==="Summary"?{background:"#01236D",color:"#fff",border:"1px solid #01236D"}:{background:"#fff",color:"#01236D",border:"1px solid #E7EAED"})}>{item.label}</button>;})}
         </div>
         <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
         <div style={cardStyle}>
@@ -3606,53 +3629,49 @@ function App(){
   var currentStep=stepDefs[step];
   return (
     <div style={appStyle}>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:12,padding:"8px 12px"}}>
-        <img src={LOGO_SRC} style={{width:36,height:36,objectFit:"contain"}} alt="Logo"/>
-        <span style={{fontWeight:700,color:"#01236D",fontSize:15,marginRight:"auto"}}>B-PlanDIY</span>
+      <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:22,flexWrap:"wrap",background:"#fff",borderBottom:"2px solid #D0B16F",borderRadius:0,padding:"14px 4px 16px"}}>
+        <img src={LOGO_SRC} style={{width:46,height:46,objectFit:"contain"}} alt="Logo"/>
+        <span style={{fontWeight:800,color:"#01236D",fontSize:22,letterSpacing:"-0.01em",marginRight:"auto",borderBottom:"3px solid #D0B16F",paddingBottom:3,lineHeight:1.1}}>B-PlanDIY</span>
         {[
           {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
           {label:"Cashflow",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
           {label:"Graphs",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("graphs");},50);}},
           {label:"What If",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
-        ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"9px 16px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",whiteSpace:"nowrap",boxShadow:"0 1px 3px rgba(1,35,109,0.2)"}}>{item.label}</button>;})}
+        ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, item.label==="Summary"?{background:"#01236D",color:"#fff",border:"1px solid #01236D"}:{background:"#fff",color:"#01236D",border:"1px solid #E7EAED"})}>{item.label}</button>;})}
       </div>
       <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
       <div style={cardStyle}>
-        <div style={{height:5,background:"#E7EAED",borderRadius:6,marginBottom:12,overflow:"hidden"}}>
-          <div style={{height:"100%",width:(((step+1)/stepDefs.length)*100)+"%",background:"linear-gradient(90deg,#01236D,#D0B16F)",borderRadius:6,transition:"width .45s cubic-bezier(.4,0,.2,1)"}}/>
-        </div>
-        <div style={{display:"flex",gap:2,marginBottom:20,overflowX:"auto"}}>
+        <div style={{display:"flex",alignItems:"flex-start",gap:0,marginBottom:26,overflowX:"auto"}}>
           {stepDefs.map(function(s,i){
             var active=i===step;
             var done=i<step;
-            return <button key={i} onClick={function(){setStepAndSave(i);}} style={{
-              flex:1,minWidth:0,padding:"6px 4px",border:"none",borderRadius:6,cursor:"pointer",
-              background:active?"#01236D":done?"#E7F5F4":"#FCFCFA",
-              color:active?"#fff":done?"#01236D":"#5F7183",
-              fontSize:11,fontWeight:active?700:500,
-              whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
-              borderBottom:active?"3px solid #D0B16F":done?"3px solid #D0B16F":"3px solid transparent",
-              fontFamily:"inherit"
-            }}>{done?"✓ ":""}{["Details","Market","Strategy","How","Finances"][i]||s.label}</button>;
+            var names=["Details","Market","Strategy","How","Finances"];
+            // Active navy, completed teal, still to come light grey
+            var dotBg=active?"#01236D":done?"#01236D":"#F1F3F5";
+            var dotFg=(active||done)?"#fff":"#8A98A6";
+            return (
+              <button key={i} onClick={function(){setShowDirection(false);setStepAndSave(i);}}
+                style={{flex:1,minWidth:66,border:"none",background:"none",cursor:"pointer",padding:0,fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:7}}>
+                <div style={{display:"flex",alignItems:"center",width:"100%"}}>
+                  <div style={{flex:1,height:3,borderRadius:2,background:i===0?"transparent":((done||active)?"#01236D":"#E7EAED")}}/>
+                  <div style={{width:30,height:30,borderRadius:"50%",background:dotBg,color:dotFg,fontSize:13,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:active?"0 0 0 4px rgba(1,35,109,0.12)":"none"}}>{done?"\u2713":(i+1)}</div>
+                  <div style={{flex:1,height:3,borderRadius:2,background:i===stepDefs.length-1?"transparent":(active?"#D0B16F":done?"#01236D":"#E7EAED")}}/>
+                </div>
+                <span style={{fontSize:12,fontWeight:active?700:600,color:active?"#01236D":done?"#01236D":"#8A98A6",whiteSpace:"nowrap"}}>{names[i]||s.label}</span>
+              </button>
+            );
           })}
         </div>
-        <div style={{fontSize:11,fontWeight:600,color:"#29384A",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>{currentStep.label}</div>
-        <div style={{fontSize:18,fontWeight:700,color:GREEN_DARK,marginBottom:4,lineHeight:1.2}}>{currentStep.title}</div>
-        <div style={{fontSize:15,color:"#29384A",marginBottom:12,lineHeight:1.6}}>{currentStep.desc}</div>
-        <div style={{display:"flex",gap:10,marginBottom:20}}>
-          {step>0&&<button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={function(){setStepAndSave(step-1);}}>Back</button>}
-          {step<stepDefs.length-1
-            ?<button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setStepAndSave(step+1);}}>Next →</button>
-            :<button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setShowDirection(true);}}>Next →</button>
-          }
-        </div>
+        <div style={{fontSize:11,fontWeight:700,color:"#8A98A6",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:8}}>{currentStep.label}</div>
+        <div style={{fontSize:26,fontWeight:800,color:"#01236D",marginBottom:10,lineHeight:1.2,letterSpacing:"-0.01em"}}>{currentStep.title}<div style={{width:56,height:3,background:"#D0B16F",borderRadius:2,marginTop:9}}/></div>
+        <div style={{fontSize:15,color:"#5F7183",marginBottom:26,lineHeight:1.6}}>{currentStep.desc}</div>
         {currentStep.render()}
-        <div style={{display:"flex",gap:10,marginTop:20}}>
-          {step>0&&<button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={function(){setStepAndSave(step-1);}}>Back</button>}
-          {step<stepDefs.length-1
-            ?<button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setStepAndSave(step+1);}}>Next →</button>
-            :<button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setShowDirection(true);}}>Next →</button>
-          }
+        <div style={{display:"flex",gap:10,alignItems:"center",marginTop:32,paddingTop:24,borderTop:"1px solid #E7EAED"}}>
+          {step>0&&<button style={{fontFamily:"inherit",fontSize:15,fontWeight:600,padding:"13px 22px",borderRadius:10,border:"1px solid #E7EAED",background:"#fff",color:"#29384A",cursor:"pointer"}} onClick={function(){setStepAndSave(step-1);}}>&larr; Back</button>}
+          <button style={{fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"14px 34px",borderRadius:10,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:10}}
+            onClick={function(){ step<stepDefs.length-1 ? setStepAndSave(step+1) : setShowDirection(true); }}>
+            Next <span style={{fontSize:18,lineHeight:1}}>&rarr;</span>
+          </button>
         </div>
       </div>
       <AppFooter/>
