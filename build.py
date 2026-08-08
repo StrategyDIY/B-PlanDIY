@@ -82,6 +82,64 @@ html = """<!DOCTYPE html>
 /* Pulsing dot shown inside a "Suggest with AI" button while it is working */
 @keyframes bpdPulse{0%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.75)}100%{opacity:1;transform:scale(1)}}
 .bpd-pulse{animation:bpdPulse 1s ease-in-out infinite;}
+/* ============================================================
+   Interaction polish. Inline styles cannot express :hover or
+   :focus, so these add responsiveness without fighting them.
+   ============================================================ */
+
+/* Fields react when you are typing in them */
+input:not([type=checkbox]):not([type=radio]), select, textarea{
+  transition:border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+input:not([type=checkbox]):not([type=radio]):hover, select:hover, textarea:hover{
+  border-color:#8A98A6 !important;
+}
+input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus{
+  border-color:#2A9D9F !important;
+  box-shadow:0 0 0 3px rgba(42,157,159,0.20) !important;
+  outline:none !important;
+}
+
+/* Buttons lift slightly and deepen on hover */
+button{transition:transform .12s ease, box-shadow .15s ease, filter .15s ease, background-color .15s ease;}
+button:not(:disabled):hover{transform:translateY(-1px);filter:brightness(1.04);box-shadow:0 3px 10px rgba(1,35,109,0.13);}
+button:not(:disabled):active{transform:translateY(0);box-shadow:0 1px 3px rgba(1,35,109,0.12);}
+button:disabled{opacity:.55;cursor:not-allowed !important;}
+button:focus-visible{outline:2px solid #2A9D9F;outline-offset:2px;}
+
+/* Checkboxes get a pointer and a little feedback */
+input[type=checkbox]{transition:transform .12s ease;}
+input[type=checkbox]:hover{transform:scale(1.12);}
+
+/* Money and figures line up in columns */
+.bpd-num, td, th{font-variant-numeric:tabular-nums;}
+
+/* Panels and dialogs arrive rather than snapping in */
+@keyframes bpdFadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes bpdFadeIn{from{opacity:0}to{opacity:1}}
+.bpd-appear{animation:bpdFadeUp .22s ease both;}
+.bpd-overlay{animation:bpdFadeIn .18s ease both;}
+
+/* A figure that has just changed pulses once, so the eye catches it */
+@keyframes bpdNumPop{0%{transform:scale(1)}35%{transform:scale(1.06)}100%{transform:scale(1)}}
+.bpd-pop{animation:bpdNumPop .35s ease;display:inline-block;}
+
+/* Softer, warmer page background so white cards read as raised */
+body{background:#FCFCFA;}
+
+/* Links */
+a{transition:color .15s ease;}
+
+/* Scrollbars, where the browser allows styling */
+*::-webkit-scrollbar{height:10px;width:10px;}
+*::-webkit-scrollbar-thumb{background:#E0D2B4;border-radius:6px;}
+*::-webkit-scrollbar-thumb:hover{background:#D0B16F;}
+*::-webkit-scrollbar-track{background:transparent;}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important;}
+  button:not(:disabled):hover{transform:none;}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" onerror="console.warn('jszip CDN failed')"></script>

@@ -22,6 +22,64 @@
 /* Pulsing dot shown inside a "Suggest with AI" button while it is working */
 @keyframes bpdPulse{0%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.75)}100%{opacity:1;transform:scale(1)}}
 .bpd-pulse{animation:bpdPulse 1s ease-in-out infinite;}
+/* ============================================================
+   Interaction polish. Inline styles cannot express :hover or
+   :focus, so these add responsiveness without fighting them.
+   ============================================================ */
+
+/* Fields react when you are typing in them */
+input:not([type=checkbox]):not([type=radio]), select, textarea{
+  transition:border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
+}
+input:not([type=checkbox]):not([type=radio]):hover, select:hover, textarea:hover{
+  border-color:#8A98A6 !important;
+}
+input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus{
+  border-color:#2A9D9F !important;
+  box-shadow:0 0 0 3px rgba(42,157,159,0.20) !important;
+  outline:none !important;
+}
+
+/* Buttons lift slightly and deepen on hover */
+button{transition:transform .12s ease, box-shadow .15s ease, filter .15s ease, background-color .15s ease;}
+button:not(:disabled):hover{transform:translateY(-1px);filter:brightness(1.04);box-shadow:0 3px 10px rgba(1,35,109,0.13);}
+button:not(:disabled):active{transform:translateY(0);box-shadow:0 1px 3px rgba(1,35,109,0.12);}
+button:disabled{opacity:.55;cursor:not-allowed !important;}
+button:focus-visible{outline:2px solid #2A9D9F;outline-offset:2px;}
+
+/* Checkboxes get a pointer and a little feedback */
+input[type=checkbox]{transition:transform .12s ease;}
+input[type=checkbox]:hover{transform:scale(1.12);}
+
+/* Money and figures line up in columns */
+.bpd-num, td, th{font-variant-numeric:tabular-nums;}
+
+/* Panels and dialogs arrive rather than snapping in */
+@keyframes bpdFadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes bpdFadeIn{from{opacity:0}to{opacity:1}}
+.bpd-appear{animation:bpdFadeUp .22s ease both;}
+.bpd-overlay{animation:bpdFadeIn .18s ease both;}
+
+/* A figure that has just changed pulses once, so the eye catches it */
+@keyframes bpdNumPop{0%{transform:scale(1)}35%{transform:scale(1.06)}100%{transform:scale(1)}}
+.bpd-pop{animation:bpdNumPop .35s ease;display:inline-block;}
+
+/* Softer, warmer page background so white cards read as raised */
+body{background:#FCFCFA;}
+
+/* Links */
+a{transition:color .15s ease;}
+
+/* Scrollbars, where the browser allows styling */
+*::-webkit-scrollbar{height:10px;width:10px;}
+*::-webkit-scrollbar-thumb{background:#E0D2B4;border-radius:6px;}
+*::-webkit-scrollbar-thumb:hover{background:#D0B16F;}
+*::-webkit-scrollbar-track{background:transparent;}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important;}
+  button:not(:disabled):hover{transform:none;}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" onerror="console.warn('jszip CDN failed')"></script>
@@ -65,7 +123,7 @@ try {
 </script>
 <script type="text/plain" id="app-src">
 
-const GREEN="#d0b16f",GREEN_DARK="#01236d",GREEN_LIGHT="#f5eedd",AMBER="#BA7517",AMBER_LIGHT="#FAEEDA",RED="#A32D2D",RED_LIGHT="#FCEBEB";
+const GREEN="#D0B16F",GREEN_DARK="#1F7A7C",GREEN_LIGHT="#F4ECDC",AMBER="#6B5A33",AMBER_LIGHT="#F4ECDC",RED="#B14A38",RED_LIGHT="#FDEEEB";
 const LOGO_SRC=window.__LOGO_SRC__||"";
 const legalOpts=[{v:"meets",l:"Meets all obligations",s:"Tax, licences, employment, insurance and compliance are in order",color:GREEN,bg:GREEN_LIGHT},{v:"partial",l:"Partially meets obligations",s:"Some requirements are in place, others still being addressed",color:AMBER,bg:AMBER_LIGHT},{v:"notyet",l:"Not yet",s:"Legal and compliance requirements still to be set up",color:RED,bg:RED_LIGHT}];
 const onlineCh=[{id:"oWeb",label:"Web",ph:"Website or app URL"},{id:"oFb",label:"FB",ph:"Facebook page URL"},{id:"oIg",label:"IG",ph:"Instagram handle"},{id:"oLi",label:"LI",ph:"LinkedIn URL"},{id:"oOther",label:"Other",ph:"Other social/platform"}];
@@ -312,14 +370,14 @@ function CfTable({rows}){
   const txTotals={};
   txCats.forEach(c=>{txTotals[c.id]=rows.reduce((s,r)=>s+(r.txDetail&&r.txDetail[c.id]||0),0);});
 
-  const th={padding:"9px 8px",textAlign:"right",borderBottom:"2px solid #e5e7eb",fontWeight:600,fontSize:11,background:"#f9fafb",whiteSpace:"nowrap",color:"#6b7280"};
+  const th={padding:"9px 8px",textAlign:"right",borderBottom:"2px solid #E7EAED",fontWeight:600,fontSize:11,background:"#FCFCFA",whiteSpace:"nowrap",color:"#5F7183"};
   const thF={...th,textAlign:"left"};
-  const td={padding:"6px 8px",textAlign:"right",borderBottom:"1px solid #f3f4f6",fontSize:12,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"};
-  const tdF={...td,textAlign:"left",color:"#6b7280"};
-  const tot={...td,fontWeight:600,background:"#f9fafb"};
+  const td={padding:"6px 8px",textAlign:"right",borderBottom:"1px solid #FCFCFA",fontSize:13,fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"};
+  const tdF={...td,textAlign:"left",color:"#5F7183"};
+  const tot={...td,fontWeight:600,background:"#FCFCFA"};
   const totF={...tot,textAlign:"left"};
-  const totB={borderLeft:"2px solid #e5e7eb"};
-  const hdr={...td,background:"#eef1f8",color:GREEN_DARK,fontWeight:600,fontSize:10,textTransform:"uppercase",letterSpacing:"0.05em",textAlign:"left"};
+  const totB={borderLeft:"2px solid #E7EAED"};
+  const hdr={...td,background:"#E7F5F4",color:GREEN_DARK,fontWeight:600,fontSize:11,textTransform:"uppercase",letterSpacing:"0.05em",textAlign:"left"};
   const hlG={...td,background:GREEN_DARK,color:"#fff",fontWeight:700};
   const hlR={...td,background:RED,color:"#fff",fontWeight:700};
   const hlGF={...hlG,textAlign:"left"};
@@ -327,7 +385,7 @@ function CfTable({rows}){
   const gpTotal=totals("grossProfit");
 
   const wrapStyle={overflowX:"auto"};
-  const tblStyle={width:"100%",borderCollapse:"collapse",fontSize:12};
+  const tblStyle={width:"100%",borderCollapse:"collapse",fontSize:13};
 
   var cftable=(
     <div style={wrapStyle}>
@@ -392,7 +450,7 @@ function CfTable({rows}){
 function ChartTip({active,payload,label}){
   if(!active||!payload||!payload.length)return null;
   return (
-    <div style={{background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:12}}>
+    <div style={{background:"#fff",border:"1px solid #E7EAED",borderRadius:6,padding:"8px 12px",fontSize:13}}>
       <div style={{fontWeight:600,marginBottom:4}}>{label}</div>
       {payload.map(function(p,i){return <div key={i} style={{color:p.value<0?RED:GREEN_DARK,marginTop:2}}>{p.name}: {fmt(p.value)}</div>;})}
     </div>
@@ -400,7 +458,7 @@ function ChartTip({active,payload,label}){
 }
 
 function CfCharts({rows,expCatsData}){
-  const COLORS=["#01236d","#d0b16f","#4e73df","#1cc88a","#36b9cc","#f6c23e","#e74a3b","#858796","#5a5c69","#2e59d9","#17a673","#2c9faf","#fd7e14","#6610f2"];
+  const COLORS=["#01236D","#D0B16F","#2A9D9F","#E97868","#5F7183","#6B5A33","#1F7A7C","#B14A38","#8A98A6","#E0D2B4","#29384A","#BFE3E1","#F4ECDC","#E7F5F4"];
   const expPieData=(expCatsData||[]).map(function(c,i){
     var total=rows.reduce(function(s,r){return s+(r.expDetail&&r.expDetail[c.id]||0);},0);
     return total>0?{name:c.l,value:total,color:COLORS[i%COLORS.length]}:null;
@@ -412,20 +470,20 @@ function CfCharts({rows,expCatsData}){
 
   return (
     <div style={{marginTop:24}}>
-      <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"0 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Units Sold & Monthly Sales</div>
+      <div style={{fontSize:13,fontWeight:600,color:"#5F7183",margin:"0 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Units Sold & Monthly Sales</div>
       <ResponsiveContainer width="100%" height={200}>
         <BarChart data={unitsData} margin={{top:4,right:8,left:8,bottom:0}}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
-          <XAxis dataKey="name" tick={{fontSize:10}} axisLine={false} tickLine={false} interval={0} minTickGap={0}/>
+          <CartesianGrid strokeDasharray="3 3" stroke="#FCFCFA"/>
+          <XAxis dataKey="name" tick={{fontSize:11}} axisLine={false} tickLine={false} interval={0} minTickGap={0}/>
           <YAxis yAxisId="left" tickFormatter={function(v){return v.toLocaleString();}} tick={{fontSize:11}} axisLine={false} tickLine={false} width={62}/>
           <YAxis yAxisId="right" orientation="right" tickFormatter={axisFmt} tick={{fontSize:11}} axisLine={false} tickLine={false} width={62}/>
           <Tooltip content={<ChartTip/>}/>
           <Legend wrapperStyle={{fontSize:11}}/>
-          <Bar yAxisId="left" dataKey="units" name="Units Sold" radius={[3,3,0,0]} fill="#01236d"/>
-          <Bar yAxisId="right" dataKey="revenue" name="Monthly Sales ($)" radius={[3,3,0,0]} fill="#d0b16f"/>
+          <Bar yAxisId="left" dataKey="units" name="Units Sold" radius={[3,3,0,0]} fill="#01236D"/>
+          <Bar yAxisId="right" dataKey="revenue" name="Monthly Sales ($)" radius={[3,3,0,0]} fill="#D0B16F"/>
         </BarChart>
       </ResponsiveContainer>
-      <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Expenses Breakdown</div>
+      <div style={{fontSize:13,fontWeight:600,color:"#5F7183",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Expenses Breakdown</div>
       {expPieData.length>0?(<div style={{display:"flex",gap:16,alignItems:"center"}}>
         <ResponsiveContainer width="50%" height={200}>
           <Recharts.PieChart>
@@ -435,35 +493,35 @@ function CfCharts({rows,expCatsData}){
             <Tooltip formatter={function(v,n){return["$"+Math.round(v).toLocaleString(),n];}}/>
           </Recharts.PieChart>
         </ResponsiveContainer>
-        <div style={{flex:1,fontSize:11,color:"#374151"}}>
+        <div style={{flex:1,fontSize:11,color:"#29384A"}}>
           {expPieData.map(function(e){return <div key={e.name} style={{display:"flex",alignItems:"center",gap:6,marginBottom:4}}>
             <div style={{width:10,height:10,borderRadius:2,background:e.color,flexShrink:0}}/>
             <span style={{flex:1}}>{e.name}</span>
             <span style={{fontWeight:600}}>${Math.round(e.value).toLocaleString()}</span>
           </div>;})}
         </div>
-      </div>):<div style={{fontSize:13,color:"#9ca3af",padding:"16px 0"}}>No expense data entered yet.</div>}
-      <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Net Profit / (Loss)</div>
+      </div>):<div style={{fontSize:13,color:"#8A98A6",padding:"16px 0"}}>No expense data entered yet.</div>}
+      <div style={{fontSize:13,fontWeight:600,color:"#5F7183",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Net Profit / (Loss)</div>
       <ResponsiveContainer width="100%" height={160}>
         <LineChart data={npData} margin={{top:4,right:24,left:8,bottom:0}}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
-          <XAxis dataKey="name" tick={{fontSize:10}} axisLine={false} tickLine={false} interval={0} minTickGap={0}/>
+          <CartesianGrid strokeDasharray="3 3" stroke="#FCFCFA"/>
+          <XAxis dataKey="name" tick={{fontSize:11}} axisLine={false} tickLine={false} interval={0} minTickGap={0}/>
           <YAxis tickFormatter={axisFmt} tick={{fontSize:11}} axisLine={false} tickLine={false} width={62}/>
           <Tooltip content={<ChartTip/>}/>
-          <ReferenceLine y={0} stroke="#d1d5db"/>
-          <Line type="monotone" dataKey="value" name="Net Profit" stroke="#01236d" strokeWidth={2} dot={function(p){return <circle key={p.key} cx={p.cx} cy={p.cy} r={4} fill={p.value<0?RED:GREEN} stroke="#fff" strokeWidth={1}/>;}} activeDot={{r:5}}/>
+          <ReferenceLine y={0} stroke="#E7EAED"/>
+          <Line type="monotone" dataKey="value" name="Net Profit" stroke="#01236D" strokeWidth={2} dot={function(p){return <circle key={p.key} cx={p.cx} cy={p.cy} r={4} fill={p.value<0?RED:GREEN} stroke="#fff" strokeWidth={1}/>;}} activeDot={{r:5}}/>
         </LineChart>
       </ResponsiveContainer>
-      <div style={{fontSize:13,fontWeight:600,color:"#6b7280",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Closing Bank Balance</div>
+      <div style={{fontSize:13,fontWeight:600,color:"#5F7183",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Closing Bank Balance</div>
       <ResponsiveContainer width="100%" height={160}>
         <BarChart data={cbData} margin={{top:4,right:8,left:8,bottom:0}}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
-          <XAxis dataKey="name" tick={{fontSize:10}} axisLine={false} tickLine={false} interval={0} minTickGap={0}/>
+          <CartesianGrid strokeDasharray="3 3" stroke="#FCFCFA"/>
+          <XAxis dataKey="name" tick={{fontSize:11}} axisLine={false} tickLine={false} interval={0} minTickGap={0}/>
           <YAxis tickFormatter={axisFmt} tick={{fontSize:11}} axisLine={false} tickLine={false} width={62}/>
           <Tooltip content={<ChartTip/>}/>
-          <ReferenceLine y={0} stroke="#d1d5db"/>
+          <ReferenceLine y={0} stroke="#E7EAED"/>
           <Bar dataKey="value" name="Closing Balance" radius={[3,3,0,0]}>
-            {cbData.map(function(d,i){return <Cell key={i} fill={d.value<0?"#993C1D":"#185FA5"}/>;}) }
+            {cbData.map(function(d,i){return <Cell key={i} fill={d.value<0?"#B14A38":"#2A9D9F"}/>;}) }
           </Bar>
         </BarChart>
       </ResponsiveContainer>
@@ -523,7 +581,7 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
   var cb=liveRows[0].openingBalance||0;
   adj.forEach(function(r){cb+=r.netProfit+(r.otherTx||0);r.closingBalance=cb;});
 
-  const sl={WebkitAppearance:"none",appearance:"none",width:"100%",height:4,borderRadius:2,background:"#e5e7eb",outline:"none",cursor:"pointer",accentColor:GREEN};
+  const sl={WebkitAppearance:"none",appearance:"none",width:"100%",height:4,borderRadius:2,background:"#E7EAED",outline:"none",cursor:"pointer",accentColor:GREEN};
 
   // Price and cost come straight from Average sale price and Average cost per
   // unit on the Details tab, so the slider baseline matches what was entered.
@@ -562,9 +620,9 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
   return (
     <div style={{marginTop:24}}>
       <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:12,marginBottom:16}}>
-        <span style={{fontSize:13,fontWeight:600,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em"}}>What If Scenarios</span>
+        <span style={{fontSize:13,fontWeight:600,color:"#5F7183",textTransform:"uppercase",letterSpacing:"0.05em"}}>What If Scenarios</span>
         {(wiUnits||wiPrice||wiCostU||wiTeam||wiTotalExp||wiHires.length)?(
-          <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"1px solid #d0b16f",borderRadius:6,padding:"5px 12px",cursor:"pointer",flexShrink:0}}
+          <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#01236D",background:"none",border:"1px solid #D0B16F",borderRadius:6,padding:"5px 12px",cursor:"pointer",flexShrink:0}}
             onClick={function(){setWiUnits(0);setWiPrice(0);setWiCostU(0);setWiTeam(0);setWiTotalExp(0);setWiHires([]);}}>Reset to baseline</button>
         ):null}
       </div>
@@ -574,14 +632,14 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
         ].map(function(item,idx){
           var diff=item.adj-item.base;
           var pct=item.base!==0?Math.round(diff/Math.abs(item.base)*100):0;
-          var color=diff>0?GREEN_DARK:diff<0?RED:"#6b7280";
-          return (<div key={idx} style={{flex:1,minWidth:180,background:"#f9fafb",borderRadius:8,padding:"12px 16px",border:"1px solid #e5e7eb"}}>
-            <div style={{fontSize:11,color:"#6b7280",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>{item.label}</div>
-            <div style={{fontSize:18,fontWeight:700,color:"#1a1a1a"}}>{fmt(item.adj)}</div>
-            <div style={{fontSize:12,color:color,marginTop:4,fontWeight:500}}>
+          var color=diff>0?GREEN_DARK:diff<0?RED:"#5F7183";
+          return (<div key={idx} style={{flex:1,minWidth:180,background:"#FCFCFA",borderRadius:6,padding:"12px 16px",border:"1px solid #E7EAED"}}>
+            <div style={{fontSize:11,color:"#5F7183",fontWeight:600,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>{item.label}</div>
+            <div style={{fontSize:18,fontWeight:700,color:"#29384A"}}>{fmt(item.adj)}</div>
+            <div style={{fontSize:13,color:color,marginTop:4,fontWeight:500}}>
               {diff===0?"No change":(diff>0?"▲ ":"▼ ")+fmt(Math.abs(diff))+" ("+Math.abs(pct)+"% "+(diff>0?"increase":"decrease")+")"}
             </div>
-            <div style={{fontSize:11,color:"#9ca3af",marginTop:2}}>Baseline: {fmt(item.base)}</div>
+            <div style={{fontSize:11,color:"#8A98A6",marginTop:2}}>Baseline: {fmt(item.base)}</div>
           </div>);
         })}
         {(function(){
@@ -597,15 +655,15 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
         var contrib=price-cost;
         var beUnits=contrib>0?Math.ceil(tExp/contrib):null;
         return (
-          <div style={{flex:"1 1 260px",minWidth:240,border:"1px solid #e5e7eb",borderRadius:10,padding:"12px 16px",background:"#fbfcfe"}}>
-            <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:8}}>Breakeven</div>
+          <div style={{flex:"1 1 260px",minWidth:240,border:"1px solid #E7EAED",borderRadius:12,padding:"12px 16px",background:"#FCFCFA"}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#01236D",marginBottom:8}}>Breakeven</div>
             {contrib>0?(
-              <div style={{fontSize:13,color:"#374151",lineHeight:1.6,marginBottom:10}}>
+              <div style={{fontSize:13,color:"#29384A",lineHeight:1.6,marginBottom:10}}>
                 Each unit contributes <strong>{fmt(Math.round(contrib*100)/100)}</strong> after its cost. To cover {fmt(Math.round(tExp))} of expenses you need to sell about <strong>{beUnits.toLocaleString()} units</strong> over the year — you are forecasting <strong>{Math.round(tUnits).toLocaleString()}</strong>.
-                {tUnits>=beUnits?<span style={{color:"#1e7a41"}}> That is above breakeven.</span>:<span style={{color:"#a32d2d"}}> That is {Math.round(beUnits-tUnits).toLocaleString()} short.</span>}
+                {tUnits>=beUnits?<span style={{color:"#1F7A7C"}}> That is above breakeven.</span>:<span style={{color:"#B14A38"}}> That is {Math.round(beUnits-tUnits).toLocaleString()} short.</span>}
               </div>
             ):(
-              <div style={{fontSize:13,color:"#a32d2d",lineHeight:1.6,marginBottom:10}}>
+              <div style={{fontSize:13,color:"#B14A38",lineHeight:1.6,marginBottom:10}}>
                 Each unit costs at least as much as it sells for, so no level of sales will reach breakeven until the price or the unit cost changes.
               </div>
             )}
@@ -613,9 +671,9 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
               {bkLoading?busyLabel("Working on it\u2026"):"How would I break even?"}
             </button>
             {!!bkText&&(
-              <div style={{marginTop:10,background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"12px 14px"}}>
-                <div style={{fontSize:13,color:"#374151",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{bkText}</div>
-                <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#6b7280",background:"none",border:"1px solid #e5e7eb",borderRadius:6,padding:"5px 12px",cursor:"pointer",marginTop:10}}
+              <div style={{marginTop:10,background:"#fff",border:"1px solid #E7EAED",borderRadius:6,padding:"12px 14px"}}>
+                <div style={{fontSize:13,color:"#29384A",lineHeight:1.7,whiteSpace:"pre-wrap"}}>{bkText}</div>
+                <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#5F7183",background:"none",border:"1px solid #E7EAED",borderRadius:6,padding:"5px 12px",cursor:"pointer",marginTop:10}}
                   onClick={onClearBreakeven}>Clear</button>
               </div>
             )}
@@ -623,9 +681,9 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
         );
         })()}
       </div>
-      <div style={{border:"1px solid #e5e7eb",borderRadius:10,padding:"14px 16px",marginBottom:20,background:"#fbfcfe"}}>
-        <div style={{fontSize:13,fontWeight:700,color:"#01236d",marginBottom:4}}>What if I took someone on?</div>
-        <div style={{fontSize:12,color:"#6b7280",marginBottom:10,lineHeight:1.5}}>
+      <div style={{border:"1px solid #E7EAED",borderRadius:12,padding:"14px 16px",marginBottom:20,background:"#FCFCFA"}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#01236D",marginBottom:4}}>What if I took someone on?</div>
+        <div style={{fontSize:13,color:"#5F7183",marginBottom:10,lineHeight:1.5}}>
           Add a person to see what they would do to your profit and cash. This is a scenario only - it does not change your plan.
         </div>
         {wiHires.map(function(h,hi){return (
@@ -639,15 +697,15 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
               <option value="">From {wiMonthLabel(1)}</option>
               {Array.from({length:11},function(_,k){var m=k+2;return <option key={m} value={String(m)}>From {wiMonthLabel(m)}</option>;})}
             </select>
-            <button title="Remove" style={{fontFamily:"inherit",fontSize:16,lineHeight:1,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:6,padding:"0 11px",cursor:"pointer"}}
+            <button title="Remove" style={{fontFamily:"inherit",fontSize:15,lineHeight:1,color:"#8A98A6",background:"none",border:"1px solid #E7EAED",borderRadius:6,padding:"0 11px",cursor:"pointer"}}
               onClick={function(){var a=wiHires.slice();a.splice(hi,1);setWiHires(a);}}>&times;</button>
           </div>
         );})}
-        <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"1px dashed #d0b16f",borderRadius:6,padding:"7px 12px",cursor:"pointer"}}
+        <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#01236D",background:"none",border:"1px dashed #D0B16F",borderRadius:6,padding:"7px 12px",cursor:"pointer"}}
           onClick={function(){setWiHires(wiHires.concat([{name:"",amt:"",start:""}]));}}>+ Add a person</button>
         {wiHireTotal>0&&(
-          <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #e5e7eb",fontSize:13,color:"#374151",lineHeight:1.6}}>
-            Adds <strong style={{color:"#a32d2d"}}>{fmt(Math.round(wiHireTotal))}</strong> of cost over the 12 months
+          <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #E7EAED",fontSize:13,color:"#29384A",lineHeight:1.6}}>
+            Adds <strong style={{color:"#B14A38"}}>{fmt(Math.round(wiHireTotal))}</strong> of cost over the 12 months
             {Math.round(Math.min.apply(null,wiHireMonthly))!==Math.round(Math.max.apply(null,wiHireMonthly))
               ? <span> &mdash; {fmt(Math.round(Math.min.apply(null,wiHireMonthly)))} to {fmt(Math.round(Math.max.apply(null,wiHireMonthly)))} a month</span>
               : <span> &mdash; {fmt(Math.round(wiHireMonthly[0]))} a month</span>}
@@ -660,7 +718,7 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
         var adjVal=s.isDollar?(s.base+s.val):Math.round(s.base*(1+s.val/100));
         if(s.isDollar&&adjVal<0)adjVal=0;
         var diff=adjVal-s.base;
-        var color=s.val===0?"#6b7280":s.val>0?s.posColor:s.negColor;
+        var color=s.val===0?"#5F7183":s.val>0?s.posColor:s.negColor;
         var dispBase=s.isUnits?Math.round(s.base).toLocaleString():fmt(Math.round(s.base));
         var dispAdj=s.isUnits?Math.round(adjVal).toLocaleString():fmt(Math.round(adjVal));
         var headline=s.isDollar?((s.val>0?"+":"")+fmt(s.val)):((s.val>0?"+":"")+s.val+"%");
@@ -668,15 +726,15 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
         return (
         <div key={s.label} style={{marginBottom:20}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
-            <span style={{fontSize:13,color:"#374151"}}>{s.label} <span style={{fontSize:11,color:"#9ca3af"}}>{s.sub}</span></span>
+            <span style={{fontSize:13,color:"#29384A"}}>{s.label} <span style={{fontSize:11,color:"#8A98A6"}}>{s.sub}</span></span>
             <div style={{textAlign:"right"}}>
               <span style={{fontSize:13,fontWeight:600,color:color}}>{headline}</span>
-              {s.val!==0&&!s.isDollar&&<span style={{fontSize:12,color:color,marginLeft:8}}>({dispDiff} / mo avg)</span>}
+              {s.val!==0&&!s.isDollar&&<span style={{fontSize:13,color:color,marginLeft:8}}>({dispDiff} / mo avg)</span>}
             </div>
           </div>
           <input type="range" min={s.min} max={s.max} step={s.step} value={s.val} style={sl} onChange={function(e){s.set(parseFloat(e.target.value));}}/>
           <div style={{display:"flex",justifyContent:"space-between",marginTop:3}}>
-            <span style={{fontSize:11,color:"#9ca3af"}}>Baseline avg: {dispBase}/mo</span>
+            <span style={{fontSize:11,color:"#8A98A6"}}>Baseline avg: {dispBase}/mo</span>
             {s.val!==0&&<span style={{fontSize:11,color:color}}>Adjusted: {dispAdj}/mo</span>}
           </div>
         </div>
@@ -691,12 +749,16 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
   var post=keyPostfix||"";
   var start=(startMonth||1)-1;
   var verState=useState(0);var ver=verState[0];var setVer=verState[1];
+  var srcState=useState(start);var setSrc=srcState[1];
+  // Derived rather than set during render, so a change of start month cannot
+  // trigger a state update loop.
+  var src=Math.max(srcState[0], start);
   // Whether the months are currently all the same is read from the data, not
   // held as a toggle. A stale toggle meant that after applying a growth rate the
   // button still offered "Clear all months", so the first click wiped the values
   // instead of copying the new first month across.
-  function allMonthsMatchFirst(){
-    var v=fdRef.current[mKey(start)];
+  function allMonthsMatch(src){
+    var v=fdRef.current[mKey(src)];
     if(!v||v==="0")return false;
     for(var m=start;m<12;m++){
       if(String(fdRef.current[mKey(m)]||"")!==String(v))return false;
@@ -725,8 +787,8 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
           var key=mKey(m);
           var locked=m<start;
           return (<div key={m+"-"+ver}>
-              <label style={{fontSize:10,color:locked?"#d1d5db":"#9ca3af",marginBottom:2,display:"block",textAlign:"center"}}>{monthLabel(m)}</label>
-              <input style={Object.assign({},inp,{textAlign:"right",padding:"6px 8px",fontSize:13},locked?{background:"#f3f4f6",color:"#d1d5db",cursor:"not-allowed"}:{})} defaultValue={locked?"":fdRef.current[key]||""} placeholder={locked?"-":"0"} readOnly={locked} onChange={locked?undefined:function(e){
+              <label style={{fontSize:11,color:locked?"#E7EAED":"#8A98A6",marginBottom:2,display:"block",textAlign:"center"}}>{monthLabel(m)}</label>
+              <input style={Object.assign({},inp,{textAlign:"right",padding:"6px 8px",fontSize:13},locked?{background:"#FCFCFA",color:"#E7EAED",cursor:"not-allowed"}:{})} defaultValue={locked?"":fdRef.current[key]||""} placeholder={locked?"-":"0"} readOnly={locked} onChange={locked?undefined:function(e){
                 fdRef.current[key]=e.target.value;
                 var parts=Array.from({length:12},function(_,n){return n<start?"0":fdRef.current[mKey(n)]||"0";});
                 fdRef.current[storeKey]=parts.map(function(v,n){return "M"+(n+1)+":"+v;}).join(",");
@@ -735,22 +797,29 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
             </div>);
         })}
       </div>
-      <button style={Object.assign({},btnSm,{marginTop:6,fontSize:11})} onClick={function(){
-        if(allMonthsMatchFirst()){
-          Array.from({length:12},function(_,m){if(m>=start)fdRef.current[mKey(m)]="";});
-          fdRef.current[storeKey]="";
-        } else {
-          var v=fdRef.current[mKey(start)]||"";
-          if(!v||v==="0")return;   // guarded by the disabled state below
-          Array.from({length:12},function(_,m){if(m>=start)fdRef.current[mKey(m)]=v;});
-          fdRef.current[storeKey]=Array.from({length:12},function(_,m){return "M"+(m+1)+":"+(m<start?"0":fdRef.current[mKey(m)]||"0");}).join(",");
-        }
-        setVer(function(n){return n+1;});
-        if(onUpdate)onUpdate();
-      }}
-        disabled={!allMonthsMatchFirst()&&!(fdRef.current[mKey(start)]&&fdRef.current[mKey(start)]!=="0")}
-        title={!allMonthsMatchFirst()&&!(fdRef.current[mKey(start)]&&fdRef.current[mKey(start)]!=="0")?"Enter an amount in "+monthLabel(start)+" first":""}
-        >{allMonthsMatchFirst()?"Clear all months":"Copy "+monthLabel(start)+" to all months"}</button>
+      <div style={{display:"flex",gap:6,alignItems:"center",marginTop:6,flexWrap:"wrap"}}>
+        <select style={Object.assign({},btnSm,{fontSize:11,padding:"6px 8px",cursor:"pointer"})}
+          value={src} onChange={function(e){setSrc(parseInt(e.target.value));}}
+          title="Which month to copy from">
+          {Array.from({length:12-start},function(_,k){var m=start+k;return <option key={m} value={m}>From {monthLabel(m)}</option>;})}
+        </select>
+        <button style={Object.assign({},btnSm,{fontSize:11})} onClick={function(){
+          if(allMonthsMatch(src)){
+            Array.from({length:12},function(_,m){if(m>=start)fdRef.current[mKey(m)]="";});
+            fdRef.current[storeKey]="";
+          } else {
+            var v=fdRef.current[mKey(src)]||"";
+            if(!v||v==="0")return;   // guarded by the disabled state below
+            Array.from({length:12},function(_,m){if(m>=start)fdRef.current[mKey(m)]=v;});
+            fdRef.current[storeKey]=Array.from({length:12},function(_,m){return "M"+(m+1)+":"+(m<start?"0":fdRef.current[mKey(m)]||"0");}).join(",");
+          }
+          setVer(function(n){return n+1;});
+          if(onUpdate)onUpdate();
+        }}
+          disabled={!allMonthsMatch(src)&&!(fdRef.current[mKey(src)]&&fdRef.current[mKey(src)]!=="0")}
+          title={!allMonthsMatch(src)&&!(fdRef.current[mKey(src)]&&fdRef.current[mKey(src)]!=="0")?"Enter an amount in "+monthLabel(src)+" first":""}
+        >{allMonthsMatch(src)?"Clear all months":"Copy to all months"}</button>
+      </div>
     </div>
   );
 }
@@ -761,13 +830,13 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
 function FinSection(props){
   var open=!!props.open;
   return (
-    <div style={{border:"1px solid #e5e7eb",borderRadius:10,marginBottom:12,overflow:"hidden"}}>
+    <div style={{border:"1px solid #E7EAED",borderRadius:12,marginBottom:12,overflow:"hidden"}}>
       <button
         onClick={props.onToggle}
-        style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:open?"#f8f9fc":"#fff",border:"none",borderBottom:open?"1px solid #e5e7eb":"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
-        <span style={{fontSize:12,color:"#9ca3af",transform:open?"rotate(90deg)":"none",transition:"transform 0.15s",display:"inline-block"}}>▶</span>
-        <span style={{fontSize:14,fontWeight:700,color:"#01236d",flex:1}}>{props.title}</span>
-        {props.hint&&<span style={{fontSize:11,color:"#9ca3af"}}>{props.hint}</span>}
+        style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:open?"#FCFCFA":"#fff",border:"none",borderBottom:open?"1px solid #E7EAED":"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
+        <span style={{fontSize:13,color:"#8A98A6",transform:open?"rotate(90deg)":"none",transition:"transform 0.15s",display:"inline-block"}}>▶</span>
+        <span style={{fontSize:15,fontWeight:700,color:"#01236D",flex:1}}>{props.title}</span>
+        {props.hint&&<span style={{fontSize:11,color:"#8A98A6"}}>{props.hint}</span>}
       </button>
       {open&&<div style={{padding:"14px"}}>{props.children}</div>}
     </div>
@@ -927,7 +996,7 @@ function App(){
   var adminPwState=useState("");var adminPw=adminPwState[0];var setAdminPw=adminPwState[1];
   var adminMsgInputState=useState("");var adminMsgInput=adminMsgInputState[0];var setAdminMsgInput=adminMsgInputState[1];
 
-  var inp={width:"100%",fontFamily:"inherit",fontSize:14,color:"#1a1a1a",background:"#fff",border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 11px",outline:"none",boxSizing:"border-box"};
+  var inp={width:"100%",fontFamily:"inherit",fontSize:15,color:"#29384A",background:"#fff",border:"1px solid #E7EAED",borderRadius:6,padding:"9px 11px",outline:"none",boxSizing:"border-box"};
   var ta=function(r){return Object.assign({},inp,{resize:"vertical",lineHeight:1.6,minHeight:r*26});};
   // Two-column field rows. flex-basis 260px means the pair sits side by side on
   // desktop and stacks automatically on narrow screens, with no media query.
@@ -956,13 +1025,13 @@ function App(){
   };
   var growOn=function(e){autoGrow(e.target);};
   var sel=Object.assign({},inp,{cursor:"pointer"});
-  var btnSm={fontFamily:"inherit",fontSize:12,padding:"6px 12px",borderRadius:6,border:"1px solid #e5e7eb",background:"#fff",cursor:"pointer",color:"#374151"};
-  var suggestBtn={fontFamily:"inherit",fontSize:13,padding:"8px 16px",borderRadius:6,border:"none",background:"#d0b16f",cursor:"pointer",color:"#fff",fontWeight:500,flexShrink:0};
+  var btnSm={fontFamily:"inherit",fontSize:13,padding:"6px 12px",borderRadius:6,border:"1px solid #E7EAED",background:"#fff",cursor:"pointer",color:"#29384A"};
+  var suggestBtn={fontFamily:"inherit",fontSize:13,padding:"8px 16px",borderRadius:6,border:"none",background:"#2A9D9F",cursor:"pointer",color:"#fff",fontWeight:500,flexShrink:0};
   // Busy state. The old version only swapped the label to "Suggesting..." on the
   // same gold button, which was easy to miss. This switches to navy with a
   // pulsing dot so it is obvious something is happening.
-  var suggestBtnBusy=Object.assign({},suggestBtn,{background:"#01236d",cursor:"wait",fontWeight:700,boxShadow:"0 0 0 3px rgba(1,35,109,0.15)"});
-  function busyLabel(t){return <span><span className="bpd-pulse" style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#d0b16f",marginRight:8,verticalAlign:"middle"}}/>{t}</span>;}
+  var suggestBtnBusy=Object.assign({},suggestBtn,{background:"#01236D",cursor:"wait",fontWeight:700,boxShadow:"0 0 0 3px rgba(1,35,109,0.15)"});
+  function busyLabel(t){return <span><span className="bpd-pulse" style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#D0B16F",marginRight:8,verticalAlign:"middle"}}/>{t}</span>;}
 
   function saveToStorage(){
     try{localStorage.setItem(STORAGE_KEY,JSON.stringify(fdRef.current));}catch(e){}
@@ -1023,7 +1092,7 @@ function App(){
     saveToStorage();
   }
 
-  async function suggestGoals(){
+  async function suggestGoals(mode,note){
     setGoalLoading(true);
     try{
       var prompt="Based on this business SWOT analysis, suggest 5 specific, measurable goals that maximise strengths and opportunities and address weaknesses and threats (one per line, no numbering or bullets, 10-20 words each):\n"+
@@ -1033,6 +1102,7 @@ function App(){
         "Weaknesses: "+(fdRef.current.swotW||"")+"\n"+
         "Opportunities: "+(fdRef.current.swotO||"")+"\n"+
         "Threats: "+(fdRef.current.swotT||"");
+      prompt+=revisionNote(mode,goals.filter(Boolean).join("\n"),note);
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
@@ -1073,7 +1143,7 @@ function App(){
   // something almost identical.
   var reviseOpenState=useState("");var reviseOpen=reviseOpenState[0];var setReviseOpen=reviseOpenState[1];
   var reviseNoteState=useState("");var reviseNote2=reviseNoteState[0];var setReviseNote2=reviseNoteState[1];
-  var reviseBtn={fontFamily:"inherit",fontSize:12,fontWeight:600,padding:"6px 12px",borderRadius:6,border:"1px solid #d0b16f",background:"none",color:"#01236d",cursor:"pointer",marginLeft:8};
+  var reviseBtn={fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"6px 12px",borderRadius:6,border:"1px solid #D0B16F",background:"none",color:"#01236D",cursor:"pointer",marginLeft:8};
   // Only offered once there is an answer to revise.
   function ReviseButtons(props){
     if(!props.has||props.loading)return null;
@@ -1083,13 +1153,13 @@ function App(){
         <button style={reviseBtn} title="Same points, different wording" onClick={function(){setReviseOpen("");props.run("reword");}}>Reword</button>
         <button style={reviseBtn} title="Different points, optionally with a steer" onClick={function(){setReviseNote2("");setReviseOpen(open?"":props.id);}}>Rethink</button>
         {open&&(
-          <div style={{marginTop:8,background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:8,padding:"10px 12px"}}>
-            <div style={{fontSize:12,color:"#6b5a33",marginBottom:6}}>What should it focus on? Leave blank for a fresh take.</div>
+          <div style={{marginTop:8,background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"10px 12px"}}>
+            <div style={{fontSize:13,color:"#6B5A33",marginBottom:6}}>What should it focus on? Leave blank for a fresh take.</div>
             <input style={Object.assign({},inp,{fontSize:13})} placeholder="e.g. focus on online competitors, or on the Auckland market"
               value={reviseNote2} onChange={function(e){setReviseNote2(e.target.value);}}
               onKeyDown={function(e){ if(e.key==="Enter"){ setReviseOpen(""); props.run("rethink",reviseNote2); } }}/>
             <div style={{display:"flex",gap:8,marginTop:8}}>
-              <button style={Object.assign({},reviseBtn,{marginLeft:0,background:"#01236d",color:"#fff",border:"none"})}
+              <button style={Object.assign({},reviseBtn,{marginLeft:0,background:"#01236D",color:"#fff",border:"none"})}
                 onClick={function(){setReviseOpen("");props.run("rethink",reviseNote2);}}>Rethink it</button>
               <button style={Object.assign({},reviseBtn,{marginLeft:0})} onClick={function(){setReviseOpen("");}}>Cancel</button>
             </div>
@@ -1497,7 +1567,7 @@ function App(){
       var graphChildren=[];
       graphChildren.push(new Paragraph({pageBreakBefore:true,spacing:{after:200},children:[new TextRun({text:"Financial Graphs",bold:true,size:36,color:"01236d",font:FONT})]}));
 
-      var CHART_COLORS=["#01236d","#d0b16f","#4e73df","#1cc88a","#36b9cc","#f6c23e","#e74a3b","#858796","#5a5c69","#2e59d9","#17a673","#2c9faf","#fd7e14","#6610f2"];
+      var CHART_COLORS=["#01236D","#D0B16F","#2A9D9F","#E97868","#5F7183","#6B5A33","#1F7A7C","#B14A38","#8A98A6","#E0D2B4","#29384A","#BFE3E1","#F4ECDC","#E7F5F4"];
 
       // Shared axis helper. Always includes zero in the range so negative
       // values sit below the baseline rather than mirroring positives.
@@ -1534,10 +1604,10 @@ function App(){
         ctx.font="10px Arial";
         for(var v=sc.lo; v<=sc.hi+sc.step/2; v+=sc.step){
           var y=sc.y(v);
-          ctx.strokeStyle=(Math.abs(v)<sc.step/1000)?"#9ca3af":"#eceff4";
+          ctx.strokeStyle=(Math.abs(v)<sc.step/1000)?"#8A98A6":"#E7EAED";
           ctx.lineWidth=1;
           ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(padL+plotW,y);ctx.stroke();
-          ctx.fillStyle="#6b7280";
+          ctx.fillStyle="#5F7183";
           ctx.fillText(isCurrency?axisLabel(v):String(Math.round(v)),padL-6,y+3);
         }
       }
@@ -1549,7 +1619,7 @@ function App(){
         canvas.width=W;canvas.height=padT+plotH+padB;
         var ctx=canvas.getContext("2d");
         ctx.fillStyle="#ffffff";ctx.fillRect(0,0,W,canvas.height);
-        ctx.fillStyle="#01236d";ctx.font="bold 14px Arial";ctx.textAlign="center";
+        ctx.fillStyle="#01236D";ctx.font="bold 14px Arial";ctx.textAlign="center";
         ctx.fillText(title,W/2,20);
 
         var vals=data.map(function(d){return d.v;});
@@ -1564,14 +1634,14 @@ function App(){
           var top=Math.min(zeroY,vy);
           var h=Math.max(1,Math.abs(vy-zeroY));
           var x=padL+i*slot+(slot-barW)/2;
-          ctx.fillStyle=d.v<0?(negColor||"#A32D2D"):(color||"#01236d");
+          ctx.fillStyle=d.v<0?(negColor||"#B14A38"):(color||"#01236D");
           ctx.fillRect(x,top,barW,h);
         });
 
-        ctx.strokeStyle="#9ca3af";ctx.lineWidth=1;
+        ctx.strokeStyle="#8A98A6";ctx.lineWidth=1;
         ctx.beginPath();ctx.moveTo(padL,zeroY);ctx.lineTo(padL+plotW,zeroY);ctx.stroke();
 
-        ctx.fillStyle="#6b7280";ctx.font="10px Arial";ctx.textAlign="center";
+        ctx.fillStyle="#5F7183";ctx.font="10px Arial";ctx.textAlign="center";
         data.forEach(function(d,i){
           ctx.fillText(d.l,padL+i*slot+slot/2,padT+plotH+14);
         });
@@ -1590,7 +1660,7 @@ function App(){
         var ctx=canvas.getContext("2d");
         ctx.fillStyle="#ffffff";ctx.fillRect(0,0,W,canvas.height);
 
-        ctx.fillStyle="#01236d";ctx.font="bold 14px Arial";ctx.textAlign="center";
+        ctx.fillStyle="#01236D";ctx.font="bold 14px Arial";ctx.textAlign="center";
         ctx.fillText(title,W/2,20);
 
         // Legend
@@ -1600,10 +1670,10 @@ function App(){
         var totalW=sw+5+wA+18+sw+5+wB;
         var lx=(W-totalW)/2;
         ctx.fillStyle=colorA;ctx.fillRect(lx,lgY-sw+2,sw,sw);
-        ctx.fillStyle="#374151";ctx.textAlign="left";ctx.fillText(labelA,lx+sw+5,lgY);
+        ctx.fillStyle="#29384A";ctx.textAlign="left";ctx.fillText(labelA,lx+sw+5,lgY);
         lx+=sw+5+wA+18;
         ctx.fillStyle=colorB;ctx.fillRect(lx,lgY-sw+2,sw,sw);
-        ctx.fillStyle="#374151";ctx.fillText(labelB,lx+sw+5,lgY);
+        ctx.fillStyle="#29384A";ctx.fillText(labelB,lx+sw+5,lgY);
 
         var scA=chartScale(data.map(function(d){return d.a;}),padT,plotH);
         var scB=chartScale(data.map(function(d){return d.b;}),padT,plotH);
@@ -1612,17 +1682,17 @@ function App(){
         ctx.textAlign="right";ctx.font="10px Arial";
         for(var v=scA.lo; v<=scA.hi+scA.step/2; v+=scA.step){
           var y=scA.y(v);
-          ctx.strokeStyle=(Math.abs(v)<scA.step/1000)?"#9ca3af":"#eceff4";
+          ctx.strokeStyle=(Math.abs(v)<scA.step/1000)?"#8A98A6":"#E7EAED";
           ctx.lineWidth=1;
           ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(padL+plotW,y);ctx.stroke();
-          ctx.fillStyle="#6b7280";
+          ctx.fillStyle="#5F7183";
           ctx.fillText(String(Math.round(v)),padL-6,y+3);
         }
         // Right axis (sales, currency)
         ctx.textAlign="left";
         for(var v2=scB.lo; v2<=scB.hi+scB.step/2; v2+=scB.step){
           var y2=scB.y(v2);
-          ctx.fillStyle="#6b7280";
+          ctx.fillStyle="#5F7183";
           ctx.fillText(axisLabel(v2),padL+plotW+6,y2+3);
         }
 
@@ -1639,10 +1709,10 @@ function App(){
           ctx.fillRect(cx+gap/2,Math.min(zB,yB),barW,Math.max(1,Math.abs(yB-zB)));
         });
 
-        ctx.strokeStyle="#9ca3af";ctx.lineWidth=1;
+        ctx.strokeStyle="#8A98A6";ctx.lineWidth=1;
         ctx.beginPath();ctx.moveTo(padL,scA.y(0));ctx.lineTo(padL+plotW,scA.y(0));ctx.stroke();
 
-        ctx.fillStyle="#6b7280";ctx.font="10px Arial";ctx.textAlign="center";
+        ctx.fillStyle="#5F7183";ctx.font="10px Arial";ctx.textAlign="center";
         data.forEach(function(d,i){
           ctx.fillText(d.l,padL+i*slot+slot/2,padT+plotH+14);
         });
@@ -1656,7 +1726,7 @@ function App(){
         canvas.width=W;canvas.height=padT+plotH+padB;
         var ctx=canvas.getContext("2d");
         ctx.fillStyle="#ffffff";ctx.fillRect(0,0,W,canvas.height);
-        ctx.fillStyle="#01236d";ctx.font="bold 14px Arial";ctx.textAlign="center";
+        ctx.fillStyle="#01236D";ctx.font="bold 14px Arial";ctx.textAlign="center";
         ctx.fillText(title,W/2,20);
 
         var vals=data.map(function(d){return d.v;});
@@ -1664,24 +1734,24 @@ function App(){
         drawAxes(ctx,sc,padL,padT,plotH,plotW,isCurrency!==false);
 
         var zeroY=sc.y(0);
-        ctx.strokeStyle="#9ca3af";ctx.lineWidth=1;
+        ctx.strokeStyle="#8A98A6";ctx.lineWidth=1;
         ctx.beginPath();ctx.moveTo(padL,zeroY);ctx.lineTo(padL+plotW,zeroY);ctx.stroke();
 
         var slot=plotW/data.length;
         var pts=data.map(function(d,i){
           return {x:padL+i*slot+slot/2, y:sc.y(d.v), v:d.v};
         });
-        ctx.strokeStyle=color||"#01236d";ctx.lineWidth=2;
+        ctx.strokeStyle=color||"#01236D";ctx.lineWidth=2;
         ctx.beginPath();
         pts.forEach(function(p,i){if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);});
         ctx.stroke();
         pts.forEach(function(p){
-          ctx.fillStyle=p.v<0?(negColor||"#A32D2D"):(color||"#01236d");
+          ctx.fillStyle=p.v<0?(negColor||"#B14A38"):(color||"#01236D");
           ctx.beginPath();ctx.arc(p.x,p.y,3.5,0,Math.PI*2);ctx.fill();
           ctx.strokeStyle="#ffffff";ctx.lineWidth=1;ctx.stroke();
         });
 
-        ctx.fillStyle="#6b7280";ctx.font="10px Arial";ctx.textAlign="center";
+        ctx.fillStyle="#5F7183";ctx.font="10px Arial";ctx.textAlign="center";
         data.forEach(function(d,i){
           ctx.fillText(d.l,padL+i*slot+slot/2,padT+plotH+14);
         });
@@ -1699,7 +1769,7 @@ function App(){
         canvas.width=W;canvas.height=H;
         var ctx=canvas.getContext("2d");
         ctx.fillStyle="#ffffff";ctx.fillRect(0,0,W,H);
-        ctx.fillStyle="#01236d";ctx.font="bold 14px Arial";ctx.textAlign="center";
+        ctx.fillStyle="#01236D";ctx.font="bold 14px Arial";ctx.textAlign="center";
         ctx.fillText(title,W/2,20);
 
         var r=Math.min(96,(H-legendTop-30)/2);
@@ -1720,13 +1790,13 @@ function App(){
           var y=legendTop+i*rowH;
           ctx.fillStyle=CHART_COLORS[i%CHART_COLORS.length];
           ctx.fillRect(lx,y,11,11);
-          ctx.fillStyle="#374151";ctx.font="11px Arial";ctx.textAlign="left";
+          ctx.fillStyle="#29384A";ctx.font="11px Arial";ctx.textAlign="left";
           var pct=Math.round(d.v/total*100);
           var label=d.l;
           if(label.length>26)label=label.slice(0,25)+"\u2026";
           ctx.fillText(label,lx+16,y+9);
           ctx.textAlign="right";
-          ctx.fillStyle="#6b7280";
+          ctx.fillStyle="#5F7183";
           ctx.fillText(axisLabel(d.v)+"  "+pct+"%",W-16,y+9);
         });
         return canvas.toDataURL("image/png").split(",")[1];
@@ -1749,7 +1819,7 @@ function App(){
             graphChildren.push(new Paragraph({spacing:{after:240},children:[new ImageRun({data:Uint8Array.from(atob(b64),function(ch){return ch.charCodeAt(0);}),transformation:{width:w,height:h},type:"png"})]}));
           }
 
-          pushChart("Units Sold & Monthly Sales",makeDualBarChart("Units Sold & Monthly Sales",unData,"Units Sold","#01236d","Monthly Sales ($)","#d0b16f"),IMG_W,Math.round(IMG_W*296/CW));
+          pushChart("Units Sold & Monthly Sales",makeDualBarChart("Units Sold & Monthly Sales",unData,"Units Sold","#01236D","Monthly Sales ($)","#D0B16F"),IMG_W,Math.round(IMG_W*296/CW));
 
           if(expPieRaw.length){
             var pieRowH=19, pieTop=44;
@@ -1758,8 +1828,8 @@ function App(){
             if(expImg)pushChart("Expenses Breakdown",expImg,IMG_W,Math.round(IMG_W*pieCH/CW));
           }
 
-          pushChart("Net Profit / (Loss)",makeLineChart("Net Profit / (Loss)",npData,"#01236d","#A32D2D",true),IMG_W,IMG_H);
-          pushChart("Closing Bank Balance",makeBarChart("Closing Bank Balance",cbData,"#185FA5","#993C1D",true),IMG_W,IMG_H);
+          pushChart("Net Profit / (Loss)",makeLineChart("Net Profit / (Loss)",npData,"#01236D","#B14A38",true),IMG_W,IMG_H);
+          pushChart("Closing Bank Balance",makeBarChart("Closing Bank Balance",cbData,"#01236D","#B14A38",true),IMG_W,IMG_H);
         }catch(imgErr){
           graphChildren.push(new Paragraph({children:[new TextRun({text:"(Charts not available in this export)",size:18,color:"6b7280",font:FONT})]}));
         }
@@ -2050,10 +2120,10 @@ function App(){
 
       var today=new Date();
       var dateStr=today.getDate()+" "+["January","February","March","April","May","June","July","August","September","October","November","December"][today.getMonth()]+" "+today.getFullYear();
-      var html="<div style='text-align:center;padding:24px 0 32px;border-bottom:2px solid #f5eedd;margin-bottom:28px'>";
-      html+="<div style='font-size:26px;font-weight:800;color:#01236d;margin-bottom:8px'>"+(fdRef.current.bizName||"Business Plan")+"</div>";
-      html+="<div style='font-size:16px;font-weight:500;color:#d0b16f;margin-bottom:6px'>Business Plan and Cashflow Forecast</div>";
-      html+="<div style='font-size:13px;color:#6b7280'>"+dateStr+"</div>";
+      var html="<div style='text-align:center;padding:24px 0 32px;border-bottom:2px solid #F4ECDC;margin-bottom:28px'>";
+      html+="<div style='font-size:26px;font-weight:800;color:#01236D;margin-bottom:8px'>"+(fdRef.current.bizName||"Business Plan")+"</div>";
+      html+="<div style='font-size:16px;font-weight:500;color:#D0B16F;margin-bottom:6px'>Business Plan and Cashflow Forecast</div>";
+      html+="<div style='font-size:13px;color:#5F7183'>"+dateStr+"</div>";
       html+="</div>";
       var inList=false;var inOList=false;
       text.trim().split("\n").forEach(function(ln){
@@ -2063,11 +2133,11 @@ function App(){
         if(trimmed.startsWith("## ")){
           if(inList){html+="</ul>";inList=false;}
           if(inOList){html+="</ol>";inOList=false;}
-          html+="<h2 style='font-size:18px;font-weight:700;color:#01236d;margin:28px 0 10px;padding-bottom:5px;border-bottom:2px solid #f5eedd'>"+trimmed.slice(3)+"</h2>";
+          html+="<h2 style='font-size:18px;font-weight:700;color:#01236D;margin:28px 0 10px;padding-bottom:5px;border-bottom:2px solid #F4ECDC'>"+trimmed.slice(3)+"</h2>";
         } else if(trimmed.startsWith("### ")){
           if(inList){html+="</ul>";inList=false;}
           if(inOList){html+="</ol>";inOList=false;}
-          html+="<h3 style='font-size:14px;font-weight:600;color:#374151;margin:14px 0 5px'>"+trimmed.slice(4)+"</h3>";
+          html+="<h3 style='font-size:14px;font-weight:600;color:#29384A;margin:14px 0 5px'>"+trimmed.slice(4)+"</h3>";
         } else if(trimmed.match(/^\d+\.\s/)){
           if(inList){html+="</ul>";inList=false;}
           if(inOList){html+="</ol>";inOList=false;}
@@ -2076,7 +2146,7 @@ function App(){
           if(inOList){html+="</ol>";inOList=false;}
           if(!inList){html+="<ul style='margin:4px 0 8px;padding-left:20px;list-style-type:disc'>";inList=true;}
           var txt=trimmed.replace(/^[-*•]\s*/,"");
-          html+="<li style='font-size:14px;line-height:1.7;color:#1a1a1a;margin-bottom:3px;display:list-item;list-style-type:disc'>"+txt+"</li>";
+          html+="<li style='font-size:14px;line-height:1.7;color:#29384A;margin-bottom:3px;display:list-item;list-style-type:disc'>"+txt+"</li>";
         } else if(trimmed.startsWith("#")){}
         else{
           if(inList){html+="</ul>";inList=false;}
@@ -2089,16 +2159,16 @@ function App(){
       // Append cashflow table
       var cfRows=liveRows;
       if(cfRows&&cfRows.length){
-        html+="<div style='margin-top:36px;border-top:2px solid #f5eedd;padding-top:24px'>";
-        html+="<h2 style='font-size:17px;font-weight:700;color:#01236d;margin-bottom:4px'>Graphs</h2>";
-        html+="<p style='font-size:13px;color:#6b7280;margin-bottom:16px;font-style:italic'>Units Sold &amp; Monthly Sales, Expenses Breakdown, Net Profit/(Loss) and Closing Bank Balance charts appear below.</p>";
+        html+="<div style='margin-top:36px;border-top:2px solid #F4ECDC;padding-top:24px'>";
+        html+="<h2 style='font-size:17px;font-weight:700;color:#01236D;margin-bottom:4px'>Graphs</h2>";
+        html+="<p style='font-size:13px;color:#5F7183;margin-bottom:16px;font-style:italic'>Units Sold &amp; Monthly Sales, Expenses Breakdown, Net Profit/(Loss) and Closing Bank Balance charts appear below.</p>";
       }
       setPlanHtml(html);
     }catch(e){
       // Flagged so downloadWord() refuses - otherwise the error text itself
       // was being written into the Word document as the plan body.
       setPlanFailed(true);
-      setPlanHtml("<p style='color:#a32d2d'>Could not generate the plan: "+e.message+"</p><p style='color:#6b7280'>Your information is safe. Please press Generate Business Plan to try again.</p>");
+      setPlanHtml("<p style='color:#B14A38'>Could not generate the plan: "+e.message+"</p><p style='color:#5F7183'>Your information is safe. Please press Generate Business Plan to try again.</p>");
     }
     try{ clearInterval(genTicker); }catch(e){}
     setLoading(false);
@@ -2125,11 +2195,28 @@ function App(){
   }
 
   function startOver(){
+    if(!window.confirm("Start a new plan?\n\nThis clears everything you have entered. Your access to the app is kept, so you can carry straight on.\n\nIf you have not exported a backup, cancel and do that first."))return;
     fdRef.current={};
     try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem("bpg_step");}catch(e){}
     setStep(0);setShowOutput(false);setPlanHtml("");setLiveRows([]);
     setLegalStatus("");setGoals(Array(6).fill(""));
     window.scrollTo(0,0);
+  }
+
+  // For a shared or public computer: removes the plan AND the access token, so
+  // nothing of this person is left behind for whoever uses the machine next.
+  function clearDevice(){
+    if(!window.confirm("Clear everything from this computer?\n\nThis removes your plan and signs you out. Next time you will need to enter your email at b-plandiy.com/verify.html to get back in.\n\nUse this on a shared or public computer. Export a backup first if you want to keep your work."))return;
+    try{
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem("bpg_step");
+      localStorage.removeItem("bpd_access_expiry");
+      localStorage.removeItem("bpd_seen_welcome");
+      localStorage.removeItem("bpd_seen_finances");
+      localStorage.removeItem("bpg_admin_msg");
+      localStorage.removeItem("bpg_ggc");
+    }catch(e){}
+    window.location.href="https://b-plandiy.com/";
   }
 
   function exportData(){
@@ -2197,11 +2284,11 @@ function App(){
   function FinancesIntro(){
     if(!showFinIntro)return null;
     return (
-      <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:10000,overflowY:"auto"}}>
-        <div style={{background:"#fff",borderRadius:14,maxWidth:620,width:"100%",padding:"20px 20px 22px",boxShadow:"0 12px 44px rgba(0,0,0,0.28)",margin:"auto"}}>
-          <img src="img/finances.png" alt="It's all about the money. You will need: a balance sheet or opening balances, expected sales including price, costs of making those sales, expenses normally incurred, tax rates and when payments are due, and any other transactions such as drawings or assets." style={{width:"100%",height:"auto",display:"block",borderRadius:8}}/>
+      <div className="bpd-overlay" style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:10000,overflowY:"auto"}}>
+        <div style={{background:"#fff",borderRadius:12,maxWidth:620,width:"100%",padding:"20px 20px 22px",boxShadow:"0 12px 44px rgba(0,0,0,0.28)",margin:"auto"}}>
+          <img src="img/finances.png" alt="It's all about the money. You will need: a balance sheet or opening balances, expected sales including price, costs of making those sales, expenses normally incurred, tax rates and when payments are due, and any other transactions such as drawings or assets." style={{width:"100%",height:"auto",display:"block",borderRadius:6}}/>
           <button
-            style={{width:"100%",marginTop:16,fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"13px 20px",borderRadius:9,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}}
+            style={{width:"100%",marginTop:16,fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"13px 20px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}}
             onClick={dismissFinIntro}>Got it, let's do the numbers &rarr;</button>
         </div>
       </div>
@@ -2211,11 +2298,11 @@ function App(){
   function WelcomeScreen(){
     if(!showWelcome)return null;
     return (
-      <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:10000,overflowY:"auto"}}>
-        <div style={{background:"#fff",borderRadius:14,maxWidth:620,width:"100%",padding:"20px 20px 22px",boxShadow:"0 12px 44px rgba(0,0,0,0.28)",margin:"auto"}}>
-          <img src="img/welcome.png" alt="Congratulations - you are on your way to planning for success. This tool takes you through five steps to create your integrated business plan and cashflow forecast, and should take less than an hour to complete." style={{width:"100%",height:"auto",display:"block",borderRadius:8}}/>
+      <div className="bpd-overlay" style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:10000,overflowY:"auto"}}>
+        <div style={{background:"#fff",borderRadius:12,maxWidth:620,width:"100%",padding:"20px 20px 22px",boxShadow:"0 12px 44px rgba(0,0,0,0.28)",margin:"auto"}}>
+          <img src="img/welcome.png" alt="Congratulations - you are on your way to planning for success. This tool takes you through five steps to create your integrated business plan and cashflow forecast, and should take less than an hour to complete." style={{width:"100%",height:"auto",display:"block",borderRadius:6}}/>
           <button
-            style={{width:"100%",marginTop:16,fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"13px 20px",borderRadius:9,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}}
+            style={{width:"100%",marginTop:16,fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"13px 20px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}}
             onClick={dismissWelcome}>Let's get started &rarr;</button>
         </div>
       </div>
@@ -2225,27 +2312,31 @@ function App(){
   function BackupHelp(){
     if(!showBackupHelp)return null;
     return (
-      <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:9999}} onClick={function(){setShowBackupHelp(false);}}>
+      <div className="bpd-overlay" style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:9999}} onClick={function(){setShowBackupHelp(false);}}>
         <div style={{background:"#fff",borderRadius:12,maxWidth:520,width:"100%",padding:"24px 26px",boxShadow:"0 10px 40px rgba(0,0,0,0.25)"}} onClick={function(e){e.stopPropagation();}}>
-          <div style={{fontSize:17,fontWeight:700,color:"#01236d",marginBottom:10}}>Backup saved</div>
-          <div style={{fontSize:14,color:"#374151",lineHeight:1.6,marginBottom:14}}>
+          <div style={{fontSize:18,fontWeight:700,color:"#01236D",marginBottom:10}}>Backup saved</div>
+          <div style={{fontSize:15,color:"#29384A",lineHeight:1.6,marginBottom:14}}>
             Your backup has been saved to your <strong>Downloads</strong> folder as:
-            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"8px 10px",margin:"8px 0",fontSize:13,wordBreak:"break-all",color:"#01236d"}}>{backupName}</div>
+            <div style={{background:"#FCFCFA",border:"1px solid #E7EAED",borderRadius:6,padding:"8px 10px",margin:"8px 0",fontSize:13,wordBreak:"break-all",color:"#01236D"}}>{backupName}</div>
           </div>
-          <div style={{background:"#fdfaf3",border:"1px solid #e8dcc0",borderLeft:"4px solid #d0b16f",borderRadius:8,padding:"12px 14px",marginBottom:16}}>
-            <div style={{fontSize:14,fontWeight:700,color:"#01236d",marginBottom:6}}>Please don't try to open this file</div>
-            <div style={{fontSize:13,color:"#5c5340",lineHeight:1.6}}>
+          <div style={{background:"#F4ECDC",border:"1px solid #E0D2B4",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"12px 14px",marginBottom:16}}>
+            <div style={{fontSize:15,fontWeight:700,color:"#01236D",marginBottom:6}}>Please don't try to open this file</div>
+            <div style={{fontSize:13,color:"#6B5A33",lineHeight:1.6}}>
               It isn't a document, so there is nothing to read in it. If you double-click it your computer may show a confusing "File Conversion" window - just close that window, the file is still fine.
             </div>
           </div>
-          <div style={{fontSize:14,color:"#374151",lineHeight:1.6,marginBottom:6}}><strong>What to do with it</strong></div>
-          <ul style={{margin:"0 0 18px 18px",padding:0,fontSize:13,color:"#374151",lineHeight:1.7}}>
+          <div style={{fontSize:15,color:"#29384A",lineHeight:1.6,marginBottom:6}}><strong>What to do with it</strong></div>
+          <ul style={{margin:"0 0 18px 18px",padding:0,fontSize:13,color:"#29384A",lineHeight:1.7}}>
             <li>Move it somewhere safe - a documents folder, cloud drive, or email it to yourself.</li>
             <li>If you ever lose your plan, come back here and click <strong>Import data</strong> at the bottom of the screen, then choose this file.</li>
             <li>Save a fresh backup whenever you make significant changes.</li>
           </ul>
-          <div style={{textAlign:"right"}}>
-            <button style={{fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"10px 22px",borderRadius:8,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}} onClick={function(){setShowBackupHelp(false);}}>Got it</button>
+          <div style={{borderTop:"1px solid #E7EAED",marginTop:16,paddingTop:14,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+            <button style={{fontFamily:"inherit",fontSize:13,color:"#5F7183",background:"none",border:"none",cursor:"pointer",textDecoration:"underline",padding:0,textAlign:"left"}}
+              onClick={function(){setShowBackupHelp(false);clearDevice();}}>
+              On a shared computer? Clear everything from this device
+            </button>
+            <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"10px 22px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){setShowBackupHelp(false);}}>Got it</button>
           </div>
         </div>
       </div>
@@ -2262,8 +2353,8 @@ function App(){
     if(!liveRows||!liveRows.length)return null;
     var v=props.value||0;
     return (
-      <div style={{fontSize:12,color:"#6b7280",marginTop:4,textAlign:"right"}}>
-        12-month total: <strong style={{color:v<0?"#a32d2d":"#01236d",fontVariantNumeric:"tabular-nums"}}>{props.plain?Math.round(v).toLocaleString():fmt(v)}</strong>
+      <div style={{fontSize:13,color:"#5F7183",marginTop:4,textAlign:"right"}}>
+        12-month total: <strong style={{color:v<0?"#B14A38":"#01236D",fontVariantNumeric:"tabular-nums"}}>{props.plain?Math.round(v).toLocaleString():fmt(v)}</strong>
       </div>
     );
   }
@@ -2366,16 +2457,16 @@ function App(){
     var total=goalExpTotalSum();
     function labelFor(id){var m=expCats.filter(function(e){return e.id===id;})[0];return m?m.l:id;}
     return (
-      <div style={{border:"1px solid "+(on?"#cfe3cf":"#e5e7eb"),background:on?"#f4f8f4":"#fff",borderRadius:8,padding:"10px 12px",marginBottom:12}}>
+      <div style={{border:"1px solid "+(on?"#BFE3E1":"#E7EAED"),background:on?"#E7F5F4":"#fff",borderRadius:6,padding:"10px 12px",marginBottom:12}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <input type="checkbox" id="apply-goalExp" checked={on} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}
             onChange={function(){fdRef.current.goalExpApply=on?"0":"1";saveToStorage();refreshLive();}}/>
-          <label htmlFor="apply-goalExp" style={{fontSize:13,color:"#374151",cursor:"pointer",flex:1}}>
-            Add the extra <strong style={{color:"#01236d"}}>{fmt(total)}</strong> of costs from your Step 4 goals
+          <label htmlFor="apply-goalExp" style={{fontSize:13,color:"#29384A",cursor:"pointer",flex:1}}>
+            Add the extra <strong style={{color:"#01236D"}}>{fmt(total)}</strong> of costs from your Step 4 goals
           </label>
         </div>
         {on&&(<div style={{marginTop:10}}>
-          <div style={{fontSize:12,color:"#6b7280",marginBottom:6}}>Added to these expense categories:</div>
+          <div style={{fontSize:13,color:"#5F7183",marginBottom:6}}>Added to these expense categories:</div>
           {rows.map(function(r,i){
             var gk="goalExpM_"+r.id;
             var ov=fdRef.current[gk]||"";
@@ -2383,22 +2474,22 @@ function App(){
             var sum=overridden?parseMonthly(ov,0).reduce(function(a,b){return a+(b||0);},0):r.amt;
             var diff=Math.round(sum-r.amt);
             return (
-              <div key={i} style={{border:"1px solid #e5e7eb",borderRadius:8,padding:"9px 11px",marginBottom:8,background:"#fff"}}>
+              <div key={i} style={{border:"1px solid #E7EAED",borderRadius:6,padding:"9px 11px",marginBottom:8,background:"#fff"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",flexWrap:"wrap",gap:8}}>
-                  <span style={{fontSize:13,color:"#01236d",fontWeight:600}}>{labelFor(r.id)}</span>
-                  <span style={{fontSize:12,color:"#6b7280"}}>
-                    12-month total <strong style={{color:"#01236d"}}>{fmt(sum)}</strong>
+                  <span style={{fontSize:13,color:"#01236D",fontWeight:600}}>{labelFor(r.id)}</span>
+                  <span style={{fontSize:13,color:"#5F7183"}}>
+                    12-month total <strong style={{color:"#01236D"}}>{fmt(sum)}</strong>
                     {!overridden&&<span> &middot; {fmt(r.amt/12)} a month</span>}
                   </span>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:8,marginTop:6}}>
                   <input type="checkbox" id={"gx-"+r.id} checked={!!gridChecks[gk]} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}
                     onChange={function(){toggleGrid(gk);}}/>
-                  <label htmlFor={"gx-"+r.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Set the monthly amounts myself</label>
+                  <label htmlFor={"gx-"+r.id} style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Set the monthly amounts myself</label>
                 </div>
                 {gridChecks[gk]&&<div style={{marginTop:6}}><MonthGrid keyPrefix={gk+"M"} storeKey={gk} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>}
                 {overridden&&Math.abs(diff)>0&&(
-                  <div style={{marginTop:7,fontSize:12,background:"#fdf3f3",border:"1px solid #e8c9c9",borderRadius:6,padding:"7px 10px",color:"#a32d2d",lineHeight:1.5}}>
+                  <div style={{marginTop:7,fontSize:13,background:"#FDEEEB",border:"1px solid #F2CFC7",borderRadius:6,padding:"7px 10px",color:"#B14A38",lineHeight:1.5}}>
                     Your monthly amounts add up to <strong>{fmt(sum)}</strong>, {fmt(Math.abs(diff))} {diff>0?"more":"less"} than the {fmt(r.amt)} from Step 4. The forecast uses the monthly amounts.
                   </div>
                 )}
@@ -2419,26 +2510,26 @@ function App(){
     var diff=Math.round(sum-total);
     if(!total)return null;
     return (
-      <div style={{border:"1px solid "+(on?"#cfe3cf":"#e5e7eb"),background:on?"#f4f8f4":"#fff",borderRadius:8,padding:"10px 12px",marginBottom:10}}>
+      <div style={{border:"1px solid "+(on?"#BFE3E1":"#E7EAED"),background:on?"#E7F5F4":"#fff",borderRadius:6,padding:"10px 12px",marginBottom:10}}>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <input type="checkbox" id={"apply-"+props.applyKey} checked={on} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}
             onChange={function(){fdRef.current[props.applyKey]=on?"0":"1";saveToStorage();refreshLive();}}/>
-          <label htmlFor={"apply-"+props.applyKey} style={{fontSize:13,color:"#374151",cursor:"pointer",flex:1}}>
-            {props.label} <strong style={{color:"#01236d"}}>{props.money?fmt(total):Math.round(total).toLocaleString()}</strong> from your Step 4 goals
+          <label htmlFor={"apply-"+props.applyKey} style={{fontSize:13,color:"#29384A",cursor:"pointer",flex:1}}>
+            {props.label} <strong style={{color:"#01236D"}}>{props.money?fmt(total):Math.round(total).toLocaleString()}</strong> from your Step 4 goals
           </label>
         </div>
         {on&&(<div style={{marginTop:8}}>
-          <div style={{fontSize:12,color:"#6b7280",marginBottom:6}}>
+          <div style={{fontSize:13,color:"#5F7183",marginBottom:6}}>
             {overridden?"Using your monthly amounts below.":"Spread evenly: "+(props.money?fmt(total/12):Math.round(total/12).toLocaleString())+" a month."}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
             <input type="checkbox" id={"grid-"+props.monthlyKey} checked={!!gridChecks[props.monthlyKey]} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}
               onChange={function(){toggleGrid(props.monthlyKey);}}/>
-            <label htmlFor={"grid-"+props.monthlyKey} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Set the monthly amounts myself</label>
+            <label htmlFor={"grid-"+props.monthlyKey} style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Set the monthly amounts myself</label>
           </div>
           {gridChecks[props.monthlyKey]&&<MonthGrid keyPrefix={props.monthlyKey+"M"} storeKey={props.monthlyKey} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>}
           {overridden&&Math.abs(diff)>0&&(
-            <div style={{marginTop:8,fontSize:12,background:"#fdf3f3",border:"1px solid #e8c9c9",borderRadius:6,padding:"8px 10px",color:"#a32d2d",lineHeight:1.5}}>
+            <div style={{marginTop:8,fontSize:13,background:"#FDEEEB",border:"1px solid #F2CFC7",borderRadius:6,padding:"8px 10px",color:"#B14A38",lineHeight:1.5}}>
               Your monthly amounts add up to <strong>{props.money?fmt(sum):Math.round(sum).toLocaleString()}</strong>, which is {props.money?fmt(Math.abs(diff)):Math.abs(diff).toLocaleString()} {diff>0?"more":"less"} than the {props.money?fmt(total):Math.round(total).toLocaleString()} from Step 4. The forecast uses the monthly amounts.
             </div>
           )}
@@ -2450,8 +2541,8 @@ function App(){
   function FinWarn(props){
     if(!props.show)return null;
     return (
-      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#fffaf0",border:"1px solid #f0dcae",borderLeft:"4px solid #e0a800",borderRadius:6,padding:"9px 12px",marginTop:8,marginBottom:4}}>
-        <span style={{fontSize:13,lineHeight:1.5,color:"#7a5c15"}}>{props.children}</span>
+      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#F4ECDC",border:"1px solid #E0D2B4",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"9px 12px",marginTop:8,marginBottom:4}}>
+        <span style={{fontSize:13,lineHeight:1.5,color:"#6B5A33"}}>{props.children}</span>
       </div>
     );
   }
@@ -2622,17 +2713,17 @@ function App(){
     var listening=recKey===id;
     var tidying=tidyKey===id;
     var canUndo=undoText[id]!==undefined;
-    var btn={fontFamily:"inherit",fontSize:12,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #e5e7eb",background:"#fff",color:"#374151",cursor:"pointer"};
+    var btn={fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #E7EAED",background:"#fff",color:"#29384A",cursor:"pointer"};
     return (
       <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginTop:5}}>
         {speechSupported()&&(
-          <button style={listening?Object.assign({},btn,{background:"#a32d2d",color:"#fff",border:"none"}):btn}
+          <button style={listening?Object.assign({},btn,{background:"#B14A38",color:"#fff",border:"none"}):btn}
             onClick={function(){ listening?stopRecording():startRecording(id); }}>
             {listening?"\u25A0 Stop":"\uD83C\uDFA4 Speak"}
           </button>
         )}
         {has&&(
-          <button style={tidying?Object.assign({},btn,{background:"#01236d",color:"#fff",border:"none"}):btn}
+          <button style={tidying?Object.assign({},btn,{background:"#01236D",color:"#fff",border:"none"}):btn}
             onClick={function(){ if(!tidying)tidyField(id); }} disabled={tidying}>
             {tidying?"Tidying\u2026":"\u2728 Tidy this up"}
           </button>
@@ -2641,10 +2732,10 @@ function App(){
           <button style={btn} onClick={function(){undoTidy(id);}}>Undo tidy</button>
         )}
         {has&&(
-          <button style={Object.assign({},btn,{color:"#9ca3af"})}
+          <button style={Object.assign({},btn,{color:"#8A98A6"})}
             onClick={function(){ if(window.confirm("Clear this field?")){fdRef.current[id]="";saveToStorage();bumpVoice(id);} }}>Clear</button>
         )}
-        {listening&&<span style={{fontSize:11,color:"#a32d2d"}}>Listening&hellip; speak now</span>}
+        {listening&&<span style={{fontSize:11,color:"#B14A38"}}>Listening&hellip; speak now</span>}
       </div>
     );
   }
@@ -2658,13 +2749,13 @@ function App(){
     function setRows(rs,remount){ writeTeamRows(cat,rs,remount); }
     return (
       <div style={{marginTop:6,marginBottom:4}}>
-        <button style={open?Object.assign({},suggestBtn,{background:"#01236d"}):suggestBtn}
+        <button style={open?Object.assign({},suggestBtn,{background:"#01236D"}):suggestBtn}
           onClick={function(){setPeopleOpen(function(p){var n=Object.assign({},p);n[cat]=!p[cat];return n;});}}>
           {open?"Close":"Help me work this out"}
         </button>
         {open&&(
-          <div style={{marginTop:8,background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:8,padding:"12px 14px"}}>
-            <div style={{fontSize:13,color:"#6b5a33",marginBottom:10,lineHeight:1.55}}>{meta.instr}</div>
+          <div style={{marginTop:8,background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"12px 14px"}}>
+            <div style={{fontSize:13,color:"#6B5A33",marginBottom:10,lineHeight:1.55}}>{meta.instr}</div>
             {rows.map(function(row,ri){return (
               <div key={ri} style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
                 <input style={Object.assign({},inp,{flex:"1 1 150px",minWidth:0,fontSize:13})} placeholder="Name or role" defaultValue={row.name}
@@ -2676,11 +2767,11 @@ function App(){
                   <option value="">Starts {monthNameFor(1)}</option>
                   {Array.from({length:11},function(_,k){var m=k+2;return <option key={m} value={String(m)}>Starts {monthNameFor(m)}</option>;})}
                 </select>
-                <button title="Remove" style={{fontFamily:"inherit",fontSize:16,lineHeight:1,color:"#9ca3af",background:"none",border:"1px solid #e5e7eb",borderRadius:6,padding:"0 11px",cursor:"pointer"}}
+                <button title="Remove" style={{fontFamily:"inherit",fontSize:15,lineHeight:1,color:"#8A98A6",background:"none",border:"1px solid #E7EAED",borderRadius:6,padding:"0 11px",cursor:"pointer"}}
                   onClick={function(){var rs=teamRows(cat);rs.splice(ri,1);if(!rs.length)rs=[{name:"",amt:"",start:""}];setRows(rs,true);}}>&times;</button>
               </div>
             );})}
-            <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"1px dashed #d0b16f",borderRadius:6,padding:"7px 12px",cursor:"pointer",marginTop:2}}
+            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#01236D",background:"none",border:"1px dashed #D0B16F",borderRadius:6,padding:"7px 12px",cursor:"pointer",marginTop:2}}
               onClick={function(){var rs=teamRows(cat);rs.push({name:"",amt:"",start:""});setRows(rs,true);}}>+ Add a {meta.word}</button>
 
             {(function(){
@@ -2689,19 +2780,19 @@ function App(){
               var on=fdRef.current.goalExpApply==="1";
               var tot=hires.reduce(function(s,h){return s+goalExpRowCost(h.row);},0);
               return (
-                <div style={{marginTop:12,borderTop:"1px solid #e8dcc0",paddingTop:10}}>
-                  <div style={{fontSize:12,color:"#6b5a33",marginBottom:6,lineHeight:1.5}}>
+                <div style={{marginTop:12,borderTop:"1px solid #E0D2B4",paddingTop:10}}>
+                  <div style={{fontSize:13,color:"#6B5A33",marginBottom:6,lineHeight:1.5}}>
                     Already coming from your Step 4 goals{on?"":" (not currently switched on)"} &mdash; do not list these again above:
                   </div>
                   {hires.map(function(h,hi){return (
-                    <div key={hi} style={{display:"flex",justifyContent:"space-between",fontSize:12,color:"#6b7280",padding:"3px 0"}}>
+                    <div key={hi} style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#5F7183",padding:"3px 0"}}>
                       <span>Goal {h.goal+1}{h.row.start&&parseInt(h.row.start)>1?" (from "+monthNameFor(parseInt(h.row.start))+")":""}</span>
-                      <span style={{fontWeight:600,color:on?"#01236d":"#9ca3af"}}>{fmt(goalExpRowCost(h.row))}</span>
+                      <span style={{fontWeight:600,color:on?"#01236D":"#8A98A6"}}>{fmt(goalExpRowCost(h.row))}</span>
                     </div>
                   );})}
                   {on&&(
-                    <div style={{fontSize:12,color:"#374151",marginTop:8,paddingTop:8,borderTop:"1px dashed #e8dcc0"}}>
-                      Combined cost over 12 months <strong style={{color:"#01236d"}}>{fmt(annual+tot)}</strong>
+                    <div style={{fontSize:13,color:"#29384A",marginTop:8,paddingTop:8,borderTop:"1px dashed #E0D2B4"}}>
+                      Combined cost over 12 months <strong style={{color:"#01236D"}}>{fmt(annual+tot)}</strong>
                     </div>
                   )}
                 </div>
@@ -2709,13 +2800,13 @@ function App(){
             })()}
 
             {annual>0&&(
-              <div style={{marginTop:12,fontSize:13,color:"#374151",lineHeight:1.7,borderTop:"1px solid #e8dcc0",paddingTop:10}}>
+              <div style={{marginTop:12,fontSize:13,color:"#29384A",lineHeight:1.7,borderTop:"1px solid #E0D2B4",paddingTop:10}}>
                 Total over 12 months <strong>{fmt(annual)}</strong><br/>
                 {teamCostsVary(cat)
-                  ? <span>Because start months differ, the cost changes through the year: from <strong style={{color:"#01236d"}}>{fmt(Math.round(Math.min.apply(null,teamMonthlyCosts(cat))))}</strong> to <strong style={{color:"#01236d",fontSize:16}}>{fmt(Math.round(Math.max.apply(null,teamMonthlyCosts(cat))))}</strong> a month. We will fill in all twelve months for you.</span>
-                  : <span>{fmt(annual)} &divide; 12 = <strong style={{color:"#01236d",fontSize:16}}>{fmt(Math.round(monthly))}</strong> a month</span>}
+                  ? <span>Because start months differ, the cost changes through the year: from <strong style={{color:"#01236D"}}>{fmt(Math.round(Math.min.apply(null,teamMonthlyCosts(cat))))}</strong> to <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(Math.max.apply(null,teamMonthlyCosts(cat))))}</strong> a month. We will fill in all twelve months for you.</span>
+                  : <span>{fmt(annual)} &divide; 12 = <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(monthly))}</strong> a month</span>}
                 <div style={{marginTop:10}}>
-                  <button style={Object.assign({},suggestBtn,{background:"#01236d"})}
+                  <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
                     onClick={function(){
                       var mc=teamMonthlyCosts(cat);
                       if(teamCostsVary(cat)){
@@ -2747,25 +2838,25 @@ function App(){
     var cost=(units>0&&!isNaN(total)&&total>0)?total/units:null;
     return (
       <div style={{marginBottom:8}}>
-        <button style={acOpen?Object.assign({},suggestBtn,{background:"#01236d"}):suggestBtn}
+        <button style={acOpen?Object.assign({},suggestBtn,{background:"#01236D"}):suggestBtn}
           onClick={function(){setAcOpen(!acOpen);}}>
           {acOpen?"Close":"Help me work this out"}
         </button>
         {acOpen&&(
-          <div style={{marginTop:8,background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:8,padding:"12px 14px"}}>
+          <div style={{marginTop:8,background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"12px 14px"}}>
             {units>0?(
               <div>
-                <div style={{fontSize:13,color:"#6b5a33",marginBottom:8,lineHeight:1.55}}>
+                <div style={{fontSize:13,color:"#6B5A33",marginBottom:8,lineHeight:1.55}}>
                   You have entered <strong>{Math.round(units).toLocaleString()} units</strong> over the 12 months. Enter what those sales will cost you to deliver and we will work out the cost per unit.
                 </div>
-                <div style={{fontSize:12,color:"#374151",marginBottom:4}}>Total cost of making those sales over 12 months ($)</div>
-                <input style={Object.assign({},inp,{fontSize:14})} placeholder="e.g. 48000" value={acTotal}
+                <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Total cost of making those sales over 12 months ($)</div>
+                <input style={Object.assign({},inp,{fontSize:15})} placeholder="e.g. 48000" value={acTotal}
                   onChange={function(e){setAcTotal(e.target.value);}}/>
                 {cost!==null&&(
-                  <div style={{marginTop:10,fontSize:13,color:"#374151",lineHeight:1.6}}>
-                    {fmt(total)} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236d",fontSize:16}}>{fmt(Math.round(cost*100)/100)}</strong> per unit
+                  <div style={{marginTop:10,fontSize:13,color:"#29384A",lineHeight:1.6}}>
+                    {fmt(total)} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(cost*100)/100)}</strong> per unit
                     <div style={{marginTop:10}}>
-                      <button style={Object.assign({},suggestBtn,{background:"#01236d"})}
+                      <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
                         onClick={function(){
                           fdRef.current.avgCost=String(Math.round(cost*100)/100);
                           saveToStorage();refreshLive();
@@ -2777,7 +2868,7 @@ function App(){
                 )}
               </div>
             ):(
-              <div style={{fontSize:13,color:"#a32d2d",lineHeight:1.55}}>
+              <div style={{fontSize:13,color:"#B14A38",lineHeight:1.55}}>
                 Enter your monthly sales units above first, then we can work out the cost per unit from your total costs.
               </div>
             )}
@@ -2796,25 +2887,25 @@ function App(){
     var price=(units>0&&!isNaN(total)&&total>0)?total/units:null;
     return (
       <div style={{marginBottom:8}}>
-        <button style={apOpen?Object.assign({},suggestBtn,{background:"#01236d"}):suggestBtn}
+        <button style={apOpen?Object.assign({},suggestBtn,{background:"#01236D"}):suggestBtn}
           onClick={function(){setApOpen(!apOpen);}}>
           {apOpen?"Close":"Help me work this out"}
         </button>
         {apOpen&&(
-          <div style={{marginTop:8,background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:8,padding:"12px 14px"}}>
+          <div style={{marginTop:8,background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"12px 14px"}}>
             {units>0?(
               <div>
-                <div style={{fontSize:13,color:"#6b5a33",marginBottom:8,lineHeight:1.55}}>
+                <div style={{fontSize:13,color:"#6B5A33",marginBottom:8,lineHeight:1.55}}>
                   You have entered <strong>{Math.round(units).toLocaleString()} units</strong> over the 12 months. Enter the total sales you expect and we will work out the average price per unit.
                 </div>
-                <div style={{fontSize:12,color:"#374151",marginBottom:4}}>Total sales expected over 12 months ($)</div>
-                <input style={Object.assign({},inp,{fontSize:14})} placeholder="e.g. 120000" value={apTotal}
+                <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Total sales expected over 12 months ($)</div>
+                <input style={Object.assign({},inp,{fontSize:15})} placeholder="e.g. 120000" value={apTotal}
                   onChange={function(e){setApTotal(e.target.value);}}/>
                 {price!==null&&(
-                  <div style={{marginTop:10,fontSize:13,color:"#374151",lineHeight:1.6}}>
-                    {fmt(total)} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236d",fontSize:16}}>{fmt(Math.round(price*100)/100)}</strong> per unit
+                  <div style={{marginTop:10,fontSize:13,color:"#29384A",lineHeight:1.6}}>
+                    {fmt(total)} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(price*100)/100)}</strong> per unit
                     <div style={{marginTop:10}}>
-                      <button style={Object.assign({},suggestBtn,{background:"#01236d"})}
+                      <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
                         onClick={function(){
                           fdRef.current.avgPrice=String(Math.round(price*100)/100);
                           saveToStorage();refreshLive();
@@ -2826,7 +2917,7 @@ function App(){
                 )}
               </div>
             ):(
-              <div style={{fontSize:13,color:"#a32d2d",lineHeight:1.55}}>
+              <div style={{fontSize:13,color:"#B14A38",lineHeight:1.55}}>
                 Enter your monthly sales units above first, then we can work out the average price from your expected total sales.
               </div>
             )}
@@ -2845,23 +2936,28 @@ function App(){
     var np=liveRows.reduce(function(s,r){return s+(r.netProfit||0);},0);
     var neg=lowV<0;
     return (
-      <div style={{position:"sticky",top:0,zIndex:5,background:neg?"#fdf3f3":"#f4f8f4",border:"1px solid "+(neg?"#e8c9c9":"#cfe3cf"),borderRadius:10,padding:"10px 14px",marginBottom:14,display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
-        <div><div style={{fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em"}}>12-month revenue</div><div style={{fontSize:15,fontWeight:700,color:"#01236d"}}>{fmt(rev)}</div></div>
-        <div><div style={{fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em"}}>Net profit / (loss)</div><div style={{fontSize:15,fontWeight:700,color:np<0?"#a32d2d":"#1e7a41"}}>{fmt(np)}</div></div>
-        <div><div style={{fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em"}}>Closing balance</div><div style={{fontSize:15,fontWeight:700,color:closing<0?"#a32d2d":"#1e7a41"}}>{fmt(closing)}</div></div>
-        <div><div style={{fontSize:10,color:"#6b7280",textTransform:"uppercase",letterSpacing:"0.05em"}}>Lowest month</div><div style={{fontSize:15,fontWeight:700,color:neg?"#a32d2d":"#1e7a41"}}>{fmt(lowV)} <span style={{fontSize:11,fontWeight:500,color:"#6b7280"}}>{low.month}</span></div></div>
-        {neg&&<div style={{fontSize:11,color:"#a32d2d",flex:"1 1 200px",lineHeight:1.45}}>Cash goes negative in {low.month}. You may need funding, or to reduce costs, before then.</div>}
+      <div style={{position:"sticky",top:0,zIndex:5,background:neg?"#FDEEEB":"#E7F5F4",border:"1px solid "+(neg?"#F2CFC7":"#BFE3E1"),borderRadius:12,padding:"10px 14px",marginBottom:14,display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
+        <div><div style={{fontSize:11,color:"#5F7183",textTransform:"uppercase",letterSpacing:"0.05em"}}>12-month revenue</div><div style={{fontSize:18,fontWeight:700,color:"#01236D"}} className="bpd-num bpd-pop">{fmt(rev)}</div></div>
+        <div><div style={{fontSize:11,color:"#5F7183",textTransform:"uppercase",letterSpacing:"0.05em"}}>Net profit / (loss)</div><div style={{fontSize:18,fontWeight:700,color:np<0?"#B14A38":"#1F7A7C"}} className="bpd-num bpd-pop">{fmt(np)}</div></div>
+        <div><div style={{fontSize:11,color:"#5F7183",textTransform:"uppercase",letterSpacing:"0.05em"}}>Closing balance</div><div style={{fontSize:15,fontWeight:700,color:closing<0?"#B14A38":"#1F7A7C"}}>{fmt(closing)}</div></div>
+        <div><div style={{fontSize:11,color:"#5F7183",textTransform:"uppercase",letterSpacing:"0.05em"}}>Lowest month</div><div style={{fontSize:18,fontWeight:700,color:neg?"#B14A38":"#1F7A7C"}} className="bpd-num bpd-pop">{fmt(lowV)} <span style={{fontSize:11,fontWeight:500,color:"#5F7183"}}>{low.month}</span></div></div>
+        {neg&&<div style={{fontSize:11,color:"#B14A38",flex:"1 1 200px",lineHeight:1.45}}>Cash goes negative in {low.month}. You may need funding, or to reduce costs, before then.</div>}
       </div>
     );
   }
 
   function BackupNote(){
     return (
-      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:8,padding:"9px 12px",marginBottom:12}}>
-        <span style={{fontSize:13,lineHeight:1.5,color:"#6b5a33",flex:1}}>
-          Your plan is saved in this browser only. It will be lost if you or your settings clear your browsing data or switch device.{" "}
-          <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,color:"#01236d",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Save a backup file</button>
-          <span style={{display:"block",fontSize:12,color:"#8a7a52",marginTop:3}}>Saves a restore file to your Downloads folder. It isn't a document - keep it safe, don't open it.</span>
+      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"9px 12px",marginBottom:12}}>
+        <span style={{fontSize:13,lineHeight:1.5,color:"#6B5A33",flex:1}}>
+          Your plan is saved in this browser only. It will be lost if you or your settings clear your browsing data.{" "}
+          <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Save a backup file</button>
+          {" "}saves a restore file to your Downloads folder.
+          <span style={{display:"block",fontSize:13,color:"#6B5A33",marginTop:6,paddingTop:6,borderTop:"1px solid #E0D2B4"}}>
+            If you are finished and on a shared or public computer{" "}
+            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={clearDevice}>Clear plan from this device</button>
+            {" "}so that anyone else who uses this computer can't open your plan.
+          </span>
         </span>
       </div>
     );
@@ -2869,12 +2965,13 @@ function App(){
 
   function AppFooter(){
     return (
-      <div style={{fontSize:12,color:"#9ca3af",padding:"8px 0",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-        <button style={{fontFamily:"inherit",fontSize:12,color:"#9ca3af",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={startOver}>Clear all data</button>
-        <button style={{fontFamily:"inherit",fontSize:12,color:"#9ca3af",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Export data</button>
-        <button style={{fontFamily:"inherit",fontSize:12,color:"#9ca3af",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={importData}>Import data</button>
-        <button style={{fontFamily:"inherit",fontSize:12,color:"#d0b16f",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){setShowFeedback(true);}}>Give feedback</button>
-        <button style={{fontFamily:"inherit",fontSize:11,color:"#d1d5db",background:"none",border:"none",cursor:"pointer"}} onClick={function(){setShowAdmin(true);}}>⚙</button>
+      <div style={{fontSize:13,color:"#8A98A6",padding:"8px 0",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+        <button style={{fontFamily:"inherit",fontSize:13,color:"#8A98A6",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={startOver}>Start a new plan</button>
+        <button style={{fontFamily:"inherit",fontSize:13,color:"#8A98A6",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={clearDevice} title="Removes your plan and signs you out - for shared computers">Finish and clear this device</button>
+        <button style={{fontFamily:"inherit",fontSize:13,color:"#8A98A6",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Export data</button>
+        <button style={{fontFamily:"inherit",fontSize:13,color:"#8A98A6",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={importData}>Import data</button>
+        <button style={{fontFamily:"inherit",fontSize:13,color:"#D0B16F",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){setShowFeedback(true);}}>Give feedback</button>
+        <button style={{fontFamily:"inherit",fontSize:11,color:"#E7EAED",background:"none",border:"none",cursor:"pointer"}} onClick={function(){setShowAdmin(true);}}>⚙</button>
       </div>
     );
   }
@@ -2893,27 +2990,27 @@ function App(){
       render:function(){return (<>
           <div style={f2row}>
             <div style={f2col}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business name</div>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Business name</div>
               {R("bizName","e.g. Flowly Ltd")}
             </div>
             <div style={f2col}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Location(s)</div>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Location(s)</div>
               {R("locations","e.g. Auckland CBD, online nationwide")}
             </div>
           </div>
           <div style={f2row}>
             <div style={f2col}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Type of business</div>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Type of business</div>
               {RS("bizType",["Company (Ltd)","Sole Trader","Partnership","Trust","Other"])}
             </div>
             <div style={f2col}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Industry / sector</div>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Industry / sector</div>
               {R("industry","e.g. SaaS, hospitality, retail")}
             </div>
           </div>
           <div style={f2row}>
             <div style={f2col}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Date established</div>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Date established</div>
               <div style={{display:"flex",gap:8}}>
                 <select style={{...sel,flex:1,minWidth:0}} value={(fdRef.current.bizDate||"").split("-")[1]||""} onChange={function(e){var parts=(fdRef.current.bizDate||"----").split("-");parts[1]=e.target.value;fdRef.current.bizDate=(parts[0]||String(new Date().getFullYear()))+"-"+parts[1]+"-01";saveToStorage();}}>
                   <option value="">Month</option>
@@ -2926,36 +3023,36 @@ function App(){
               </div>
             </div>
             <div style={f2col}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Current stage</div>
-              {RS("stage",["Pre-launch (idea stage)","MVP / prototype built","Early customers","Growing revenue"])}
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Current stage</div>
+              {RS("stage",["Great idea (thinking about going into business)","Early stage (business founded and getting traction)","Established business (been in business awhile)"])}
             </div>
           </div>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Main contact</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Main contact</div>
           <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
             {contactCh.map(function(c){
               return (<div key={c.id} style={{flex:"1 1 210px",minWidth:0,display:"flex",gap:8}}>
-                <div style={{width:50,alignSelf:"stretch",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,flexShrink:0,background:"#f3f4f6",color:"#6b7280"}}>{c.label}</div>
+                <div style={{width:50,alignSelf:"stretch",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,flexShrink:0,background:"#FCFCFA",color:"#5F7183"}}>{c.label}</div>
                 <input style={Object.assign({},inp,{flex:1,minWidth:0})} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();}}/>
               </div>);
             })}
           </div>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business history / origin</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Business history / origin</div>
           {RT("history","e.g. I spotted a gap in the market when...",3)}
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Position Statement</div>
-          <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>For (customer) who (needs), (your business) is a (product/service) that will (benefit).</span>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Position Statement</div>
+          <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>For (customer) who (needs), (your business) is a (product/service) that will (benefit).</span>
           {RT("position","e.g. For sole traders who need accurate financials, Flowly is accounting software that will take the complexity out of keeping your accounts up to date.",3)}
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business team</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Business team</div>
           {RT("team","e.g. 2 full-time founders, 1 part-time developer...",2)}
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Online presence</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Online presence</div>
           {(function(){
             // Badge is 44px so the longest label ("Other") fits without
             // overflowing; a uniform width keeps every input left-aligned.
             function onlineRow(c){
               return (<div key={c.id} style={{display:"flex",gap:8,marginBottom:6}}>
-                <div style={{width:44,alignSelf:"stretch",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,background:"#f3f4f6",color:"#6b7280"}}>{c.label}</div>
+                <div style={{width:44,alignSelf:"stretch",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0,background:"#FCFCFA",color:"#5F7183"}}>{c.label}</div>
                 <input style={Object.assign({},inp,{flex:1,minWidth:0})} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();}}/>
               </div>);
             }
@@ -2964,143 +3061,143 @@ function App(){
               <div style={f2col}>{onlineCh.slice(3).map(onlineRow)}</div>
             </div>);
           })()}
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Legal obligations</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Legal obligations</div>
           <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
-            {legalOpts.map(function(o){var _ls={flex:"1 1 260px",minWidth:0,display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",border:"1px solid "+(legalStatus===o.v?o.color:"#e5e7eb"),borderRadius:8,cursor:"pointer",background:legalStatus===o.v?o.bg:"#fff"};return (<div key={o.v} style={_ls} onClick={function(){setLegalAndSave(o.v);}}>
-              <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px solid "+(legalStatus===o.v?o.color:"#d1d5db"),flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",marginTop:1}}>
+            {legalOpts.map(function(o){var _ls={flex:"1 1 260px",minWidth:0,display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",border:"1px solid "+(legalStatus===o.v?o.color:"#E7EAED"),borderRadius:6,cursor:"pointer",background:legalStatus===o.v?o.bg:"#fff"};return (<div key={o.v} style={_ls} onClick={function(){setLegalAndSave(o.v);}}>
+              <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px solid "+(legalStatus===o.v?o.color:"#E7EAED"),flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",marginTop:1}}>
                 <div style={{width:8,height:8,borderRadius:"50%",background:legalStatus===o.v?o.color:"transparent"}}></div>
               </div>
-              <div><div style={{fontSize:14,lineHeight:1.35,color:"#1a1a1a"}}>{o.l}</div><div style={{fontSize:12,color:"#6b7280",marginTop:2}}>{o.s}</div></div>
+              <div><div style={{fontSize:15,lineHeight:1.35,color:"#29384A"}}>{o.l}</div><div style={{fontSize:13,color:"#5F7183",marginTop:2}}>{o.s}</div></div>
             </div>);})}
           </div>
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
           <textarea ref={growRef} onInput={growOn} key="extra1" style={ta(2)} defaultValue={fdRef.current["extra1"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra1"]=e.target.value;saveToStorage();}}/>
         </>
       );}},
     {label:"Step 2 of 5 - Market & Customers",title:"Tell us about your customers, market and competitors",desc:"Providing facts and figures is important.",
       render:function(){return (<>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Who is the target customer/market?</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Who is the target customer/market?</div>
           {RT("targetCust","e.g. Small business owners aged 30-50...",3)}
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Does the business have any current customers/market share?</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Does the business have any current customers/market share?</div>
           {RT("currentCust","e.g. 45 paying customers, approx 2% of local market...",2)}
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What is the target market opportunity (estimated)?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={msLoading?suggestBtnBusy:suggestBtn} onClick={suggestMarketSize} disabled={msLoading}>{msLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"ms",has:!!(fdRef.current.marketSize||"").trim(),loading:msLoading,run:suggestMarketSize})}<span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What is the target market opportunity (estimated)?</div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={msLoading?suggestBtnBusy:suggestBtn} onClick={suggestMarketSize} disabled={msLoading}>{msLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"ms",has:!!(fdRef.current.marketSize||"").trim(),loading:msLoading,run:suggestMarketSize})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"ms-"+msVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.marketSize||""} placeholder="e.g. NZ SME accounting software market ~$120M..." onChange={function(e){fdRef.current.marketSize=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Who are the main competitors to your business and how does your business differ from them?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={compLoading?suggestBtnBusy:suggestBtn} onClick={suggestCompetitors} disabled={compLoading}>{compLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"comp",has:!!(fdRef.current.competitors||"").trim(),loading:compLoading,run:suggestCompetitors})}<span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Who are the main competitors to your business and how does your business differ from them?</div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={compLoading?suggestBtnBusy:suggestBtn} onClick={suggestCompetitors} disabled={compLoading}>{compLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"comp",has:!!(fdRef.current.competitors||"").trim(),loading:compLoading,run:suggestCompetitors})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"comp-"+compVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.competitors||""} placeholder="e.g. Xero (market leader, feature-rich but expensive)..." onChange={function(e){fdRef.current.competitors=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What are the strengths and weaknesses of the main competitors to your business?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={cswLoading?suggestBtnBusy:suggestBtn} onClick={suggestCompSW} disabled={cswLoading}>{cswLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"csw",has:!!(fdRef.current.compStrWeakness||"").trim(),loading:cswLoading,run:suggestCompSW})}<span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What are the strengths and weaknesses of the main competitors to your business?</div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={cswLoading?suggestBtnBusy:suggestBtn} onClick={suggestCompSW} disabled={cswLoading}>{cswLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"csw",has:!!(fdRef.current.compStrWeakness||"").trim(),loading:cswLoading,run:suggestCompSW})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"csw-"+compSwVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.compStrWeakness||""} placeholder="e.g. Xero: strengths - brand, integrations. Weaknesses - price..." onChange={function(e){fdRef.current.compStrWeakness=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What is the competitive advantage or unique selling point of your business?</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What is the competitive advantage or unique selling point of your business?</div>
           {RT("advantage","What makes you better or different?",2)}
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What Intellectual Property does your business have?</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What Intellectual Property does your business have?</div>
           {RT("ip","e.g. Registered trademark, proprietary software. Or: none.",2)}
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
           <textarea ref={growRef} onInput={growOn} key="extra3" style={ta(2)} defaultValue={fdRef.current["extra3"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra3"]=e.target.value;saveToStorage();}}/>
         </>
       );}},
     {label:"Step 3 of 5 - Vision & Strategy",title:"Tell us how you see the future of your business",desc:"What does success look like?",
       render:function(){return (<>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>SWOT Analysis</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={suggestSWOT} disabled={!!goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest SWOT from Step 1 & 2"}</button>{ReviseButtons({id:"swot",has:!!((fdRef.current.swotS||"")+(fdRef.current.swotW||"")).trim(),loading:!!goalLoading,run:suggestSWOT})}<span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Strengths, Weaknesses, Opportunities, Threats the business has.</span></div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>SWOT Analysis</div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={suggestSWOT} disabled={!!goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"swot",has:!!((fdRef.current.swotS||"")+(fdRef.current.swotW||"")).trim(),loading:!!goalLoading,run:suggestSWOT})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Strengths, Weaknesses, Opportunities, Threats the business has.</span></div>
           <div key={"swot-"+swotVersion} style={{display:"flex",flexDirection:"column",gap:10,marginTop:10}}>
-            {[{id:"swotS",l:"Strengths",h:"What your business does well",ph:"e.g. Strong technical team, first-mover advantage..."},{id:"swotW",l:"Weaknesses",h:"What your business could do better",ph:"e.g. Limited marketing budget..."},{id:"swotO",l:"Opportunities",h:"The possibilities available",ph:"e.g. Growing market, underserved segment..."},{id:"swotT",l:"Threats",h:"The risks to your business",ph:"e.g. Well-funded competitors..."}].map(function(x){return (<div key={x.id}><label style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:3,display:"block"}}>{x.l}</label><span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>{x.h}</span><textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current[x.id]||""} placeholder={x.ph} onChange={function(e){fdRef.current[x.id]=e.target.value;saveToStorage();}}/></div>);})}
+            {[{id:"swotS",l:"Strengths",h:"What your business does well",ph:"e.g. Strong technical team, first-mover advantage..."},{id:"swotW",l:"Weaknesses",h:"What your business could do better",ph:"e.g. Limited marketing budget..."},{id:"swotO",l:"Opportunities",h:"The possibilities available",ph:"e.g. Growing market, underserved segment..."},{id:"swotT",l:"Threats",h:"The risks to your business",ph:"e.g. Well-funded competitors..."}].map(function(x){return (<div key={x.id}><label style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:3,display:"block"}}>{x.l}</label><span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>{x.h}</span><textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current[x.id]||""} placeholder={x.ph} onChange={function(e){fdRef.current[x.id]=e.target.value;saveToStorage();}}/></div>);})}
           </div>
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Vision</div>
-          <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>By (year) be the (ambition) for (who)</span>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Vision</div>
+          <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>By (year) be the (ambition) for (who)</span>
           {RT("vision","e.g. By 2027, to be the go-to invoicing tool for 10,000 NZ sole traders...",3)}
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Position Statement</div>
-          <div style={{fontSize:12,color:"#6b7280",marginBottom:5}}>Entered in Step 1. To change it, go back to <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={function(){setStepAndSave(0);window.scrollTo(0,0);}}>Step 1 - Business Details</button>.</div>
-          <div style={Object.assign({},ta(3),{background:"#f3f4f6",color:"#6b7280",whiteSpace:"pre-wrap",cursor:"not-allowed",overflow:"auto"})}>{fdRef.current.position||"Not yet entered - add it in Step 1."}</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Position Statement</div>
+          <div style={{fontSize:13,color:"#5F7183",marginBottom:5}}>Entered in Step 1. To change it, go back to <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={function(){setStepAndSave(0);window.scrollTo(0,0);}}>Step 1 - Business Details</button>.</div>
+          <div style={Object.assign({},ta(3),{background:"#FCFCFA",color:"#5F7183",whiteSpace:"pre-wrap",cursor:"not-allowed",overflow:"auto"})}>{fdRef.current.position||"Not yet entered - add it in Step 1."}</div>
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Values</div><div style={{fontSize:12,color:"#6b7280",marginBottom:6}}>The principles that guide your business</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Values</div><div style={{fontSize:13,color:"#5F7183",marginBottom:6}}>The principles that guide your business</div>
           {RT("values","e.g. Simplicity - we remove complexity, not add to it...",3)}
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Goals</div>
-          <span style={{fontSize:12,color:"#374151",marginBottom:6,display:"block"}}>The main steps to achieve success</span>
-          <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:8}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoals} disabled={goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest goals from SWOT"}</button><span style={{fontSize:11,color:"#374151",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Goals the business should have.</span></div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Goals</div>
+          <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>The main steps to achieve success</span>
+          <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:8}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoals} disabled={goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"goals",has:goals.some(function(g){return !!(g||"").trim();}),loading:!!goalLoading,run:suggestGoals})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Goals the business should have.</span></div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {goals.map(function(g,i){var gs={display:"flex",gap:8,alignItems:"flex-start",marginBottom:6};return (<div key={i} style={gs}><div style={{fontSize:12,fontWeight:700,color:"#6b7280",width:18,flexShrink:0,paddingTop:10}}>{i+1}</div><input style={Object.assign({},inp,{flex:1})} value={g} placeholder={"e.g. Reach 500 paying customers within 12 months..."} onChange={function(e){var n=goals.slice();n[i]=e.target.value;setGoalsAndSave(n);}}/></div>);})}
+            {goals.map(function(g,i){var gs={display:"flex",gap:8,alignItems:"flex-start",marginBottom:6};return (<div key={i} style={gs}><div style={{fontSize:13,fontWeight:700,color:"#5F7183",width:18,flexShrink:0,paddingTop:10}}>{i+1}</div><input style={Object.assign({},inp,{flex:1})} value={g} placeholder={"e.g. Reach 500 paying customers within 12 months..."} onChange={function(e){var n=goals.slice();n[i]=e.target.value;setGoalsAndSave(n);}}/></div>);})}
           </div>
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
           <textarea ref={growRef} onInput={growOn} key="extra2" style={ta(2)} defaultValue={fdRef.current["extra2"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra2"]=e.target.value;saveToStorage();}}/>
         </>
       );}},
     {label:"Step 4 of 5 - Making it Happen",title:"Tell us how your business will achieve its goals",desc:<span>What will it take to achieve success?</span>,
       render:function(){return (<>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Business Goals</div>
-          <span style={{fontSize:12,color:"#6b7280",marginBottom:6,display:"block"}}>From Step 3 — read only. <button style={{background:"none",border:"none",color:"#01236d",fontSize:12,cursor:"pointer",padding:0,fontFamily:"inherit"}} onClick={function(){setStepAndSave(2);}}>Edit in Step 3</button></span>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Business Goals</div>
+          <span style={{fontSize:13,color:"#5F7183",marginBottom:6,display:"block"}}>From Step 3 — read only. <button style={{background:"none",border:"none",color:"#01236D",fontSize:13,cursor:"pointer",padding:0,fontFamily:"inherit"}} onClick={function(){setStepAndSave(2);}}>Edit in Step 3</button></span>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             {goals.map(function(g,i){
               if(!g)return null;
-              return (<div key={i} style={{border:"1px solid #e5e7eb",borderRadius:8,padding:"12px 14px",background:"#fafafa"}}>
+              return (<div key={i} style={{border:"1px solid #E7EAED",borderRadius:6,padding:"12px 14px",background:"#FCFCFA"}}>
                 <div style={{display:"flex",gap:8,alignItems:"flex-start",marginBottom:10}}>
-                  <div style={{fontSize:12,fontWeight:700,color:GREEN_DARK,width:18,flexShrink:0,paddingTop:2}}>{i+1}</div>
-                  <div style={{fontSize:14,fontWeight:500,color:"#1a1a1a",lineHeight:1.4}}>{g}</div>
+                  <div style={{fontSize:13,fontWeight:700,color:GREEN_DARK,width:18,flexShrink:0,paddingTop:2}}>{i+1}</div>
+                  <div style={{fontSize:15,fontWeight:500,color:"#29384A",lineHeight:1.4}}>{g}</div>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:8,paddingLeft:26}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}><button style={goalCardLoading[i]?suggestBtnBusy:suggestBtn} disabled={!!goalCardLoading[i]} onClick={function(){suggestGoalCard(i);}}>{goalCardLoading[i]?busyLabel("Working\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"gc"+i,has:!!((fdRef.current["goalHow"+(i+1)]||"")+(fdRef.current["goalRes"+(i+1)]||"")).trim(),loading:!!goalCardLoading[i],run:function(m,nt){suggestGoalCard(i,m,nt);}})}<span style={{fontSize:11,color:"#374151",fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other ways the business will achieve its goals and resources needed.</span></div>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}><button style={goalCardLoading[i]?suggestBtnBusy:suggestBtn} disabled={!!goalCardLoading[i]} onClick={function(){suggestGoalCard(i);}}>{goalCardLoading[i]?busyLabel("Working\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"gc"+i,has:!!((fdRef.current["goalHow"+(i+1)]||"")+(fdRef.current["goalRes"+(i+1)]||"")).trim(),loading:!!goalCardLoading[i],run:function(m,nt){suggestGoalCard(i,m,nt);}})}<span style={{fontSize:11,color:"#29384A",fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other ways the business will achieve its goals and resources needed.</span></div>
                   <div key={"ghow"+i+"-"+(goalCardVer[i]||0)}>
-                    <div style={{fontSize:12,fontWeight:500,color:"#374151",marginBottom:3}}>How will you achieve this goal?</div>
+                    <div style={{fontSize:13,fontWeight:500,color:"#29384A",marginBottom:3}}>How will you achieve this goal?</div>
                     <textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current["goalHow"+(i+1)]||""} placeholder="e.g. Launch targeted social media campaign..." onChange={function(e){fdRef.current["goalHow"+(i+1)]=e.target.value;saveToStorage();}}/>
                   </div>
                   <div key={"gres"+i+"-"+(goalCardVer[i]||0)}>
-                    <label style={{fontSize:12,fontWeight:500,color:"#374151",marginBottom:3,display:"block"}}>Resources needed</label>
+                    <label style={{fontSize:13,fontWeight:500,color:"#29384A",marginBottom:3,display:"block"}}>Resources needed</label>
                     <textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current["goalRes"+(i+1)]||""} placeholder="e.g. Marketing manager, design tools..." onChange={function(e){fdRef.current["goalRes"+(i+1)]=e.target.value;saveToStorage();}}/>
                   </div>
                 </div>
               </div>);
             })}
           </div>
-          {!goals.some(Boolean)&&<div style={{fontSize:13,color:"#374151",fontStyle:"italic"}}>No goals entered yet — go back to Step 3 to add them.</div>}
+          {!goals.some(Boolean)&&<div style={{fontSize:13,color:"#29384A",fontStyle:"italic"}}>No goals entered yet — go back to Step 3 to add them.</div>}
           <div style={{marginBottom:14}}/>
           <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
             <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>How many extra sales units will each goal deliver over the next 12 months?</div>
-              <span style={{fontSize:12,color:"#374151",marginBottom:6,display:"block"}}>One line per goal, so the total is easy to check. Leave a goal blank if it does not add sales.</span>
-              <div style={{fontSize:12,color:"#6b5a33",background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How many extra sales units will each goal deliver over the next 12 months?</div>
+              <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>One line per goal, so the total is easy to check. Leave a goal blank if it does not add sales.</span>
+              <div style={{fontSize:13,color:"#6B5A33",background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
               <div style={{marginBottom:6}}><button style={gsLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoalSales} disabled={gsLoading}>{gsLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button></div>
               <div key={"gs-"+gsVersion}>
                 {goals.map(function(g,gi){
                   if(!g)return null;
                   return (
                     <div key={gi} style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
-                      <span style={{flex:1,minWidth:0,fontSize:12,color:"#374151",lineHeight:1.4}}>
-                        <strong style={{color:"#01236d"}}>Goal {gi+1}:</strong> {g.length>70?g.slice(0,69)+"\u2026":g}
+                      <span style={{flex:1,minWidth:0,fontSize:13,color:"#29384A",lineHeight:1.4}}>
+                        <strong style={{color:"#01236D"}}>Goal {gi+1}:</strong> {g.length>70?g.slice(0,69)+"\u2026":g}
                       </span>
                       <input style={Object.assign({},inp,{flex:"0 0 110px",textAlign:"right"})} defaultValue={goalSalesFor(gi)} placeholder="0" onChange={function(e){setGoalSalesFor(gi,e.target.value);}}/>
                     </div>
                   );
                 })}
-                {!goals.filter(Boolean).length&&<div style={{fontSize:12,color:"#9ca3af",padding:"6px 0"}}>Add your goals in Step 3 first.</div>}
+                {!goals.filter(Boolean).length&&<div style={{fontSize:13,color:"#8A98A6",padding:"6px 0"}}>Add your goals in Step 3 first.</div>}
                 {!!goals.filter(Boolean).length&&(
-                  <div style={{display:"flex",justifyContent:"flex-end",gap:8,fontSize:12,color:"#6b7280",marginTop:2}}>
-                    12-month total: <strong style={{color:"#01236d"}}>{Math.round(goalSalesSum()).toLocaleString()} units</strong>
+                  <div style={{display:"flex",justifyContent:"flex-end",gap:8,fontSize:13,color:"#5F7183",marginTop:2}}>
+                    12-month total: <strong style={{color:"#01236D"}}>{Math.round(goalSalesSum()).toLocaleString()} units</strong>
                   </div>
                 )}
               </div>
             </div>
             <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Which expenses will increase to deliver each goal?</div>
-              <span style={{fontSize:12,color:"#374151",marginBottom:6,display:"block"}}>Pick the category and give the 12-month amount. For a new hire or contractor, choose Team or Contractors and enter the annual amount and start month.</span>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Which expenses will increase to deliver each goal?</div>
+              <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>Pick the category and give the 12-month amount. For a new hire or contractor, choose Team or Contractors and enter the annual amount and start month.</span>
               <div style={{marginBottom:6}}><button style={geLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoalExpenses} disabled={geLoading}>{geLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button></div>
               <div key={"ge-"+geVersion}>
                 {goals.map(function(g,gi){
@@ -3108,8 +3205,8 @@ function App(){
                   var row=goalExpFor2(gi);
                   return (
                     <div key={gi} style={{marginBottom:8}}>
-                      <div style={{fontSize:12,color:"#374151",marginBottom:3,lineHeight:1.4}}>
-                        <strong style={{color:"#01236d"}}>Goal {gi+1}:</strong> {g.length>70?g.slice(0,69)+"\u2026":g}
+                      <div style={{fontSize:13,color:"#29384A",marginBottom:3,lineHeight:1.4}}>
+                        <strong style={{color:"#01236D"}}>Goal {gi+1}:</strong> {g.length>70?g.slice(0,69)+"\u2026":g}
                       </div>
                       <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                         <select style={Object.assign({},sel,{flex:"1 1 180px",minWidth:0})} value={row.id} onChange={function(e){setGoalExpFor(gi,e.target.value,row.amt);}}>
@@ -3125,25 +3222,25 @@ function App(){
                         )}
                       </div>
                       {PEOPLE_CATS[row.id]&&!!parseFloat(row.amt)&&(
-                        <div style={{fontSize:12,color:"#6b7280",marginTop:4}}>
+                        <div style={{fontSize:13,color:"#5F7183",marginTop:4}}>
                           {row.start&&parseInt(row.start)>1
-                            ? <span>Paid for {goalExpMonthsFor(row)} of the 12 months &mdash; <strong style={{color:"#01236d"}}>{fmt(goalExpRowCost(row))}</strong> in this forecast</span>
-                            : <span>Full year &mdash; <strong style={{color:"#01236d"}}>{fmt(goalExpRowCost(row))}</strong> in this forecast</span>}
+                            ? <span>Paid for {goalExpMonthsFor(row)} of the 12 months &mdash; <strong style={{color:"#01236D"}}>{fmt(goalExpRowCost(row))}</strong> in this forecast</span>
+                            : <span>Full year &mdash; <strong style={{color:"#01236D"}}>{fmt(goalExpRowCost(row))}</strong> in this forecast</span>}
                         </div>
                       )}
                     </div>
                   );
                 })}
-                {!goals.filter(Boolean).length&&<div style={{fontSize:12,color:"#9ca3af",padding:"6px 0"}}>Add your goals in Step 3 first.</div>}
+                {!goals.filter(Boolean).length&&<div style={{fontSize:13,color:"#8A98A6",padding:"6px 0"}}>Add your goals in Step 3 first.</div>}
                 {!!goals.filter(Boolean).length&&(
-                  <div style={{display:"flex",justifyContent:"flex-end",fontSize:12,color:"#6b7280",marginTop:2}}>
-                    12-month total: <strong style={{color:"#01236d",marginLeft:5}}>{fmt(goalExpTotalSum())}</strong>
+                  <div style={{display:"flex",justifyContent:"flex-end",fontSize:13,color:"#5F7183",marginTop:2}}>
+                    12-month total: <strong style={{color:"#01236D",marginLeft:5}}>{fmt(goalExpTotalSum())}</strong>
                   </div>
                 )}
               </div>
             </div>
           </div>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
           <textarea ref={growRef} onInput={growOn} key="extra4" style={ta(2)} defaultValue={fdRef.current["extra4"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra4"]=e.target.value;saveToStorage();}}/>
         </>
       );}},
@@ -3152,14 +3249,14 @@ function App(){
         var s5tabs=["Details","Cashflow","Graphs","What If"];
         var s5key=["details","cashflow","graphs","whatif"].indexOf(previewTab)>=0?previewTab:"details";
         return (<>
-          <div style={{display:"flex",gap:0,borderBottom:"1px solid #e5e7eb",marginBottom:20}}>
-            {s5tabs.map(function(t){var k=t.toLowerCase().replace(" ","");var active=s5key===k;return <button key={t} style={{fontFamily:"inherit",fontSize:13,padding:"8px 16px",border:"none",background:"none",cursor:"pointer",borderBottom:"2px solid "+(active?"#d0b16f":"transparent"),color:active?"#01236d":"#6b7280",fontWeight:active?600:400}} onClick={function(){setPreviewTab(k);}}>{t}</button>;})}
+          <div style={{display:"flex",gap:0,borderBottom:"1px solid #E7EAED",marginBottom:20}}>
+            {s5tabs.map(function(t){var k=t.toLowerCase().replace(" ","");var active=s5key===k;return <button key={t} style={{fontFamily:"inherit",fontSize:13,padding:"8px 16px",border:"none",background:"none",cursor:"pointer",borderBottom:"2px solid "+(active?"#D0B16F":"transparent"),color:active?"#01236D":"#5F7183",fontWeight:active?600:400}} onClick={function(){setPreviewTab(k);}}>{t}</button>;})}
           </div>
           {s5key==="details"&&(<>
             {FinSummary()}
             <FinSection open={finOpen.start} onToggle={function(){toggleFin("start");}} title="1. Starting position" hint="where you are today">
             <div style={{marginBottom:14}}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Cashflow start date (Month 1)</div>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Cashflow start date (Month 1)</div>
               <div style={{display:"flex",gap:8}}>
                 <select style={{...sel,flex:1}} value={(cfStart||"").split("-")[1]||""} onChange={function(e){var parts=(cfStart||"----").split("-");parts[1]=e.target.value;var newVal=(parts[0]||String(new Date().getFullYear()))+"-"+parts[1];fdRef.current.cfStartDate=newVal;setCfStart(newVal);saveToStorage();refreshLive();}}>
                   <option value="">Month</option>
@@ -3173,22 +3270,22 @@ function App(){
             </div>
             <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Cash in the bank on day one ($)</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Cash in the bank on day one ($)</div>
                 <input style={inp} defaultValue={fdRef.current.openingBalance||""} placeholder="e.g. 5000 (cash in bank at start)" onChange={function(e){fdRef.current.openingBalance=e.target.value;saveToStorage();refreshLive();}}/>
               </div>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Assets the business owns</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Assets the business owns</div>
                 <input style={inp} defaultValue={fdRef.current.assets||""} placeholder="e.g. $3,000 debtors, laptop $4,000" onChange={function(e){fdRef.current.assets=e.target.value;saveToStorage();}}/>
               </div>
             </div>
             <div style={{marginBottom:14}}/>
             <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Money the business owes</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Money the business owes</div>
                 <input style={inp} defaultValue={fdRef.current.debt||""} placeholder="e.g. $5,000 suppliers, $10,000 loan" onChange={function(e){fdRef.current.debt=e.target.value;saveToStorage();}}/>
               </div>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Money you or investors have put in</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Money you or investors have put in</div>
                 <input style={inp} defaultValue={fdRef.current.equity||""} placeholder="e.g. $30,000 from founder Jane Smith" onChange={function(e){fdRef.current.equity=e.target.value;saveToStorage();}}/>
               </div>
             </div>
@@ -3196,16 +3293,16 @@ function App(){
 
             </FinSection>
             <FinSection open={finOpen.sales} onToggle={function(){toggleFin("sales");}} title="2. Money in" hint="sales and other income">
-            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly sales units</div>
-            <div style={{fontSize:12,color:"#6b5a33",background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Monthly sales units</div>
+            <div style={{fontSize:13,color:"#6B5A33",background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:6}}>
                           </div>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkMonthlyUnits" checked={!!gridChecks["monthlyUnits"]} onChange={function(){toggleGrid("monthlyUnits");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkMonthlyUnits" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkMonthlyUnits" checked={!!gridChecks["monthlyUnits"]} onChange={function(){toggleGrid("monthlyUnits");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkMonthlyUnits" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["monthlyUnits"]?(<div>
               <div key={"unitsGrid-"+avgSalesVer}><MonthGrid keyPrefix={"monthlyUnitsM"} storeKey={"monthlyUnits"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>
               <div style={{display:"flex",gap:8,alignItems:"center",marginTop:6,flexWrap:"wrap"}}>
-                <span style={{fontSize:12,color:"#374151",flexShrink:0}}>Apply growth %</span>
-                <input id="unitsGrowthInp" style={Object.assign({},inp,{width:52,textAlign:"right",padding:"5px 6px",fontSize:12})} placeholder="e.g. 5"/>
+                <span style={{fontSize:13,color:"#29384A",flexShrink:0}}>Apply growth %</span>
+                <input id="unitsGrowthInp" style={Object.assign({},inp,{width:52,textAlign:"right",padding:"5px 6px",fontSize:13})} placeholder="e.g. 5"/>
                 <button style={Object.assign({},btnSm,{fontSize:11,padding:"5px 10px"})} onClick={function(){
                   var base=parseFloat(fdRef.current["monthlyUnitsM1"])||0;
                   var pct=parseFloat(document.getElementById("unitsGrowthInp").value)||0;
@@ -3224,22 +3321,22 @@ function App(){
             {GoalApply({totalKey:"goalSalesTotal",applyKey:"goalSalesApply",monthlyKey:"goalSalesMonthly",label:"Add the extra",money:false})}
 
             <div style={{marginBottom:14}}/>
-            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Average sale price ($)</div>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Average sale price ($)</div>
             {AvgPriceHelper()}
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgPrice" checked={!!gridChecks["avgPrice"]} onChange={function(){toggleGrid("avgPrice");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgPrice" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgPrice" checked={!!gridChecks["avgPrice"]} onChange={function(){toggleGrid("avgPrice");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgPrice" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["avgPrice"]?<div key={"avgPriceGrid"}><MonthGrid keyPrefix={"avgPriceM"} storeKey={"avgPrice"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.avgPrice||""} placeholder="e.g. 49" onChange={function(e){fdRef.current.avgPrice=e.target.value;saveToStorage();refreshLive();}}/>}
             <div style={{marginBottom:14}}/>
-            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Average cost per unit ($)</div>
-            <div style={{fontSize:12,color:"#6b5a33",background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, your average cost per unit may be zero.</div>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Average cost per unit ($)</div>
+            <div style={{fontSize:13,color:"#6B5A33",background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, your average cost per unit may be zero.</div>
             {AvgCostHelper()}
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgCost" checked={!!gridChecks["avgCost"]} onChange={function(){toggleGrid("avgCost");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgCost" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgCost" checked={!!gridChecks["avgCost"]} onChange={function(){toggleGrid("avgCost");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgCost" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["avgCost"]?<div key={"avgCostGrid"}><MonthGrid keyPrefix={"avgCostM"} storeKey={"avgCost"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.avgCost||""} placeholder="e.g. 12" onChange={function(e){fdRef.current.avgCost=e.target.value;saveToStorage();refreshLive();}}/>}
             <FinWarn show={lossMakingMonths().length>0}>
               Your cost per unit is the same as or higher than your sale price{lossMakingMonths().length<12?" in "+lossMakingMonths().length+" of the 12 months":""}, so each sale loses money before any expenses. Check the two figures above.
             </FinWarn>
             <div style={{marginBottom:14}}/>
-            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Other money coming in ($)</div>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkOtherRev" checked={!!gridChecks["otherRevenue"]} onChange={function(){toggleGrid("otherRevenue");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkOtherRev" style={{fontSize:13,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Other money coming in ($)</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkOtherRev" checked={!!gridChecks["otherRevenue"]} onChange={function(){toggleGrid("otherRevenue");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkOtherRev" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["otherRevenue"]?<div key={"otherRevGrid"}><MonthGrid keyPrefix={"otherRevM"} storeKey={"otherRevenue"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.otherRevenue||""} placeholder="e.g. 500 (grants, interest, rental income)" onChange={function(e){fdRef.current.otherRevenue=e.target.value;saveToStorage();refreshLive();}}/>}
             {AnnualTotal({value:sumLive(function(r){return r.revOther;})})}
             <div style={{marginBottom:14}}/>
@@ -3247,16 +3344,16 @@ function App(){
             <FinSection open={finOpen.tax} onToggle={function(){toggleFin("tax");}} title="3. Tax">
             <div style={{display:"flex",gap:16,alignItems:"flex-start",flexWrap:"wrap"}}>
               <div style={{flex:"0 0 auto"}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Tax rate on products/services (%)</div>
-                <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>e.g. GST 15% — used to calculate tax in Other Transactions</span>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Tax rate on products/services (%)</div>
+                <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>e.g. GST 15% — used to calculate tax in Other Transactions</span>
                 <input style={Object.assign({},inp,{width:120})} defaultValue={fdRef.current.taxRate||""} placeholder="e.g. 15" onChange={function(e){fdRef.current.taxRate=e.target.value;saveToStorage();refreshLive();}}/>
               </div>
               <div style={{flex:1,minWidth:200}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>What months do you pay your tax?</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What months do you pay your tax?</div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,marginTop:4}}>
                   {Array.from({length:12},function(_,m){
                     var key="taxPayM"+(m+1);
-                    return (<label key={m} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,fontSize:11,color:"#374151",cursor:"pointer"}}>
+                    return (<label key={m} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,fontSize:11,color:"#29384A",cursor:"pointer"}}>
                       <input type="checkbox" defaultChecked={!!fdRef.current[key]} onChange={function(e){
                         fdRef.current[key]=e.target.checked?"1":"";
                         saveToStorage();refreshLive();
@@ -3270,8 +3367,8 @@ function App(){
             </FinSection>
             <FinSection open={finOpen.other} onToggle={function(){toggleFin("other");}} title="4. Money out" hint="your expenses">
             <div style={{marginBottom:14}}/>
-            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Monthly expenses</div>
-            <span style={{fontSize:12,color:"#374151",marginBottom:5,display:"block"}}>Do not include tax payments here - tax is calculated separately from the tax rate above.</span>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Monthly expenses</div>
+            <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>Do not include tax payments here - tax is calculated separately from the tax rate above.</span>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:8}}>
                           </div>
             {expCats.filter(function(c){
@@ -3282,24 +3379,24 @@ function App(){
               if(gridChecks[c.id])return true;
               return ["xAcct","xComms","xMkt","xOffice","xTeam"].indexOf(c.id)>=0;
             }).map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
-              <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}</div>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+              <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}</div>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
               {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 200"} onChange={function(e){fdRef.current[c.id]=e.target.value;if(e.target.value)revealExp(c.id);saveToStorage();refreshLive();}}/>}
                 {AnnualTotal({value:sumLive(function(r){return r.expDetail&&r.expDetail[c.id];})})}
                 {PEOPLE_CATS[c.id]?PeopleCostHelper(c.id):null}
             </div>);})}            <div style={{marginBottom:14}}/>
             <div style={{marginBottom:12}}>
-              <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,color:"#01236d",background:"none",border:"1px dashed #d0b16f",borderRadius:6,padding:"7px 12px",cursor:"pointer"}} onClick={function(){setShowAllExp(function(v){return !v;});}}>
+              <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#01236D",background:"none",border:"1px dashed #D0B16F",borderRadius:6,padding:"7px 12px",cursor:"pointer"}} onClick={function(){setShowAllExp(function(v){return !v;});}}>
                 {showAllExp?"Show fewer expense categories":"+ Show all "+expCats.length+" expense categories"}
               </button>
             </div>
             {GoalExpApply()}
             </FinSection>
             <FinSection open={finOpen.tx} onToggle={function(){toggleFin("tx");}} title="5. Other transactions" hint="loans, assets, drawings">
-            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Other money in and out ($)</div>
-            <span style={{fontSize:12,color:"#374151",marginBottom:6,display:"block"}}>Regular monthly or one-off</span>
-            <div style={{background:"#fdfaf3",border:"1px solid #e8dcc0",borderRadius:6,padding:"8px 11px",marginBottom:10,fontSize:12,color:"#6b5a33",lineHeight:1.55}}>
-              <strong style={{color:"#01236d"}}>Which sign to use:</strong> enter money coming <strong>in</strong> as a <strong>positive</strong> number, and money going <strong>out</strong> as a <strong>negative</strong> number.<br/>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Other money in and out ($)</div>
+            <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>Regular monthly or one-off</span>
+            <div style={{background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"8px 11px",marginBottom:10,fontSize:13,color:"#6B5A33",lineHeight:1.55}}>
+              <strong style={{color:"#01236D"}}>Which sign to use:</strong> enter money coming <strong>in</strong> as a <strong>positive</strong> number, and money going <strong>out</strong> as a <strong>negative</strong> number.<br/>
               e.g. a loan received is <strong>50000</strong>, a loan repayment is <strong>-2000</strong>.
             </div>
             {txCats.map(function(c){
@@ -3309,16 +3406,16 @@ function App(){
               if(c.id==="txTax"){
                 var taxTotal=liveRows.reduce(function(s,r){return s+(r.txDetail&&r.txDetail.txTax||0);},0);
                 return (<div key={c.id} style={{marginBottom:10}}>
-                  <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}<span style={{fontSize:11,color:"#d0b16f",marginLeft:8,fontWeight:400}}>Auto-calculated — not editable</span></div>
-                  <div style={Object.assign({},inp,{background:"#f3f4f6",color:"#6b7280",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"not-allowed"})}>
+                  <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}<span style={{fontSize:11,color:"#D0B16F",marginLeft:8,fontWeight:400}}>Auto-calculated — not editable</span></div>
+                  <div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5F7183",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"not-allowed"})}>
                     <span style={{fontSize:13}}>From the Tax rate and payment months above</span>
                     <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(taxTotal)}</span>
                   </div>
                 </div>);
               }
               return (<div key={c.id} style={{marginBottom:10}}>
-                <div style={{fontSize:13,color:"#374151",marginBottom:4,fontWeight:500}}>{c.l}</div>
-                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:12,color:"#374151",cursor:"pointer"}}>Enter monthly amounts</label></div>
+                <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}</div>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
                 {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 500"} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
                 {AnnualTotal({value:sumLive(function(r){return r.txDetail&&r.txDetail[c.id];})})}
               </div>);
@@ -3326,13 +3423,13 @@ function App(){
             </FinSection>
             <FinSection open={finOpen.notes} onToggle={function(){toggleFin("notes");}} title="6. Anything else">
             <div style={{marginBottom:14}}/>
-            <div style={{fontSize:13,fontWeight:500,color:"#01236d",marginBottom:4,display:"block"}}>Anything else?</div>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
             <textarea ref={growRef} onInput={growOn} key="extra5" style={ta(2)} defaultValue={fdRef.current["extra5"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra5"]=e.target.value;saveToStorage();}}/>
                       </FinSection>
           </>)}
           {s5key==="cashflow"&&<div>
             <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
-              <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}} onClick={function(){downloadCashflowExcel();}}>Download Excel (.xlsx)</button>
+              <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){downloadCashflowExcel();}}>Download Excel (.xlsx)</button>
             </div>
             <CfTable rows={liveRows}/>
           </div>}
@@ -3354,33 +3451,33 @@ function App(){
       <div style={appStyle}>
         <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
           <img src={LOGO_SRC} style={{width:36,height:36,objectFit:"contain"}} alt="Logo"/>
-          <span style={{fontWeight:700,color:"#01236d",fontSize:15,marginRight:"auto"}}>B-PlanDIY</span>
+          <span style={{fontWeight:700,color:"#01236D",fontSize:15,marginRight:"auto"}}>B-PlanDIY</span>
           {[
             {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
             {label:"Cashflow",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
             {label:"Graphs",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("graphs");},50);}},
             {label:"What If",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
-          ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #d0b16f",background:item.label==="Summary"?"#d0b16f":"#fff",color:item.label==="Summary"?"#fff":"#01236d",cursor:"pointer"}}>{item.label}</button>;})}
+          ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #D0B16F",background:item.label==="Summary"?"#D0B16F":"#fff",color:item.label==="Summary"?"#fff":"#01236D",cursor:"pointer"}}>{item.label}</button>;})}
         </div>
         <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
         <div style={cardStyle}>
           <div style={{display:"flex",gap:2,marginBottom:20,overflowX:"auto"}}>
             {stepDefs.map(function(s,i){
               return <button key={i} onClick={function(){setShowDirection(false);setStepAndSave(i);}} style={{
-                flex:1,minWidth:0,padding:"6px 4px",border:"none",borderRadius:6,cursor:"pointer",
-                background:"#f5eedd",color:"#01236d",
+                flex:1,minWidth:0,padding:"9px 4px",border:"none",borderRadius:6,cursor:"pointer",
+                background:"#F4ECDC",color:"#01236D",
                 fontSize:11,fontWeight:500,
                 whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
-                borderBottom:"3px solid #d0b16f",fontFamily:"inherit"
+                borderBottom:"3px solid #D0B16F",fontFamily:"inherit"
               }}>{"✓ "}{["Details","Market","Strategy","How","Finances"][i]||s.label}</button>;
             })}
           </div>
-          <div style={{fontSize:11,fontWeight:600,color:"#374151",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>Summary</div>
-          <div style={{fontSize:18,fontWeight:700,color:"#01236d",marginBottom:8}}>Business Direction</div>
-          <div style={{fontSize:14,color:"#374151",marginBottom:12,lineHeight:1.6}}>Here is a summary of the key information for your business.</div>
+          <div style={{fontSize:11,fontWeight:600,color:"#29384A",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>Summary</div>
+          <div style={{fontSize:18,fontWeight:700,color:"#01236D",marginBottom:8}}>Business Direction</div>
+          <div style={{fontSize:15,color:"#29384A",marginBottom:12,lineHeight:1.6}}>Here is a summary of the key information for your business.</div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-            <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:6,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>← Back</button>
-            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"8px 16px",borderRadius:8,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer",marginLeft:"auto"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
+            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"6px 14px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>← Back</button>
+            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"8px 16px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",marginLeft:"auto"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
           </div>
           {[
             {label:"Vision",val:f.vision},
@@ -3392,43 +3489,43 @@ function App(){
             {label:"Competitive Advantage",val:f.advantage},
           ].map(function(item){return (
             <div key={item.label} style={{marginBottom:14}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#01236d",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>{item.label}</div>
-              <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:item.val?"#374151":"#9ca3af",minHeight:36,whiteSpace:"pre-wrap"}}>{item.val||"Not yet completed"}</div>
+              <div style={{fontSize:13,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>{item.label}</div>
+              <div style={{background:"#FCFCFA",border:"1px solid #E7EAED",borderRadius:6,padding:"10px 12px",fontSize:15,color:item.val?"#29384A":"#8A98A6",minHeight:36,whiteSpace:"pre-wrap"}}>{item.val||"Not yet completed"}</div>
             </div>
           );})}
           <div style={{marginBottom:14}}>
-            <div style={{fontSize:12,fontWeight:700,color:"#01236d",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Goals</div>
-            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",minHeight:36}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>Goals</div>
+            <div style={{background:"#FCFCFA",border:"1px solid #E7EAED",borderRadius:6,padding:"10px 12px",fontSize:15,color:"#29384A",minHeight:36}}>
               {Array.from({length:6},function(_,i){var g=f["goal"+(i+1)];return g?<div key={i} style={{marginBottom:4}}><strong>{i+1}.</strong> {g}</div>:null;}).filter(Boolean).length>0
                 ?Array.from({length:6},function(_,i){var g=f["goal"+(i+1)];return g?<div key={i} style={{marginBottom:4}}><strong>{i+1}.</strong> {g}</div>:null;})
-                :<span style={{color:"#9ca3af"}}>Not yet completed</span>}
+                :<span style={{color:"#8A98A6"}}>Not yet completed</span>}
             </div>
           </div>
           <div style={{marginBottom:20}}>
-            <div style={{fontSize:12,fontWeight:700,color:"#01236d",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>How Going to Achieve Goals</div>
-            <div style={{background:"#f8f9fc",border:"1px solid #e5e7eb",borderRadius:6,padding:"10px 12px",fontSize:14,color:"#374151",minHeight:36}}>
+            <div style={{fontSize:13,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>How Going to Achieve Goals</div>
+            <div style={{background:"#FCFCFA",border:"1px solid #E7EAED",borderRadius:6,padding:"10px 12px",fontSize:15,color:"#29384A",minHeight:36}}>
               {Array.from({length:6},function(_,i){
                 var g=f["goal"+(i+1)],h=f["goalHow"+(i+1)],r=f["goalRes"+(i+1)];
                 return g?<div key={i} style={{marginBottom:10}}>
                   <div style={{fontWeight:600}}>{i+1}. {g}</div>
-                  {h&&<div style={{marginLeft:12,color:"#374151"}}><span style={{color:"#6b7280"}}>How:</span> {h}</div>}
-                  {r&&<div style={{marginLeft:12,color:"#374151"}}><span style={{color:"#6b7280"}}>Resources:</span> {r}</div>}
+                  {h&&<div style={{marginLeft:12,color:"#29384A"}}><span style={{color:"#5F7183"}}>How:</span> {h}</div>}
+                  {r&&<div style={{marginLeft:12,color:"#29384A"}}><span style={{color:"#5F7183"}}>Resources:</span> {r}</div>}
                 </div>:null;
               }).filter(Boolean).length>0
                 ?Array.from({length:6},function(_,i){
                   var g=f["goal"+(i+1)],h=f["goalHow"+(i+1)],r=f["goalRes"+(i+1)];
                   return g?<div key={i} style={{marginBottom:10}}>
                     <div style={{fontWeight:600}}>{i+1}. {g}</div>
-                    {h&&<div style={{marginLeft:12}}><span style={{color:"#6b7280"}}>How:</span> {h}</div>}
-                    {r&&<div style={{marginLeft:12}}><span style={{color:"#6b7280"}}>Resources:</span> {r}</div>}
+                    {h&&<div style={{marginLeft:12}}><span style={{color:"#5F7183"}}>How:</span> {h}</div>}
+                    {r&&<div style={{marginLeft:12}}><span style={{color:"#5F7183"}}>Resources:</span> {r}</div>}
                   </div>:null;
                 })
-                :<span style={{color:"#9ca3af"}}>Not yet completed</span>}
+                :<span style={{color:"#8A98A6"}}>Not yet completed</span>}
             </div>
           </div>
-          <div style={{display:"flex",gap:10,justifyContent:"space-between",paddingTop:16,borderTop:"2px solid #f5eedd"}}>
-            <button style={{fontFamily:"inherit",fontSize:12,fontWeight:600,padding:"6px 14px",borderRadius:6,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>← Back</button>
-            <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 28px",borderRadius:8,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
+          <div style={{display:"flex",gap:10,justifyContent:"space-between",paddingTop:16,borderTop:"2px solid #F4ECDC"}}>
+            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"6px 14px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>← Back</button>
+            <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 28px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
           </div>
         </div>
         <AppFooter/>
@@ -3440,15 +3537,15 @@ function App(){
     return (
       <div style={appStyle}>
         <div style={{display:"flex",gap:10,marginBottom:12}}>
-          <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setShowOutput(false);setStepAndSave(4);}}>← Edit</button>
-          {!loading&&<button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#d0b16f",color:"#fff",cursor:"pointer"}} onClick={function(){generateWordDoc();}}>Download Word (.docx)</button>}
+          <button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={function(){setShowOutput(false);setStepAndSave(4);}}>← Edit</button>
+          {!loading&&<button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){generateWordDoc();}}>Download Word (.docx)</button>}
         </div>
         <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
         <div style={cardStyle}>
           {tab==="plan"&&(
             <div>
-              {loading&&<div style={{textAlign:"center",padding:"40px 16px",color:"#6b7280",fontSize:14}}>{loadMsg}</div>}
-              {!loading&&!planHtml&&<div style={{textAlign:"center",padding:"40px 16px",color:"#6b7280",fontSize:14}}><button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none",fontSize:14,padding:"10px 20px"})} onClick={generatePlan}>Generate Business Plan</button></div>}
+              {loading&&<div style={{textAlign:"center",padding:"40px 16px",color:"#5F7183",fontSize:15}}>{loadMsg}</div>}
+              {!loading&&!planHtml&&<div style={{textAlign:"center",padding:"40px 16px",color:"#5F7183",fontSize:15}}><button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none",fontSize:15,padding:"10px 20px"})} onClick={generatePlan}>Generate Business Plan</button></div>}
               {planHtml&&<div style={{overflowX:"auto",pointerEvents:"none",maxWidth:780,marginLeft:"auto",marginRight:"auto"}} dangerouslySetInnerHTML={{__html:planHtml}}/>}
               {planHtml&&liveRows&&liveRows.length>0&&(
                 <div style={{marginTop:8}}>
@@ -3456,8 +3553,8 @@ function App(){
                 </div>
               )}
               {planHtml&&liveRows&&liveRows.length>0&&(
-                <div style={{marginTop:32,borderTop:"2px solid #f5eedd",paddingTop:24}}>
-                  <h2 style={{fontSize:17,fontWeight:700,color:"#01236d",marginBottom:16}}>12-Month Cashflow Forecast</h2>
+                <div style={{marginTop:32,borderTop:"2px solid #F4ECDC",paddingTop:24}}>
+                  <h2 style={{fontSize:18,fontWeight:700,color:"#01236D",marginBottom:16}}>12-Month Cashflow Forecast</h2>
                   <CfTable rows={liveRows}/>
                 </div>
               )}
@@ -3467,10 +3564,10 @@ function App(){
             <div>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:20}}>
                 <img src={LOGO_SRC} style={{width:44,height:44,objectFit:"contain"}} alt="Logo"/>
-                <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236d",color:"#fff",cursor:"pointer"}} onClick={function(){downloadCashflowExcel();}}>Download Excel (.xlsx)</button>
+                <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){downloadCashflowExcel();}}>Download Excel (.xlsx)</button>
               </div>
         <div style={{display:"flex",gap:5,marginBottom:22}}>
-                {["table","preview"].map(function(t){return <button key={t} style={{flex:1,height:4,borderRadius:2,background:previewTab===t?"#d0b16f":"#e5e7eb",border:"none",cursor:"pointer"}} onClick={function(){setPreviewTab(t);}}/>;}) }
+                {["table","preview"].map(function(t){return <button key={t} style={{flex:1,height:4,borderRadius:2,background:previewTab===t?"#D0B16F":"#E7EAED",border:"none",cursor:"pointer"}} onClick={function(){setPreviewTab(t);}}/>;}) }
               </div>
               {previewTab==="table"&&<CfTable rows={liveRows}/>}
             </div>
@@ -3481,13 +3578,13 @@ function App(){
           <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.5)",zIndex:1000,overflow:"auto"}}>
             <div style={{background:"#fff",maxWidth:860,margin:"20px auto",borderRadius:12,padding:"32px 28px"}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-                <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){window.print();}}>Print / Save as PDF</button>
+                <button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={function(){window.print();}}>Print / Save as PDF</button>
                 <button style={btnSm} onClick={function(){setShowPrint(false);}}>✕ Close</button>
               </div>
-              <div style={{textAlign:"center",paddingBottom:24,marginBottom:24,borderBottom:"2px solid #f5eedd"}}>
-                <div style={{fontSize:26,fontWeight:800,color:"#01236d",marginBottom:8}}>{fdRef.current.bizName||"Business Plan"}</div>
-                <div style={{fontSize:16,fontWeight:500,color:"#d0b16f",marginBottom:6}}>Business Plan and Cashflow Forecast</div>
-                <div style={{fontSize:13,color:"#6b7280"}}>{fmtDate(new Date().toISOString().slice(0,10))}</div>
+              <div style={{textAlign:"center",paddingBottom:24,marginBottom:24,borderBottom:"2px solid #F4ECDC"}}>
+                <div style={{fontSize:26,fontWeight:800,color:"#01236D",marginBottom:8}}>{fdRef.current.bizName||"Business Plan"}</div>
+                <div style={{fontSize:15,fontWeight:500,color:"#D0B16F",marginBottom:6}}>Business Plan and Cashflow Forecast</div>
+                <div style={{fontSize:13,color:"#5F7183"}}>{fmtDate(new Date().toISOString().slice(0,10))}</div>
               </div>
               {planHtml&&<div style={{overflowX:"auto",pointerEvents:"none",maxWidth:780,marginLeft:"auto",marginRight:"auto"}} dangerouslySetInnerHTML={{__html:planHtml}}/>}
             </div>
@@ -3501,80 +3598,83 @@ function App(){
     <div style={appStyle}>
       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
         <img src={LOGO_SRC} style={{width:36,height:36,objectFit:"contain"}} alt="Logo"/>
-        <span style={{fontWeight:700,color:"#01236d",fontSize:15,marginRight:"auto"}}>B-PlanDIY</span>
+        <span style={{fontWeight:700,color:"#01236D",fontSize:15,marginRight:"auto"}}>B-PlanDIY</span>
         {[
           {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
           {label:"Cashflow",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
           {label:"Graphs",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("graphs");},50);}},
           {label:"What If",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
-        ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #d0b16f",background:"#fff",color:"#01236d",cursor:"pointer"}}>{item.label}</button>;})}
+        ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #D0B16F",background:"#fff",color:"#01236D",cursor:"pointer"}}>{item.label}</button>;})}
       </div>
       <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
       <div style={cardStyle}>
+        <div style={{height:5,background:"#E7EAED",borderRadius:6,marginBottom:12,overflow:"hidden"}}>
+          <div style={{height:"100%",width:(((step+1)/stepDefs.length)*100)+"%",background:"linear-gradient(90deg,#01236D,#D0B16F)",borderRadius:6,transition:"width .45s cubic-bezier(.4,0,.2,1)"}}/>
+        </div>
         <div style={{display:"flex",gap:2,marginBottom:20,overflowX:"auto"}}>
           {stepDefs.map(function(s,i){
             var active=i===step;
             var done=i<step;
             return <button key={i} onClick={function(){setStepAndSave(i);}} style={{
               flex:1,minWidth:0,padding:"6px 4px",border:"none",borderRadius:6,cursor:"pointer",
-              background:active?"#01236d":done?"#f5eedd":"#f3f4f6",
-              color:active?"#fff":done?"#01236d":"#6b7280",
+              background:active?"#01236D":done?"#F4ECDC":"#FCFCFA",
+              color:active?"#fff":done?"#01236D":"#5F7183",
               fontSize:11,fontWeight:active?700:500,
               whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
-              borderBottom:active?"3px solid #d0b16f":done?"3px solid #d0b16f":"3px solid transparent",
+              borderBottom:active?"3px solid #D0B16F":done?"3px solid #D0B16F":"3px solid transparent",
               fontFamily:"inherit"
             }}>{done?"✓ ":""}{["Details","Market","Strategy","How","Finances"][i]||s.label}</button>;
           })}
         </div>
-        <div style={{fontSize:11,fontWeight:600,color:"#374151",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>{currentStep.label}</div>
-        <div style={{fontSize:20,fontWeight:700,color:GREEN_DARK,marginBottom:4,lineHeight:1.2}}>{currentStep.title}</div>
-        <div style={{fontSize:14,color:"#374151",marginBottom:12,lineHeight:1.6}}>{currentStep.desc}</div>
+        <div style={{fontSize:11,fontWeight:600,color:"#29384A",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>{currentStep.label}</div>
+        <div style={{fontSize:18,fontWeight:700,color:GREEN_DARK,marginBottom:4,lineHeight:1.2}}>{currentStep.title}</div>
+        <div style={{fontSize:15,color:"#29384A",marginBottom:12,lineHeight:1.6}}>{currentStep.desc}</div>
         <div style={{display:"flex",gap:10,marginBottom:20}}>
-          {step>0&&<button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setStepAndSave(step-1);}}>Back</button>}
+          {step>0&&<button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={function(){setStepAndSave(step-1);}}>Back</button>}
           {step<stepDefs.length-1
-            ?<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setStepAndSave(step+1);}}>Next →</button>
-            :<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setShowDirection(true);}}>Next →</button>
+            ?<button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setStepAndSave(step+1);}}>Next →</button>
+            :<button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setShowDirection(true);}}>Next →</button>
           }
         </div>
         {currentStep.render()}
         <div style={{display:"flex",gap:10,marginTop:20}}>
-          {step>0&&<button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){setStepAndSave(step-1);}}>Back</button>}
+          {step>0&&<button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={function(){setStepAndSave(step-1);}}>Back</button>}
           {step<stepDefs.length-1
-            ?<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setStepAndSave(step+1);}}>Next →</button>
-            :<button style={Object.assign({},btnSm,{background:"#d0b16f",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setShowDirection(true);}}>Next →</button>
+            ?<button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setStepAndSave(step+1);}}>Next →</button>
+            :<button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none",marginLeft:"auto"})} onClick={function(){setShowDirection(true);}}>Next →</button>
           }
         </div>
       </div>
       <AppFooter/>
-      {adminMsg&&<div style={{background:GREEN_LIGHT,border:"1px solid "+GREEN,borderRadius:8,padding:"10px 14px",marginTop:8,fontSize:13,color:GREEN_DARK}}>{adminMsg}</div>}
-      {showAdmin&&(<div style={{background:"#f9fafb",borderRadius:8,padding:16,marginTop:8,border:"1px solid #e5e7eb"}}>
-        <div style={{fontSize:13,fontWeight:600,color:"#374151",marginBottom:8}}>Admin</div>
+      {adminMsg&&<div style={{background:GREEN_LIGHT,border:"1px solid "+GREEN,borderRadius:6,padding:"10px 14px",marginTop:8,fontSize:13,color:GREEN_DARK}}>{adminMsg}</div>}
+      {showAdmin&&(<div style={{background:"#FCFCFA",borderRadius:6,padding:16,marginTop:8,border:"1px solid #E7EAED"}}>
+        <div style={{fontSize:13,fontWeight:600,color:"#29384A",marginBottom:8}}>Admin</div>
         <input style={inp} type="password" placeholder="Password" value={adminPw} onChange={function(e){setAdminPw(e.target.value);}}/>
         {adminPw==="stratdiy2025"&&(<div style={{marginTop:8}}>
           <textarea ref={growRef} onInput={growOn} style={ta(2)} placeholder="Broadcast message to all users (leave blank to clear)" value={adminMsgInput} onChange={function(e){setAdminMsgInput(e.target.value);}}/>
           <div style={{display:"flex",gap:8,marginTop:8}}>
-            <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={function(){try{localStorage.setItem("bpg_admin_msg",adminMsgInput);}catch(e){}setShowAdmin(false);setAdminPw("");}}>Save & broadcast</button>
+            <button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={function(){try{localStorage.setItem("bpg_admin_msg",adminMsgInput);}catch(e){}setShowAdmin(false);setAdminPw("");}}>Save & broadcast</button>
             <button style={btnSm} onClick={function(){setShowAdmin(false);setAdminPw("");}}>Cancel</button>
           </div>
         </div>)}
       </div>)}
       {showFeedback&&(
-        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:9998,overflowY:"auto"}}
+        <div className="bpd-overlay" style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:9998,overflowY:"auto"}}
           onClick={function(){setShowFeedback(false);}}>
           <div style={{background:"#fff",borderRadius:12,maxWidth:460,width:"100%",padding:"20px 22px",boxShadow:"0 10px 40px rgba(0,0,0,0.25)",margin:"auto"}}
             onClick={function(e){e.stopPropagation();}}>
-            <div style={{fontSize:16,fontWeight:700,color:"#01236d",marginBottom:12}}>Give feedback</div>
-            <div style={{background:"#f9fafb",borderRadius:8,padding:16,marginTop:8,border:"1px solid #e5e7eb"}}>
-          {fbDone?<div style={{textAlign:"center",color:"#d0b16f",fontSize:14,padding:"8px 0"}}>Thank you for your feedback!</div>:(
+            <div style={{fontSize:15,fontWeight:700,color:"#01236D",marginBottom:12}}>Give feedback</div>
+            <div style={{background:"#FCFCFA",borderRadius:6,padding:16,marginTop:8,border:"1px solid #E7EAED"}}>
+          {fbDone?<div style={{textAlign:"center",color:"#D0B16F",fontSize:15,padding:"8px 0"}}>Thank you for your feedback!</div>:(
             <div>
-              <div style={{fontSize:13,fontWeight:500,color:"#374151",marginBottom:8}}>How would you rate your experience?</div>
+              <div style={{fontSize:13,fontWeight:500,color:"#29384A",marginBottom:8}}>How would you rate your experience?</div>
               <div style={{display:"flex",gap:6,marginBottom:12}}>
-                {[1,2,3,4,5].map(function(n){return <button key={n} onClick={function(){setFbRating(n);}} style={{fontFamily:"inherit",fontSize:20,background:"none",border:"none",cursor:"pointer",color:n<=fbRating?"#f59e0b":"#d1d5db",padding:"2px 4px"}}>{n<=fbRating?"★":"☆"}</button>;})}
+                {[1,2,3,4,5].map(function(n){return <button key={n} onClick={function(){setFbRating(n);}} style={{fontFamily:"inherit",fontSize:18,background:"none",border:"none",cursor:"pointer",color:n<=fbRating?"#D0B16F":"#E7EAED",padding:"2px 4px"}}>{n<=fbRating?"★":"☆"}</button>;})}
               </div>
               <textarea ref={growRef} onInput={growOn} style={ta(3)} placeholder="Any comments? (optional)" value={fbText} onChange={function(e){setFbText(e.target.value);}}/>
               <input key="fb-email" autoComplete="email" type="email" style={{...inp,marginTop:8}} placeholder="Your email (optional - so we can follow up)" value={fbEmail} onChange={function(e){setFbEmail(e.target.value);}}/>
               <div style={{display:"flex",gap:8,marginTop:8}}>
-                <button style={Object.assign({},btnSm,{background:"#01236d",color:"#fff",border:"none"})} onClick={submitFeedback} disabled={fbLoad||(!fbText.trim()&&fbRating===0)}>{fbLoad?"Sending...":"Send Feedback"}</button>
+                <button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={submitFeedback} disabled={fbLoad||(!fbText.trim()&&fbRating===0)}>{fbLoad?"Sending...":"Send Feedback"}</button>
                 <button style={btnSm} onClick={function(){setShowFeedback(false);setFbText("");setFbRating(0);setFbEmail("");}}>Cancel</button>
               </div>
             </div>
