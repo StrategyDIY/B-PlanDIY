@@ -72,7 +72,7 @@ a{transition:color .15s ease;}
 
 /* Scrollbars, where the browser allows styling */
 *::-webkit-scrollbar{height:10px;width:10px;}
-*::-webkit-scrollbar-thumb{background:#E0D2B4;border-radius:6px;}
+*::-webkit-scrollbar-thumb{background:#BFE3E1;border-radius:6px;}
 *::-webkit-scrollbar-thumb:hover{background:#D0B16F;}
 *::-webkit-scrollbar-track{background:transparent;}
 
@@ -123,7 +123,7 @@ try {
 </script>
 <script type="text/plain" id="app-src">
 
-const GREEN="#D0B16F",GREEN_DARK="#1F7A7C",GREEN_LIGHT="#F4ECDC",AMBER="#6B5A33",AMBER_LIGHT="#F4ECDC",RED="#B14A38",RED_LIGHT="#FDEEEB";
+const GREEN="#D0B16F",GREEN_DARK="#1F7A7C",GREEN_LIGHT="#E7F5F4",AMBER="#1F5C5D",AMBER_LIGHT="#E7F5F4",RED="#B14A38",RED_LIGHT="#FDEEEB";
 const LOGO_SRC=window.__LOGO_SRC__||"";
 const legalOpts=[{v:"meets",l:"Meets all obligations",s:"Tax, licences, employment, insurance and compliance are in order",color:GREEN,bg:GREEN_LIGHT},{v:"partial",l:"Partially meets obligations",s:"Some requirements are in place, others still being addressed",color:AMBER,bg:AMBER_LIGHT},{v:"notyet",l:"Not yet",s:"Legal and compliance requirements still to be set up",color:RED,bg:RED_LIGHT}];
 const onlineCh=[{id:"oWeb",label:"Web",ph:"Website or app URL"},{id:"oFb",label:"FB",ph:"Facebook page URL"},{id:"oIg",label:"IG",ph:"Instagram handle"},{id:"oLi",label:"LI",ph:"LinkedIn URL"},{id:"oOther",label:"Other",ph:"Other social/platform"}];
@@ -458,7 +458,7 @@ function ChartTip({active,payload,label}){
 }
 
 function CfCharts({rows,expCatsData}){
-  const COLORS=["#01236D","#D0B16F","#2A9D9F","#E97868","#5F7183","#6B5A33","#1F7A7C","#B14A38","#8A98A6","#E0D2B4","#29384A","#BFE3E1","#F4ECDC","#E7F5F4"];
+  const COLORS=["#01236D","#D0B16F","#2A9D9F","#E97868","#5F7183","#1F5C5D","#1F7A7C","#B14A38","#8A98A6","#BFE3E1","#29384A","#BFE3E1","#E7F5F4","#E7F5F4"];
   const expPieData=(expCatsData||[]).map(function(c,i){
     var total=rows.reduce(function(s,r){return s+(r.expDetail&&r.expDetail[c.id]||0);},0);
     return total>0?{name:c.l,value:total,color:COLORS[i%COLORS.length]}:null;
@@ -1153,8 +1153,8 @@ function App(){
         <button style={reviseBtn} title="Same points, different wording" onClick={function(){setReviseOpen("");props.run("reword");}}>Reword</button>
         <button style={reviseBtn} title="Different points, optionally with a steer" onClick={function(){setReviseNote2("");setReviseOpen(open?"":props.id);}}>Rethink</button>
         {open&&(
-          <div style={{marginTop:8,background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"10px 12px"}}>
-            <div style={{fontSize:13,color:"#6B5A33",marginBottom:6}}>What should it focus on? Leave blank for a fresh take.</div>
+          <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"10px 12px"}}>
+            <div style={{fontSize:13,color:"#1F5C5D",marginBottom:6}}>What should it focus on? Leave blank for a fresh take.</div>
             <input style={Object.assign({},inp,{fontSize:13})} placeholder="e.g. focus on online competitors, or on the Auckland market"
               value={reviseNote2} onChange={function(e){setReviseNote2(e.target.value);}}
               onKeyDown={function(e){ if(e.key==="Enter"){ setReviseOpen(""); props.run("rethink",reviseNote2); } }}/>
@@ -1567,7 +1567,7 @@ function App(){
       var graphChildren=[];
       graphChildren.push(new Paragraph({pageBreakBefore:true,spacing:{after:200},children:[new TextRun({text:"Financial Graphs",bold:true,size:36,color:"01236d",font:FONT})]}));
 
-      var CHART_COLORS=["#01236D","#D0B16F","#2A9D9F","#E97868","#5F7183","#6B5A33","#1F7A7C","#B14A38","#8A98A6","#E0D2B4","#29384A","#BFE3E1","#F4ECDC","#E7F5F4"];
+      var CHART_COLORS=["#01236D","#D0B16F","#2A9D9F","#E97868","#5F7183","#1F5C5D","#1F7A7C","#B14A38","#8A98A6","#BFE3E1","#29384A","#BFE3E1","#E7F5F4","#E7F5F4"];
 
       // Shared axis helper. Always includes zero in the range so negative
       // values sit below the baseline rather than mirroring positives.
@@ -2120,7 +2120,7 @@ function App(){
 
       var today=new Date();
       var dateStr=today.getDate()+" "+["January","February","March","April","May","June","July","August","September","October","November","December"][today.getMonth()]+" "+today.getFullYear();
-      var html="<div style='text-align:center;padding:24px 0 32px;border-bottom:2px solid #F4ECDC;margin-bottom:28px'>";
+      var html="<div style='text-align:center;padding:24px 0 32px;border-bottom:2px solid #E7F5F4;margin-bottom:28px'>";
       html+="<div style='font-size:26px;font-weight:800;color:#01236D;margin-bottom:8px'>"+(fdRef.current.bizName||"Business Plan")+"</div>";
       html+="<div style='font-size:16px;font-weight:500;color:#D0B16F;margin-bottom:6px'>Business Plan and Cashflow Forecast</div>";
       html+="<div style='font-size:13px;color:#5F7183'>"+dateStr+"</div>";
@@ -2133,7 +2133,7 @@ function App(){
         if(trimmed.startsWith("## ")){
           if(inList){html+="</ul>";inList=false;}
           if(inOList){html+="</ol>";inOList=false;}
-          html+="<h2 style='font-size:18px;font-weight:700;color:#01236D;margin:28px 0 10px;padding-bottom:5px;border-bottom:2px solid #F4ECDC'>"+trimmed.slice(3)+"</h2>";
+          html+="<h2 style='font-size:18px;font-weight:700;color:#01236D;margin:28px 0 10px;padding-bottom:5px;border-bottom:2px solid #E7F5F4'>"+trimmed.slice(3)+"</h2>";
         } else if(trimmed.startsWith("### ")){
           if(inList){html+="</ul>";inList=false;}
           if(inOList){html+="</ol>";inOList=false;}
@@ -2159,7 +2159,7 @@ function App(){
       // Append cashflow table
       var cfRows=liveRows;
       if(cfRows&&cfRows.length){
-        html+="<div style='margin-top:36px;border-top:2px solid #F4ECDC;padding-top:24px'>";
+        html+="<div style='margin-top:36px;border-top:2px solid #E7F5F4;padding-top:24px'>";
         html+="<h2 style='font-size:17px;font-weight:700;color:#01236D;margin-bottom:4px'>Graphs</h2>";
         html+="<p style='font-size:13px;color:#5F7183;margin-bottom:16px;font-style:italic'>Units Sold &amp; Monthly Sales, Expenses Breakdown, Net Profit/(Loss) and Closing Bank Balance charts appear below.</p>";
       }
@@ -2319,9 +2319,9 @@ function App(){
             Your backup has been saved to your <strong>Downloads</strong> folder as:
             <div style={{background:"#FCFCFA",border:"1px solid #E7EAED",borderRadius:6,padding:"8px 10px",margin:"8px 0",fontSize:13,wordBreak:"break-all",color:"#01236D"}}>{backupName}</div>
           </div>
-          <div style={{background:"#F4ECDC",border:"1px solid #E0D2B4",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"12px 14px",marginBottom:16}}>
+          <div style={{background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"12px 14px",marginBottom:16}}>
             <div style={{fontSize:15,fontWeight:700,color:"#01236D",marginBottom:6}}>Please don't try to open this file</div>
-            <div style={{fontSize:13,color:"#6B5A33",lineHeight:1.6}}>
+            <div style={{fontSize:13,color:"#1F5C5D",lineHeight:1.6}}>
               It isn't a document, so there is nothing to read in it. If you double-click it your computer may show a confusing "File Conversion" window - just close that window, the file is still fine.
             </div>
           </div>
@@ -2541,8 +2541,8 @@ function App(){
   function FinWarn(props){
     if(!props.show)return null;
     return (
-      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#F4ECDC",border:"1px solid #E0D2B4",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"9px 12px",marginTop:8,marginBottom:4}}>
-        <span style={{fontSize:13,lineHeight:1.5,color:"#6B5A33"}}>{props.children}</span>
+      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"9px 12px",marginTop:8,marginBottom:4}}>
+        <span style={{fontSize:13,lineHeight:1.5,color:"#1F5C5D"}}>{props.children}</span>
       </div>
     );
   }
@@ -2754,8 +2754,8 @@ function App(){
           {open?"Close":"Help me work this out"}
         </button>
         {open&&(
-          <div style={{marginTop:8,background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"12px 14px"}}>
-            <div style={{fontSize:13,color:"#6B5A33",marginBottom:10,lineHeight:1.55}}>{meta.instr}</div>
+          <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"12px 14px"}}>
+            <div style={{fontSize:13,color:"#1F5C5D",marginBottom:10,lineHeight:1.55}}>{meta.instr}</div>
             {rows.map(function(row,ri){return (
               <div key={ri} style={{display:"flex",gap:8,marginBottom:6,flexWrap:"wrap"}}>
                 <input style={Object.assign({},inp,{flex:"1 1 150px",minWidth:0,fontSize:13})} placeholder="Name or role" defaultValue={row.name}
@@ -2780,8 +2780,8 @@ function App(){
               var on=fdRef.current.goalExpApply==="1";
               var tot=hires.reduce(function(s,h){return s+goalExpRowCost(h.row);},0);
               return (
-                <div style={{marginTop:12,borderTop:"1px solid #E0D2B4",paddingTop:10}}>
-                  <div style={{fontSize:13,color:"#6B5A33",marginBottom:6,lineHeight:1.5}}>
+                <div style={{marginTop:12,borderTop:"1px solid #BFE3E1",paddingTop:10}}>
+                  <div style={{fontSize:13,color:"#1F5C5D",marginBottom:6,lineHeight:1.5}}>
                     Already coming from your Step 4 goals{on?"":" (not currently switched on)"} &mdash; do not list these again above:
                   </div>
                   {hires.map(function(h,hi){return (
@@ -2791,7 +2791,7 @@ function App(){
                     </div>
                   );})}
                   {on&&(
-                    <div style={{fontSize:13,color:"#29384A",marginTop:8,paddingTop:8,borderTop:"1px dashed #E0D2B4"}}>
+                    <div style={{fontSize:13,color:"#29384A",marginTop:8,paddingTop:8,borderTop:"1px dashed #BFE3E1"}}>
                       Combined cost over 12 months <strong style={{color:"#01236D"}}>{fmt(annual+tot)}</strong>
                     </div>
                   )}
@@ -2800,7 +2800,7 @@ function App(){
             })()}
 
             {annual>0&&(
-              <div style={{marginTop:12,fontSize:13,color:"#29384A",lineHeight:1.7,borderTop:"1px solid #E0D2B4",paddingTop:10}}>
+              <div style={{marginTop:12,fontSize:13,color:"#29384A",lineHeight:1.7,borderTop:"1px solid #BFE3E1",paddingTop:10}}>
                 Total over 12 months <strong>{fmt(annual)}</strong><br/>
                 {teamCostsVary(cat)
                   ? <span>Because start months differ, the cost changes through the year: from <strong style={{color:"#01236D"}}>{fmt(Math.round(Math.min.apply(null,teamMonthlyCosts(cat))))}</strong> to <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(Math.max.apply(null,teamMonthlyCosts(cat))))}</strong> a month. We will fill in all twelve months for you.</span>
@@ -2843,10 +2843,10 @@ function App(){
           {acOpen?"Close":"Help me work this out"}
         </button>
         {acOpen&&(
-          <div style={{marginTop:8,background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"12px 14px"}}>
+          <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"12px 14px"}}>
             {units>0?(
               <div>
-                <div style={{fontSize:13,color:"#6B5A33",marginBottom:8,lineHeight:1.55}}>
+                <div style={{fontSize:13,color:"#1F5C5D",marginBottom:8,lineHeight:1.55}}>
                   You have entered <strong>{Math.round(units).toLocaleString()} units</strong> over the 12 months. Enter what those sales will cost you to deliver and we will work out the cost per unit.
                 </div>
                 <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Total cost of making those sales over 12 months ($)</div>
@@ -2892,10 +2892,10 @@ function App(){
           {apOpen?"Close":"Help me work this out"}
         </button>
         {apOpen&&(
-          <div style={{marginTop:8,background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"12px 14px"}}>
+          <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"12px 14px"}}>
             {units>0?(
               <div>
-                <div style={{fontSize:13,color:"#6B5A33",marginBottom:8,lineHeight:1.55}}>
+                <div style={{fontSize:13,color:"#1F5C5D",marginBottom:8,lineHeight:1.55}}>
                   You have entered <strong>{Math.round(units).toLocaleString()} units</strong> over the 12 months. Enter the total sales you expect and we will work out the average price per unit.
                 </div>
                 <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Total sales expected over 12 months ($)</div>
@@ -2948,12 +2948,12 @@ function App(){
 
   function BackupNote(){
     return (
-      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"9px 12px",marginBottom:12}}>
-        <span style={{fontSize:13,lineHeight:1.5,color:"#6B5A33",flex:1}}>
+      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"9px 12px",marginBottom:12}}>
+        <span style={{fontSize:13,lineHeight:1.5,color:"#1F5C5D",flex:1}}>
           Your plan is saved in this browser only. It will be lost if you or your settings clear your browsing data.{" "}
           <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Save a backup file</button>
           {" "}saves a restore file to your Downloads folder.
-          <span style={{display:"block",fontSize:13,color:"#6B5A33",marginTop:6,paddingTop:6,borderTop:"1px solid #E0D2B4"}}>
+          <span style={{display:"block",fontSize:13,color:"#1F5C5D",marginTop:6,paddingTop:6,borderTop:"1px solid #BFE3E1"}}>
             If you are finished and on a shared or public computer{" "}
             <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={clearDevice}>Clear plan from this device</button>
             {" "}so that anyone else who uses this computer can't open your plan.
@@ -3024,7 +3024,7 @@ function App(){
             </div>
             <div style={f2col}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Current stage</div>
-              {RS("stage",["Great idea (thinking about going into business)","Early stage (business founded and getting traction)","Established business (been in business awhile)"])}
+              {RS("stage",["Great idea (thinking about going into business)","Early stage (business started and getting traction)","Established business (been in business awhile)"])}
             </div>
           </div>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Main contact</div>
@@ -3173,7 +3173,7 @@ function App(){
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How many extra sales units will each goal deliver over the next 12 months?</div>
               <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>One line per goal, so the total is easy to check. Leave a goal blank if it does not add sales.</span>
-              <div style={{fontSize:13,color:"#6B5A33",background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
+              <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
               <div style={{marginBottom:6}}><button style={gsLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoalSales} disabled={gsLoading}>{gsLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button></div>
               <div key={"gs-"+gsVersion}>
                 {goals.map(function(g,gi){
@@ -3249,8 +3249,18 @@ function App(){
         var s5tabs=["Details","Cashflow","Graphs","What If"];
         var s5key=["details","cashflow","graphs","whatif"].indexOf(previewTab)>=0?previewTab:"details";
         return (<>
-          <div style={{display:"flex",gap:0,borderBottom:"1px solid #E7EAED",marginBottom:20}}>
-            {s5tabs.map(function(t){var k=t.toLowerCase().replace(" ","");var active=s5key===k;return <button key={t} style={{fontFamily:"inherit",fontSize:13,padding:"8px 16px",border:"none",background:"none",cursor:"pointer",borderBottom:"2px solid "+(active?"#D0B16F":"transparent"),color:active?"#01236D":"#5F7183",fontWeight:active?600:400}} onClick={function(){setPreviewTab(k);}}>{t}</button>;})}
+          <div style={{display:"inline-flex",gap:4,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:12,padding:4,marginBottom:20,maxWidth:"100%",overflowX:"auto"}}>
+            {s5tabs.map(function(t){
+              var k=t.toLowerCase().replace(" ","");
+              var active=s5key===k;
+              return <button key={t} style={{
+                fontFamily:"inherit",fontSize:15,fontWeight:active?700:600,
+                padding:"10px 22px",border:"none",borderRadius:6,cursor:"pointer",whiteSpace:"nowrap",
+                background:active?"#01236D":"transparent",
+                color:active?"#fff":"#1F5C5D",
+                boxShadow:active?"0 2px 6px rgba(1,35,109,0.25)":"none"
+              }} onClick={function(){setPreviewTab(k);}}>{t}</button>;
+            })}
           </div>
           {s5key==="details"&&(<>
             {FinSummary()}
@@ -3294,7 +3304,7 @@ function App(){
             </FinSection>
             <FinSection open={finOpen.sales} onToggle={function(){toggleFin("sales");}} title="2. Money in" hint="sales and other income">
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Monthly sales units</div>
-            <div style={{fontSize:13,color:"#6B5A33",background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
+            <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:6}}>
                           </div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkMonthlyUnits" checked={!!gridChecks["monthlyUnits"]} onChange={function(){toggleGrid("monthlyUnits");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkMonthlyUnits" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
@@ -3327,7 +3337,7 @@ function App(){
             {gridChecks["avgPrice"]?<div key={"avgPriceGrid"}><MonthGrid keyPrefix={"avgPriceM"} storeKey={"avgPrice"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.avgPrice||""} placeholder="e.g. 49" onChange={function(e){fdRef.current.avgPrice=e.target.value;saveToStorage();refreshLive();}}/>}
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Average cost per unit ($)</div>
-            <div style={{fontSize:13,color:"#6B5A33",background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, your average cost per unit may be zero.</div>
+            <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, your average cost per unit may be zero.</div>
             {AvgCostHelper()}
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgCost" checked={!!gridChecks["avgCost"]} onChange={function(){toggleGrid("avgCost");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgCost" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["avgCost"]?<div key={"avgCostGrid"}><MonthGrid keyPrefix={"avgCostM"} storeKey={"avgCost"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.avgCost||""} placeholder="e.g. 12" onChange={function(e){fdRef.current.avgCost=e.target.value;saveToStorage();refreshLive();}}/>}
@@ -3395,7 +3405,7 @@ function App(){
             <FinSection open={finOpen.tx} onToggle={function(){toggleFin("tx");}} title="5. Other transactions" hint="loans, assets, drawings">
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Other money in and out ($)</div>
             <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>Regular monthly or one-off</span>
-            <div style={{background:"#F4ECDC",border:"1px solid #E0D2B4",borderRadius:6,padding:"8px 11px",marginBottom:10,fontSize:13,color:"#6B5A33",lineHeight:1.55}}>
+            <div style={{background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"8px 11px",marginBottom:10,fontSize:13,color:"#1F5C5D",lineHeight:1.55}}>
               <strong style={{color:"#01236D"}}>Which sign to use:</strong> enter money coming <strong>in</strong> as a <strong>positive</strong> number, and money going <strong>out</strong> as a <strong>negative</strong> number.<br/>
               e.g. a loan received is <strong>50000</strong>, a loan repayment is <strong>-2000</strong>.
             </div>
@@ -3449,7 +3459,7 @@ function App(){
     var f=fdRef.current;
     return (
       <div style={appStyle}>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:12,padding:"8px 12px"}}>
           <img src={LOGO_SRC} style={{width:36,height:36,objectFit:"contain"}} alt="Logo"/>
           <span style={{fontWeight:700,color:"#01236D",fontSize:15,marginRight:"auto"}}>B-PlanDIY</span>
           {[
@@ -3457,7 +3467,7 @@ function App(){
             {label:"Cashflow",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
             {label:"Graphs",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("graphs");},50);}},
             {label:"What If",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
-          ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #D0B16F",background:item.label==="Summary"?"#D0B16F":"#fff",color:item.label==="Summary"?"#fff":"#01236D",cursor:"pointer"}}>{item.label}</button>;})}
+          ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"9px 16px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",whiteSpace:"nowrap",boxShadow:"0 1px 3px rgba(1,35,109,0.2)"}}>{item.label}</button>;})}
         </div>
         <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
         <div style={cardStyle}>
@@ -3465,7 +3475,7 @@ function App(){
             {stepDefs.map(function(s,i){
               return <button key={i} onClick={function(){setShowDirection(false);setStepAndSave(i);}} style={{
                 flex:1,minWidth:0,padding:"9px 4px",border:"none",borderRadius:6,cursor:"pointer",
-                background:"#F4ECDC",color:"#01236D",
+                background:"#E7F5F4",color:"#01236D",
                 fontSize:11,fontWeight:500,
                 whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
                 borderBottom:"3px solid #D0B16F",fontFamily:"inherit"
@@ -3523,7 +3533,7 @@ function App(){
                 :<span style={{color:"#8A98A6"}}>Not yet completed</span>}
             </div>
           </div>
-          <div style={{display:"flex",gap:10,justifyContent:"space-between",paddingTop:16,borderTop:"2px solid #F4ECDC"}}>
+          <div style={{display:"flex",gap:10,justifyContent:"space-between",paddingTop:16,borderTop:"2px solid #E7F5F4"}}>
             <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"6px 14px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>← Back</button>
             <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 28px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
           </div>
@@ -3553,7 +3563,7 @@ function App(){
                 </div>
               )}
               {planHtml&&liveRows&&liveRows.length>0&&(
-                <div style={{marginTop:32,borderTop:"2px solid #F4ECDC",paddingTop:24}}>
+                <div style={{marginTop:32,borderTop:"2px solid #E7F5F4",paddingTop:24}}>
                   <h2 style={{fontSize:18,fontWeight:700,color:"#01236D",marginBottom:16}}>12-Month Cashflow Forecast</h2>
                   <CfTable rows={liveRows}/>
                 </div>
@@ -3581,7 +3591,7 @@ function App(){
                 <button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={function(){window.print();}}>Print / Save as PDF</button>
                 <button style={btnSm} onClick={function(){setShowPrint(false);}}>✕ Close</button>
               </div>
-              <div style={{textAlign:"center",paddingBottom:24,marginBottom:24,borderBottom:"2px solid #F4ECDC"}}>
+              <div style={{textAlign:"center",paddingBottom:24,marginBottom:24,borderBottom:"2px solid #E7F5F4"}}>
                 <div style={{fontSize:26,fontWeight:800,color:"#01236D",marginBottom:8}}>{fdRef.current.bizName||"Business Plan"}</div>
                 <div style={{fontSize:15,fontWeight:500,color:"#D0B16F",marginBottom:6}}>Business Plan and Cashflow Forecast</div>
                 <div style={{fontSize:13,color:"#5F7183"}}>{fmtDate(new Date().toISOString().slice(0,10))}</div>
@@ -3596,7 +3606,7 @@ function App(){
   var currentStep=stepDefs[step];
   return (
     <div style={appStyle}>
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,flexWrap:"wrap",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:12,padding:"8px 12px"}}>
         <img src={LOGO_SRC} style={{width:36,height:36,objectFit:"contain"}} alt="Logo"/>
         <span style={{fontWeight:700,color:"#01236D",fontSize:15,marginRight:"auto"}}>B-PlanDIY</span>
         {[
@@ -3604,7 +3614,7 @@ function App(){
           {label:"Cashflow",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
           {label:"Graphs",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("graphs");},50);}},
           {label:"What If",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
-        ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:11,fontWeight:600,padding:"5px 10px",borderRadius:6,border:"1px solid #D0B16F",background:"#fff",color:"#01236D",cursor:"pointer"}}>{item.label}</button>;})}
+        ].map(function(item){return <button key={item.label} onClick={item.action} style={{fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"9px 16px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",whiteSpace:"nowrap",boxShadow:"0 1px 3px rgba(1,35,109,0.2)"}}>{item.label}</button>;})}
       </div>
       <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
       <div style={cardStyle}>
@@ -3617,7 +3627,7 @@ function App(){
             var done=i<step;
             return <button key={i} onClick={function(){setStepAndSave(i);}} style={{
               flex:1,minWidth:0,padding:"6px 4px",border:"none",borderRadius:6,cursor:"pointer",
-              background:active?"#01236D":done?"#F4ECDC":"#FCFCFA",
+              background:active?"#01236D":done?"#E7F5F4":"#FCFCFA",
               color:active?"#fff":done?"#01236D":"#5F7183",
               fontSize:11,fontWeight:active?700:500,
               whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",

@@ -20,7 +20,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
-:root{--navy:#01236D;--gold:#D0B16F;--teal:#2A9D9F;--aqua:#E7F5F4;--sand:#F4ECDC;--white:#FCFCFA;--slate:#29384A;--mist:#E7EAED;--coral:#E97868;--gold-light:#F4ECDC;--off-white:#E7F5F4;--grey:#5F7183;--dark:#29384A;--pure-white:#ffffff}
+:root{--navy:#01236D;--gold:#D0B16F;--teal:#2A9D9F;--aqua:#E7F5F4;--sand:#E7F5F4;--white:#FCFCFA;--slate:#29384A;--mist:#E7EAED;--coral:#E97868;--gold-light:#E7F5F4;--off-white:#E7F5F4;--grey:#5F7183;--dark:#29384A;--pure-white:#ffffff}
 body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--dark);background:var(--white);line-height:1.6;}
 a{color:inherit;text-decoration:none;}
 
@@ -115,6 +115,8 @@ nav{background:var(--white);border-bottom:1px solid #E7EAED;padding:0 24px;posit
 .mock-bar{background:var(--navy);padding:10px 14px;display:flex;gap:6px;align-items:center;}
 .mock-dot{width:10px;height:10px;border-radius:50%;}
 .mock-steps{display:flex;gap:4px;padding:12px 16px 0;}
+.mock-progress{height:4px;background:#E7EAED;border-radius:4px;margin:12px 16px 0;overflow:hidden;}
+.mock-progress>span{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg,var(--navy),var(--gold));}
 .ms{flex:1;height:3px;border-radius:2px;background:#E7EAED;}
 .ms.done{background:var(--gold);}
 .ms.active{background:var(--navy);}
@@ -126,13 +128,13 @@ nav{background:var(--white);border-bottom:1px solid #E7EAED;padding:0 24px;posit
 .mock-label{font-size:11px;font-weight:600;color:var(--navy);margin-bottom:3px;}
 .mock-input{width:100%;border:1px solid #E7EAED;border-radius:5px;padding:7px 9px;font-size:12px;color:#29384A;background:white;}
 .mock-input.filled{color:var(--navy);border-color:#d0b16f;}
-.mock-ai{background:var(--gold);color:white;border:none;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:600;margin-bottom:5px;display:inline-block;}
+.mock-ai{background:var(--teal);color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:600;margin-bottom:5px;display:inline-block;}
 .mock-textarea{width:100%;border:1px solid #E7EAED;border-radius:5px;padding:7px 9px;font-size:12px;color:#29384A;background:white;min-height:52px;}
 .mock-textarea.filled{color:var(--navy);border-color:#d0b16f;}
 .mock-row{display:flex;gap:8px;}
 .mock-row .mock-field{flex:1;}
 .mock-footer{display:flex;justify-content:flex-end;padding:0 20px 16px;}
-.mock-next{background:var(--gold);color:white;border:none;border-radius:5px;padding:7px 16px;font-size:12px;font-weight:600;}
+.mock-next{background:var(--navy);color:#fff;border:none;border-radius:5px;padding:7px 16px;font-size:12px;font-weight:600;}
 
 /* PLAN SAMPLE */
 .plan-sample{background:var(--off-white);padding:80px 24px;}
@@ -297,7 +299,8 @@ footer a{color:var(--gold);}
     </div>
     <div class="mock">
       <div class="mock-bar"><div class="mock-dot" style="background:#ff5f57"></div><div class="mock-dot" style="background:#febc2e"></div><div class="mock-dot" style="background:#28c840"></div></div>
-      <div class="mock-steps"><div class="ms active"></div><div class="ms"></div><div class="ms"></div><div class="ms"></div><div class="ms"></div></div>
+      <div class="mock-progress"><span style="width:20%"></span></div>
+        <div class="mock-steps"><div class="ms active"></div><div class="ms"></div><div class="ms"></div><div class="ms"></div><div class="ms"></div></div>
       <div class="mock-body">
         <div class="mock-tag">Step 1 of 5 — Business Details</div>
         <div class="mock-h">Tell us about your business</div>
@@ -328,7 +331,8 @@ footer a{color:var(--gold);}
     </div>
     <div class="mock">
       <div class="mock-bar"><div class="mock-dot" style="background:#ff5f57"></div><div class="mock-dot" style="background:#febc2e"></div><div class="mock-dot" style="background:#28c840"></div></div>
-      <div class="mock-steps"><div class="ms done"></div><div class="ms active"></div><div class="ms"></div><div class="ms"></div><div class="ms"></div></div>
+      <div class="mock-progress"><span style="width:40%"></span></div>
+        <div class="mock-steps"><div class="ms done"></div><div class="ms active"></div><div class="ms"></div><div class="ms"></div><div class="ms"></div></div>
       <div class="mock-body">
         <div class="mock-tag">Step 2 of 5 — Market &amp; Customers</div>
         <div class="mock-h">Tell us about your customers</div>
@@ -358,7 +362,8 @@ footer a{color:var(--gold);}
     </div>
     <div class="mock">
       <div class="mock-bar"><div class="mock-dot" style="background:#ff5f57"></div><div class="mock-dot" style="background:#febc2e"></div><div class="mock-dot" style="background:#28c840"></div></div>
-      <div class="mock-steps"><div class="ms done"></div><div class="ms done"></div><div class="ms active"></div><div class="ms"></div><div class="ms"></div></div>
+      <div class="mock-progress"><span style="width:60%"></span></div>
+        <div class="mock-steps"><div class="ms done"></div><div class="ms done"></div><div class="ms active"></div><div class="ms"></div><div class="ms"></div></div>
       <div class="mock-body">
         <div class="mock-tag">Step 3 of 5 — Vision &amp; Strategy</div>
         <div class="mock-h">How you see the future</div>
@@ -389,7 +394,8 @@ footer a{color:var(--gold);}
     </div>
     <div class="mock">
       <div class="mock-bar"><div class="mock-dot" style="background:#ff5f57"></div><div class="mock-dot" style="background:#febc2e"></div><div class="mock-dot" style="background:#28c840"></div></div>
-      <div class="mock-steps"><div class="ms done"></div><div class="ms done"></div><div class="ms done"></div><div class="ms active"></div><div class="ms"></div></div>
+      <div class="mock-progress"><span style="width:80%"></span></div>
+        <div class="mock-steps"><div class="ms done"></div><div class="ms done"></div><div class="ms done"></div><div class="ms active"></div><div class="ms"></div></div>
       <div class="mock-body">
         <div class="mock-tag">Step 4 of 5 — Making it Happen</div>
         <div class="mock-h">Achieving your goals</div>
@@ -418,7 +424,8 @@ footer a{color:var(--gold);}
     </div>
     <div class="mock">
       <div class="mock-bar"><div class="mock-dot" style="background:#ff5f57"></div><div class="mock-dot" style="background:#febc2e"></div><div class="mock-dot" style="background:#28c840"></div></div>
-      <div class="mock-steps"><div class="ms done"></div><div class="ms done"></div><div class="ms done"></div><div class="ms done"></div><div class="ms active"></div></div>
+      <div class="mock-progress"><span style="width:100%"></span></div>
+        <div class="mock-steps"><div class="ms done"></div><div class="ms done"></div><div class="ms done"></div><div class="ms done"></div><div class="ms active"></div></div>
       <div class="mock-body">
         <div class="mock-tag">Step 5 of 5 — Financial Information</div>
         <div class="mock-h">Your cashflow forecast</div>
