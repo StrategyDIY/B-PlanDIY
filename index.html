@@ -48,6 +48,12 @@ nav{background:var(--white);border-bottom:1px solid #E7EAED;padding:0 24px;posit
 .hero h1 em{color:#fff;font-style:normal;}
 .hero-sub{font-size:17px;color:rgba(255,255,255,0.72);max-width:500px;margin:0 auto 36px;line-height:1.7;}
 .btn-primary{background:var(--navy);color:#fff;padding:15px 36px;border-radius:8px;font-size:16px;font-weight:700;border:none;cursor:pointer;transition:opacity 0.15s;display:inline-block;}
+/* A navy button vanishes on a navy background. On dark sections the primary
+   button becomes gold with navy lettering - 6.97:1 against the section and
+   6.97:1 for its own text. */
+.hero .btn-primary, .final .btn-primary, section[style*="--navy"] .btn-primary{
+  background:var(--gold);color:var(--navy);
+}
 .btn-primary:hover{opacity:0.88;}
 /* Hero block: one wrapper sets the width, both rows fill it exactly.
    Grid 1fr 1fr guarantees two equal columns - no flex basis, no per-cell
@@ -202,7 +208,7 @@ nav{background:var(--white);border-bottom:1px solid #E7EAED;padding:0 24px;posit
 .p-list li{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:#29384A;padding:8px 0;border-bottom:1px solid #FCFCFA;}
 .p-list li:last-child{border-bottom:none;}
 .p-check{color:var(--gold);font-weight:700;flex-shrink:0;}
-.p-cta{display:block;text-align:center;background:var(--gold);color:white;padding:15px;border-radius:8px;font-size:16px;font-weight:700;border:none;cursor:pointer;width:100%;transition:opacity 0.15s;}
+.p-cta{display:block;text-align:center;background:var(--navy);color:#fff;padding:15px;border-radius:8px;font-size:16px;font-weight:700;border:none;cursor:pointer;width:100%;transition:opacity 0.15s;}
 .p-cta:hover{opacity:0.88;}
 .p-note{text-align:center;font-size:12px;color:var(--grey);margin-top:14px;}
 
@@ -368,12 +374,12 @@ footer a{color:var(--gold);}
         <div class="mock-tag">Step 3 of 5 — Vision &amp; Strategy</div>
         <div class="mock-h">How you see the future</div>
         <div class="mock-field">
-          <span class="mock-ai">✦ Suggest SWOT from Step 1 and 2  ·  Reword  ·  Rethink</span>
+          <span class="mock-ai">✦ Suggest with AI  ·  Reword  ·  Rethink</span>
           <div class="mock-label">Strengths</div><input class="mock-input filled" value="First-mover, simple UX, NZ-specific features" readonly/>
         </div>
         <div class="mock-field"><div class="mock-label">Vision</div><textarea class="mock-textarea filled" readonly>By 2027, to be the go-to invoicing tool for 10,000 NZ sole traders — the simplest way to get paid.</textarea></div>
         <div class="mock-field">
-          <span class="mock-ai">✦ Suggest goals from SWOT</span>
+          <span class="mock-ai">✦ Suggest with AI</span>
         </div>
       </div>
       <div class="mock-footer"><button class="mock-next">Next →</button></div>

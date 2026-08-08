@@ -48,6 +48,15 @@ nav{background:var(--white);border-bottom:1px solid #E7EAED;padding:0 24px;posit
 .hero h1 em{color:#fff;font-style:normal;}
 .hero-sub{font-size:17px;color:rgba(255,255,255,0.72);max-width:500px;margin:0 auto 36px;line-height:1.7;}
 .btn-primary{background:var(--navy);color:#fff;padding:15px 36px;border-radius:8px;font-size:16px;font-weight:700;border:none;cursor:pointer;transition:opacity 0.15s;display:inline-block;}
+/* A navy button vanishes on a navy background. On dark sections the primary
+   button becomes gold with navy lettering - 6.97:1 against the section and
+   6.97:1 for its own text. */
+.hero .btn-primary, .final .btn-primary, section[style*="--navy"] .btn-primary{
+  background:var(--gold);color:var(--navy);
+}
+/* The enquiry form sits on a white card inside the navy section, so its
+   button stays navy - gold on white would be unreadable. */
+#enquire form .btn-primary{background:var(--navy);color:#fff;}
 .btn-primary:hover{opacity:0.88;}
 /* Hero block: one wrapper sets the width, both rows fill it exactly.
    Grid 1fr 1fr guarantees two equal columns - no flex basis, no per-cell
