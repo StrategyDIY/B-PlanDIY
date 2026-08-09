@@ -60,8 +60,8 @@ a.nav-logo:hover span{color:var(--teal);}
 .hero-ctas .primary{background:var(--navy);color:#fff;}
 .hero-ctas .secondary{background:#fff;color:var(--navy);border:1px solid var(--mist);}
 /* Three supporting points in one white card */
-.hero-note{display:flex;gap:22px;flex-wrap:wrap;margin-top:24px;font-size:14px;font-weight:600;color:var(--slate);}
-.hero-note span{display:inline-flex;align-items:center;gap:7px;}
+.hero-note{display:flex;gap:18px;flex-wrap:wrap;margin-top:24px;font-size:13px;font-weight:600;color:var(--slate);}
+.hero-note span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
 .hero-note svg{flex-shrink:0;}
 @media(max-width:900px){.hero-note{justify-content:center;}}
 .hero-facts{background:#fff;border:1px solid var(--mist);border-radius:14px;box-shadow:0 6px 24px rgba(41,56,74,0.07);
@@ -71,18 +71,18 @@ a.nav-logo:hover span{color:var(--teal);}
 .hero-fact-ic{flex-shrink:0;width:44px;height:44px;border-radius:50%;background:var(--aqua);display:flex;align-items:center;justify-content:center;}
 .hero-fact span{font-size:14px;font-weight:600;color:var(--navy);line-height:1.4;}
 /* The illustration sits on a soft aqua wash */
-.hero-art{position:relative;display:flex;align-items:center;justify-content:center;min-height:320px;}
+.hero-art{position:relative;display:flex;align-items:center;justify-content:center;min-height:400px;}
 .hero-art::before{content:"";position:absolute;inset:-6% -10%;border-radius:50%;
   background:radial-gradient(circle at 55% 45%, #E7F5F4 0%, rgba(231,245,244,0.55) 55%, rgba(231,245,244,0) 75%);}
-.hero-pic{position:relative;background:none;border:none;box-shadow:none;padding:0;height:300px;max-width:none;width:100%;border-radius:0;}
+.hero-pic{position:relative;background:none;border:none;box-shadow:none;padding:0;height:380px;max-width:none;width:100%;border-radius:0;}
 .hero-pic img{position:absolute;top:0;left:0;right:0;bottom:0;margin:auto;max-height:100%;max-width:100%;width:auto;height:auto;border-radius:0;}
 @media(max-width:900px){
   .hero-wrap{grid-template-columns:1fr;gap:24px;padding:36px 22px 44px;text-align:center;}
   .hero-lede{margin-left:auto;margin-right:auto;}
   .hero-ctas{justify-content:center;}
   .hero-facts{margin:0 auto;}
-  .hero-art{min-height:220px;order:-1;}
-  .hero-pic{height:200px;}
+  .hero-art{min-height:280px;order:-1;}
+  .hero-pic{height:260px;}
   .hero-fact + .hero-fact{border-left:none;border-top:1px solid var(--mist);}
 }
 .btn-primary{background:var(--navy);color:#fff;padding:15px 36px;border-radius:8px;font-size:16px;font-weight:700;border:none;cursor:pointer;transition:opacity 0.15s;display:inline-block;}
@@ -104,25 +104,6 @@ section[style*="--navy"] .btn-primary{
    competing side by side. Pure CSS, no script, and it pauses for anyone who
    has asked their system to reduce motion. */
 @media(max-width:780px){}
-@keyframes heroFade0{0.0%{opacity:1}9.11%{opacity:1}11.11%{opacity:0}98.0%{opacity:0}100.0%{opacity:1}}
-.hero-pic img.f0{animation:heroFade0 45s linear infinite;}
-@keyframes heroFade1{0.0%{opacity:0}9.11%{opacity:0}11.11%{opacity:1}20.22%{opacity:1}22.22%{opacity:0}100.0%{opacity:0}}
-.hero-pic img.f1{animation:heroFade1 45s linear infinite;}
-@keyframes heroFade2{0.0%{opacity:0}20.22%{opacity:0}22.22%{opacity:1}31.33%{opacity:1}33.33%{opacity:0}100.0%{opacity:0}}
-.hero-pic img.f2{animation:heroFade2 45s linear infinite;}
-@keyframes heroFade3{0.0%{opacity:0}31.33%{opacity:0}33.33%{opacity:1}42.44%{opacity:1}44.44%{opacity:0}100.0%{opacity:0}}
-.hero-pic img.f3{animation:heroFade3 45s linear infinite;}
-@keyframes heroFade4{0.0%{opacity:0}42.44%{opacity:0}44.44%{opacity:1}53.56%{opacity:1}55.56%{opacity:0}100.0%{opacity:0}}
-.hero-pic img.f4{animation:heroFade4 45s linear infinite;}
-@keyframes heroFade5{0.0%{opacity:0}53.56%{opacity:0}55.56%{opacity:1}64.67%{opacity:1}66.67%{opacity:0}100.0%{opacity:0}}
-.hero-pic img.f5{animation:heroFade5 45s linear infinite;}
-@keyframes heroFade6{0.0%{opacity:0}64.67%{opacity:0}66.67%{opacity:1}75.78%{opacity:1}77.78%{opacity:0}100.0%{opacity:0}}
-.hero-pic img.f6{animation:heroFade6 45s linear infinite;}
-@keyframes heroFade7{0.0%{opacity:0}75.78%{opacity:0}77.78%{opacity:1}86.89%{opacity:1}88.89%{opacity:0}100.0%{opacity:0}}
-.hero-pic img.f7{animation:heroFade7 45s linear infinite;}
-@keyframes heroFade8{0.0%{opacity:0}86.89%{opacity:0}88.89%{opacity:1}98.0%{opacity:1}100.0%{opacity:0}}
-.hero-pic img.f8{animation:heroFade8 45s linear infinite;}
-@media(prefers-reduced-motion:reduce){.hero-pic img.f0{animation:none;opacity:1;}.hero-pic img.f1{animation:none;opacity:0;}.hero-pic img.f2{animation:none;opacity:0;}.hero-pic img.f3{animation:none;opacity:0;}.hero-pic img.f4{animation:none;opacity:0;}.hero-pic img.f5{animation:none;opacity:0;}.hero-pic img.f6{animation:none;opacity:0;}.hero-pic img.f7{animation:none;opacity:0;}.hero-pic img.f8{animation:none;opacity:0;}}
 @media(max-width:780px){}
 
 /* STEP WALKTHROUGH */
@@ -287,7 +268,7 @@ footer a{color:var(--navy);text-decoration:underline;}
     <div class="hero-copy">
       <div class="hero-badge">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="#2A9D9F"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 14.5-4-4L8.4 11 11 13.6 15.6 9 17 10.4z"/></svg>
-        Smart plans. Solid cashflow. Better decisions.
+        Smart plan. Better decisions. Positive cashflow.
       </div>
       <h1 class="hero-title">Create an integrated business plan and cashflow forecast in under an hour</h1>
       <p class="hero-lede">The fast, simple way for small businesses and startups to plan, forecast, and grow with confidence.</p>
@@ -303,20 +284,12 @@ footer a{color:var(--navy);text-decoration:underline;}
       <div class="hero-note">
         <span><svg width="15" height="15" viewBox="0 0 24 24" fill="#2A9D9F"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 14.5-4-4L8.4 11 11 13.6 15.6 9 17 10.4z"/></svg>3 months full access - only $29</span>
         <span><svg width="15" height="15" viewBox="0 0 24 24" fill="#2A9D9F"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 14.5-4-4L8.4 11 11 13.6 15.6 9 17 10.4z"/></svg>Download as Word</span>
-        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="#2A9D9F"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 14.5-4-4L8.4 11 11 13.6 15.6 9 17 10.4z"/></svg>Saves on your own device, not our servers</span>
+        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="#2A9D9F"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 14.5-4-4L8.4 11 11 13.6 15.6 9 17 10.4z"/></svg>Saves on your device</span>
       </div>
     </div>
     <div class="hero-art">
       <div class="hero-pic">
-        <img class="f0" src="img/idea.png" alt="A business owner wondering what to do next after having a business idea" width="412" height="480"/>
-        <img class="f1" src="img/selling.png" alt="A business owner asking why competitors are selling more, as customers walk past to a busier shop" width="620" height="401"/>
-        <img class="f2" src="img/complex.png" alt="A business owner asking why business planning is so complicated, faced with PDF and spreadsheet templates" width="573" height="480"/>
-        <img class="f3" src="img/targets.png" alt="A business owner at their shop counter beside a laptop showing rising sales targets, asking whether you want to see your sales increase" width="578" height="480"/>
-        <img class="f4" src="img/bank.png" alt="A business owner holding a phone showing a healthy bank balance" width="523" height="480"/>
-        <img class="f5" src="img/goals.png" alt="A business owner beside a laptop showing example goals and a profit statement, thinking they need B-PlanDIY to achieve business success" width="484" height="480"/>
-        <img class="f6" src="img/selling2.png" alt="A business owner whose shop is now busier than the competitor down the road" width="620" height="331"/>
-        <img class="f7" src="img/newbusiness.png" alt="A business owner pointing proudly at their new shop, with a sign reading plan, focus, grow" width="620" height="387"/>
-        <img class="f8" src="img/success.png" alt="A business owner celebrating with arms raised amid falling money, thinking I am a success" width="467" height="480"/>
+        <img src="img/hero-main.png" alt="B-PlanDIY will help your business succeed - a phone showing a healthy bank balance beside a laptop showing business goals and a profit statement" width="696" height="620"/>
       </div>
     </div>
   </div>
