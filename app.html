@@ -2956,7 +2956,7 @@ function App(){
   }
 
   function BackupNote(){
-    var linkStyle={fontFamily:"inherit",fontSize:14,fontWeight:700,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"};
+    var linkStyle={fontFamily:"inherit",fontSize:13,fontWeight:700,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"};
     return (
       <div style={{display:"flex",gap:14,alignItems:"stretch",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:12,padding:"14px 18px",marginBottom:22}}>
         <div style={{flex:"0 0 auto",display:"flex",alignItems:"center",paddingRight:14,borderRight:"1px solid #BFE3E1"}}>
@@ -2970,14 +2970,14 @@ function App(){
         <div style={{flex:1,minWidth:0}}>
           <div style={{display:"flex",gap:10,alignItems:"flex-start",paddingBottom:12,borderBottom:"1px solid #BFE3E1"}}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="#2A9D9F" style={{flexShrink:0,marginTop:2}}><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 14.5-4-4L8.4 11 11 13.6 15.6 9 17 10.4z"/></svg>
-            <span style={{fontSize:14,lineHeight:1.55,color:"#29384A"}}>
+            <span style={{fontSize:13,lineHeight:1.55,color:"#29384A"}}>
               Your plan is saved in this browser only. It will be lost if you or your settings clear your browsing data.{" "}
               <button style={linkStyle} onClick={exportData}>Save a backup file</button>{" "}saves a restore file to your Downloads folder.
             </span>
           </div>
           <div style={{display:"flex",gap:10,alignItems:"flex-start",paddingTop:12}}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2A9D9F" strokeWidth="2" style={{flexShrink:0,marginTop:2}}><circle cx="12" cy="12" r="10"/><path d="M12 16v-5M12 8h.01" strokeLinecap="round"/></svg>
-            <span style={{fontSize:14,lineHeight:1.55,color:"#29384A"}}>
+            <span style={{fontSize:13,lineHeight:1.55,color:"#29384A"}}>
               If you are finished and on a shared or public computer{" "}
               <button style={linkStyle} onClick={clearDevice}>Clear plan from this device</button>{" "}so that anyone else who uses this computer can't open your plan.
             </span>
