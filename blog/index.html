@@ -41,13 +41,14 @@ nav{background:var(--white);border-bottom:1px solid #E7EAED;padding:0 24px;posit
 @media(max-width:600px){.nav-links{display:none;}}
 
 /* HERO */
-.hero{background:var(--navy);color:var(--white);padding:20px 24px 76px;text-align:center;position:relative;overflow:hidden;}
-.hero::after{content:"";position:absolute;bottom:-2px;left:0;right:0;height:60px;background:var(--white);clip-path:ellipse(55% 100% at 50% 100%);}
+.hero{background:var(--white);color:var(--navy);padding:20px 24px 76px;text-align:center;position:relative;overflow:hidden;}
+.hero::after{content:"";position:absolute;bottom:-2px;left:0;right:0;height:60px;background:transparent;clip-path:ellipse(55% 100% at 50% 100%);}
 .hero-eyebrow{display:inline-block;background:rgba(208,177,111,0.2);color:var(--gold);font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:22px;}
 .hero h1{font-size:clamp(14px,1.6vw,18px);font-weight:600;line-height:1.3;letter-spacing:-0.01em;margin-bottom:20px;max-width:600px;margin-left:auto;margin-right:auto;}
 .hero h1 em{color:#fff;font-style:normal;}
 .hero-sub{font-size:17px;color:rgba(255,255,255,0.72);max-width:500px;margin:0 auto 36px;line-height:1.7;}
 .btn-primary{background:var(--navy);color:#fff;padding:15px 36px;border-radius:8px;font-size:16px;font-weight:700;border:none;cursor:pointer;transition:opacity 0.15s;display:inline-block;}
+.hero .btn-primary{background:var(--navy);color:#fff;}
 /* A navy button vanishes on a navy background. On dark sections the primary
    button becomes gold with navy lettering - 6.97:1 against the section and
    6.97:1 for its own text. */
@@ -60,7 +61,7 @@ nav{background:var(--white);border-bottom:1px solid #E7EAED;padding:0 24px;posit
    Grid 1fr 1fr guarantees two equal columns - no flex basis, no per-cell
    max-width, and no inline-block shrink-to-fit to work around. */
 .hero-block{max-width:1120px;margin:0 auto;}
-.hero-headline{background:rgba(208,177,111,0.2);color:#fff;font-size:clamp(16px,2.6vw,30px);font-weight:700;line-height:1.4;padding:14px 8px;border-radius:12px;margin:0 0 38px;text-align:center;}
+.hero-headline{background:var(--aqua);color:var(--navy);font-size:clamp(16px,2.6vw,30px);font-weight:700;line-height:1.4;padding:14px 8px;border-radius:12px;margin:0 0 38px;text-align:center;}
 .hero-cols{display:block;text-align:center;margin-bottom:46px;}
 /* Points run across the full width in one row, with the image below */
 /* Points listed one under another, in a box centred under the headline */
@@ -279,7 +280,7 @@ footer a{color:var(--navy);text-decoration:underline;}
 <section class="hero" style="padding:34px 24px 60px;">
   <div class="hero-block">
     <div class="hero-headline">Business planning, explained simply</div>
-    <p style="max-width:640px;margin:20px auto 0;font-size:17px;line-height:1.7;color:rgba(255,255,255,0.85);">
+    <p style="max-width:640px;margin:20px auto 0;font-size:17px;line-height:1.7;color:var(--slate);">
       Practical articles on planning, forecasting and running a small business.
     </p>
   </div>
