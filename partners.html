@@ -51,9 +51,10 @@ nav{background:var(--white);border-bottom:1px solid #E7EAED;padding:0 24px;posit
 /* A navy button vanishes on a navy background. On dark sections the primary
    button becomes gold with navy lettering - 6.97:1 against the section and
    6.97:1 for its own text. */
-.hero .btn-primary, .final .btn-primary, section[style*="--navy"] .btn-primary{
+.hero .btn-primary, section[style*="--navy"] .btn-primary{
   background:var(--gold);color:var(--navy);
 }
+.final .btn-primary{background:var(--navy);color:#fff;}
 /* The enquiry form sits on a white card inside the navy section, so its
    button stays navy - gold on white would be unreadable. */
 #enquire form .btn-primary{background:var(--navy);color:#fff;}
@@ -226,12 +227,12 @@ nav{background:var(--white);border-bottom:1px solid #E7EAED;padding:0 24px;posit
 .community-desc{{font-size:14px;color:rgba(255,255,255,0.72);line-height:1.8;}}
 .community-badge{{display:inline-block;background:var(--gold);color:white;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-top:18px;}}
 /* FINAL CTA */
-.final{background:var(--navy);padding:80px 24px;text-align:center;color:white;}
+.final{background:var(--aqua);padding:72px 24px;text-align:center;color:var(--navy);}
 .final h2{font-size:clamp(24px,4vw,36px);font-weight:800;margin-bottom:12px;letter-spacing:-0.02em;}
 .final p{font-size:16px;color:rgba(255,255,255,0.65);margin-bottom:32px;}
 
-footer{background:#011A52;color:rgba(255,255,255,0.4);padding:24px;text-align:center;font-size:13px;}
-footer a{color:var(--gold);}
+footer{background:var(--white);border-top:1px solid var(--mist);color:var(--grey);padding:28px 24px;text-align:center;font-size:13px;}
+footer a{color:var(--navy);text-decoration:underline;}
 </style>
 </head>
 <body>
