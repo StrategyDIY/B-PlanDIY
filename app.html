@@ -71,10 +71,12 @@ body{background:#FCFCFA;}
 a{transition:color .15s ease;}
 
 /* Scrollbars, where the browser allows styling */
-*::-webkit-scrollbar{height:10px;width:10px;}
-*::-webkit-scrollbar-thumb{background:#BFE3E1;border-radius:6px;}
-*::-webkit-scrollbar-thumb:hover{background:#D0B16F;}
+*::-webkit-scrollbar{height:12px;width:12px;}
+*::-webkit-scrollbar-thumb{background:#01236D;border-radius:6px;border:3px solid transparent;background-clip:content-box;}
+*::-webkit-scrollbar-thumb:hover{background:#02306F;background-clip:content-box;}
 *::-webkit-scrollbar-track{background:transparent;}
+/* Firefox uses its own properties */
+html{scrollbar-color:#01236D transparent;scrollbar-width:thin;}
 
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important;}
@@ -487,7 +489,7 @@ function CfCharts({rows,expCatsData}){
           <Tooltip content={<ChartTip/>}/>
           <Legend wrapperStyle={{fontSize:11}}/>
           <Bar yAxisId="left" dataKey="units" name="Units Sold" radius={[3,3,0,0]} fill="#01236D"/>
-          <Bar yAxisId="right" dataKey="revenue" name="Monthly Sales ($)" radius={[3,3,0,0]} fill="#D0B16F"/>
+          <Bar yAxisId="right" dataKey="revenue" name="Monthly Sales ($)" radius={[3,3,0,0]} fill="#2A9D9F"/>
         </BarChart>
       </ResponsiveContainer>
       <div style={{fontSize:13,fontWeight:600,color:"#5F7183",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Expenses Breakdown</div>
@@ -516,7 +518,7 @@ function CfCharts({rows,expCatsData}){
           <YAxis tickFormatter={axisFmt} tick={{fontSize:11}} axisLine={false} tickLine={false} width={62}/>
           <Tooltip content={<ChartTip/>}/>
           <ReferenceLine y={0} stroke="#E7EAED"/>
-          <Line type="monotone" dataKey="value" name="Net Profit" stroke="#01236D" strokeWidth={2} dot={function(p){return <circle key={p.key} cx={p.cx} cy={p.cy} r={4} fill={p.value<0?RED:GREEN} stroke="#fff" strokeWidth={1}/>;}} activeDot={{r:5}}/>
+          <Line type="monotone" dataKey="value" name="Net Profit" stroke="#2A9D9F" strokeWidth={2} dot={function(p){return <circle key={p.key} cx={p.cx} cy={p.cy} r={4} fill={p.value<0?RED:GREEN} stroke="#fff" strokeWidth={1}/>;}} activeDot={{r:5}}/>
         </LineChart>
       </ResponsiveContainer>
       <div style={{fontSize:13,fontWeight:600,color:"#5F7183",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Closing Bank Balance</div>
@@ -1826,7 +1828,7 @@ function App(){
             graphChildren.push(new Paragraph({spacing:{after:240},children:[new ImageRun({data:Uint8Array.from(atob(b64),function(ch){return ch.charCodeAt(0);}),transformation:{width:w,height:h},type:"png"})]}));
           }
 
-          pushChart("Units Sold & Monthly Sales",makeDualBarChart("Units Sold & Monthly Sales",unData,"Units Sold","#01236D","Monthly Sales ($)","#D0B16F"),IMG_W,Math.round(IMG_W*296/CW));
+          pushChart("Units Sold & Monthly Sales",makeDualBarChart("Units Sold & Monthly Sales",unData,"Units Sold","#01236D","Monthly Sales ($)","#2A9D9F"),IMG_W,Math.round(IMG_W*296/CW));
 
           if(expPieRaw.length){
             var pieRowH=19, pieTop=44;
@@ -1835,8 +1837,8 @@ function App(){
             if(expImg)pushChart("Expenses Breakdown",expImg,IMG_W,Math.round(IMG_W*pieCH/CW));
           }
 
-          pushChart("Net Profit / (Loss)",makeLineChart("Net Profit / (Loss)",npData,"#01236D","#B14A38",true),IMG_W,IMG_H);
-          pushChart("Closing Bank Balance",makeBarChart("Closing Bank Balance",cbData,"#01236D","#B14A38",true),IMG_W,IMG_H);
+          pushChart("Net Profit / (Loss)",makeLineChart("Net Profit / (Loss)",npData,"#2A9D9F","#B14A38",true),IMG_W,IMG_H);
+          pushChart("Closing Bank Balance",makeBarChart("Closing Bank Balance",cbData,"#2A9D9F","#B14A38",true),IMG_W,IMG_H);
         }catch(imgErr){
           graphChildren.push(new Paragraph({children:[new TextRun({text:"(Charts not available in this export)",size:18,color:"6b7280",font:FONT})]}));
         }
@@ -2956,10 +2958,10 @@ function App(){
   function BackupNote(){
     var linkStyle={fontFamily:"inherit",fontSize:14,fontWeight:700,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"};
     return (
-      <div style={{display:"flex",gap:18,alignItems:"stretch",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:12,padding:"16px 20px",marginBottom:22}}>
-        <div style={{flex:"0 0 auto",display:"flex",alignItems:"center",paddingRight:18,borderRight:"1px solid #BFE3E1"}}>
-          <div style={{width:56,height:56,borderRadius:"50%",border:"2px solid #2A9D9F",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#2A9D9F" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <div style={{display:"flex",gap:14,alignItems:"stretch",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:12,padding:"14px 18px",marginBottom:22}}>
+        <div style={{flex:"0 0 auto",display:"flex",alignItems:"center",paddingRight:14,borderRight:"1px solid #BFE3E1"}}>
+          <div style={{width:38,height:38,borderRadius:"50%",border:"2px solid #2A9D9F",display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2A9D9F" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 16.5a3.5 3.5 0 0 0-.7-6.93A5 5 0 0 0 7.2 9.2 3.9 3.9 0 0 0 8 16.5"/>
               <path d="M12 12v7M9.5 14.5 12 12l2.5 2.5"/>
             </svg>

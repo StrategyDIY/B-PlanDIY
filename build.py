@@ -131,15 +131,24 @@ body{background:#FCFCFA;}
 a{transition:color .15s ease;}
 
 /* Scrollbars, where the browser allows styling */
-*::-webkit-scrollbar{height:10px;width:10px;}
-*::-webkit-scrollbar-thumb{background:#E0D2B4;border-radius:6px;}
-*::-webkit-scrollbar-thumb:hover{background:#D0B16F;}
+*::-webkit-scrollbar{height:12px;width:12px;}
+*::-webkit-scrollbar-thumb{background:#01236D;border-radius:6px;border:3px solid transparent;background-clip:content-box;}
+*::-webkit-scrollbar-thumb:hover{background:#02306F;background-clip:content-box;}
 *::-webkit-scrollbar-track{background:transparent;}
+/* Firefox uses its own properties */
+html{scrollbar-color:#01236D transparent;scrollbar-width:thin;}
 
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important;}
   button:not(:disabled):hover{transform:none;}
 }
+/* Consistent 26px rhythm between form rows */
+.bpd-field{margin-bottom:26px;}
+input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus{
+  border-color:#2A9D9F !important;
+  box-shadow:0 0 0 3px rgba(42,157,159,0.18) !important;
+}
+select{border-radius:10px !important;padding:13px 12px !important;}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" onerror="console.warn('jszip CDN failed')"></script>
