@@ -56,7 +56,10 @@ a.nav-logo:hover span{color:var(--teal);}
 .hero-title{font-size:clamp(30px,4.2vw,52px);font-weight:800;color:var(--navy);line-height:1.14;letter-spacing:-0.02em;margin-bottom:20px;}
 .hero-lede{font-size:clamp(16px,1.4vw,19px);color:var(--grey);line-height:1.6;margin-bottom:30px;max-width:520px;}
 .hero-ctas{display:flex;gap:20px;flex-wrap:wrap;align-items:center;margin-bottom:36px;}
-.hero-ctas a{display:inline-flex;align-items:center;gap:10px;font-size:16px;font-weight:700;padding:15px 28px;border-radius:8px;text-decoration:none;}
+/* Direct children only. A bare `.hero-ctas a` also caught the "Verify your
+   email" link nested inside .hero-paid, giving it the button's 15px/28px
+   padding - which is what opened the gap after "Already paid?". */
+.hero-ctas > a{display:inline-flex;align-items:center;gap:10px;font-size:16px;font-weight:700;padding:15px 28px;border-radius:8px;text-decoration:none;}
 .hero-ctas .primary{background:var(--navy);color:#fff;}
 .hero-ctas .secondary{background:#fff;color:var(--navy);border:1px solid var(--mist);}
 /* Three supporting points in one white card */
