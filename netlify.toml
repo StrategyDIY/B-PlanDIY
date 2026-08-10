@@ -5,8 +5,11 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# anthropic streams its response, so the synchronous 26s cap no longer applies
-# to plan generation - the connection stays active while tokens are flowing.
+# anthropic does NOT stream - it awaits the full Anthropic response and returns
+# it in one piece, so Netlify's synchronous cap applies in full. 26 is the
+# maximum allowed. Plan generation stays inside it by splitting the work into
+# three smaller requests sent in parallel from the client; a single request
+# covering the whole plan used to hit the cap and return a 504.
 [functions."anthropic"]
   timeout = 26
 

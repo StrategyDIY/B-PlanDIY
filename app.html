@@ -1982,6 +1982,21 @@ function App(){
       var tot=catTotal("txDetail",c.id);
       return tot?c.l+": "+moneyStr(tot)+" net":null;
     }).filter(Boolean).join("; ")||"None";
+    // Dates are formatted first because finBits below embeds planDate. When
+    // this block sat after finBits, `var` hoisting meant planDate existed but
+    // was still undefined, so every prompt carried the literal text
+    // "Plan date ...: undefined".
+    var MONTH_NAMES=["January","February","March","April","May","June","July","August","September","October","November","December"];
+    function fmtMonthYear(v){
+      if(!v)return "Not specified";
+      var p=String(v).split("-");
+      var y=parseInt(p[0]),m=parseInt(p[1]);
+      if(!y||!m||m<1||m>12)return "Not specified";
+      return MONTH_NAMES[m-1]+" "+y;
+    }
+    var establishmentDate=fmtMonthYear(f.bizDate);
+    var planDate=fmtMonthYear(f.cfStartDate);
+
     var finBits=["Plan date (month the 12-month cashflow forecast begins): "+planDate,
                  "Opening bank balance: $"+(f.openingBalance||"0")];
     if(f.assets)finBits.push("Assets: "+f.assets);
@@ -1993,17 +2008,6 @@ function App(){
     var onlineText=onlineCh.map(function(c){return f[c.id]?c.label+": "+f[c.id]:null;}).filter(Boolean).join(", ")||"Not provided";
     var contactText=[f.cName?"Name: "+f.cName:null,f.cEmail?"Email: "+f.cEmail:null,f.cMobile?"Mobile: "+f.cMobile:null].filter(Boolean).join(", ")||"Not provided";
     var legalText=(legalOpts.find(function(o){return o.v===legalStatus;})||{}).l||"Not specified";
-
-    var MONTH_NAMES=["January","February","March","April","May","June","July","August","September","October","November","December"];
-    function fmtMonthYear(v){
-      if(!v)return "Not specified";
-      var p=String(v).split("-");
-      var y=parseInt(p[0]),m=parseInt(p[1]);
-      if(!y||!m||m<1||m>12)return "Not specified";
-      return MONTH_NAMES[m-1]+" "+y;
-    }
-    var establishmentDate=fmtMonthYear(f.bizDate);
-    var planDate=fmtMonthYear(f.cfStartDate);
 
     var ctx="You are an expert business consultant helping write a professional business plan.\n\n"+
       "STEP 1 - BUSINESS DETAILS: Business: "+(f.bizName||"")+" | Industry: "+(f.industry||"")+" | Type: "+(f.bizType||"")+" | Stage: "+(f.stage||"")+
@@ -2036,12 +2040,6 @@ function App(){
     // hitting that limit and returning a 504. Two smaller calls each finish in
     // roughly half the time, so the total wall time is well inside the cap and
     // there is headroom for longer plans.
-    var SHARED_FORMAT=
-      "\n\nFORMATTING:\n"+
-      "- Use ## for the section headings exactly as given, and ### for subheadings.\n"+
-      "- No # headings, no ---, no ** anywhere.\n"+
-      "- Write only the sections asked for. Do not add a preamble, a closing summary, or any other section.\n";
-
     var SHARED_FORMAT=
       "\n\nFORMATTING:\n"+
       "- Use ## for the section headings exactly as given, and ### for subheadings.\n"+
