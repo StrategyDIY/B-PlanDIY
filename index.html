@@ -55,7 +55,7 @@ a.nav-logo:hover span{color:var(--teal);}
 .hero-badge svg{flex-shrink:0;}
 .hero-title{font-size:clamp(30px,4.2vw,52px);font-weight:800;color:var(--navy);line-height:1.14;letter-spacing:-0.02em;margin-bottom:20px;}
 .hero-lede{font-size:clamp(16px,1.4vw,19px);color:var(--grey);line-height:1.6;margin-bottom:30px;max-width:520px;}
-.hero-ctas{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:36px;}
+.hero-ctas{display:flex;gap:20px;flex-wrap:wrap;align-items:center;margin-bottom:36px;}
 .hero-ctas a{display:inline-flex;align-items:center;gap:10px;font-size:16px;font-weight:700;padding:15px 28px;border-radius:8px;text-decoration:none;}
 .hero-ctas .primary{background:var(--navy);color:#fff;}
 .hero-ctas .secondary{background:#fff;color:var(--navy);border:1px solid var(--mist);}
@@ -64,6 +64,10 @@ a.nav-logo:hover span{color:var(--teal);}
 .hero-note span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
 .hero-note svg{flex-shrink:0;}
 @media(max-width:900px){.hero-note{justify-content:center;}}
+.hero-paid{font-size:15px;color:var(--grey);}
+.hero-paid a{color:var(--navy);font-weight:600;text-decoration:underline;}
+.hero-paid a:hover{color:var(--teal);}
+@media(max-width:900px){.hero-paid{text-align:center;}}
 .hero-facts{background:#fff;border:1px solid var(--mist);border-radius:14px;box-shadow:0 6px 24px rgba(41,56,74,0.07);
   display:flex;flex-wrap:wrap;padding:6px;max-width:620px;}
 .hero-fact{flex:1 1 170px;display:flex;align-items:center;gap:12px;padding:16px 14px;}
@@ -255,6 +259,7 @@ footer a{color:var(--navy);text-decoration:underline;}
     <a href="index.html#plan-sample">Sample output</a>
     <a href="index.html#pricing">Pricing</a>
     <a href="partners.html">Partners</a>
+    <a href="resources.html">Resources</a>
     <a href="blog/index.html">Blog</a>
   </div>
   <div class="nav-right">
@@ -274,7 +279,7 @@ footer a{color:var(--navy);text-decoration:underline;}
       <p class="hero-lede">The fast, simple way for small businesses and startups to plan, forecast, and grow with confidence.</p>
       <div class="hero-ctas">
         <a class="primary" href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00">Get Started <span>&rarr;</span></a>
-        <a class="secondary" href="#steps">See how it works <span>&rarr;</span></a>
+        <span class="hero-paid">Already paid? <a href="https://b-plandiy.com/verify.html">Verify your email</a></span>
       </div>
       <div class="hero-facts">
         <div class="hero-fact"><span class="hero-fact-ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#2A9D9F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-1.5-5H4.5L3 9zM4 9v11h16V9M9 20v-6h6v6"/></svg></span><span>For small businesses<br/>and startups</span></div>
