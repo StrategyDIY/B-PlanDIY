@@ -1,3 +1,10 @@
+// All three functions read the same Airtable table, named literally so they
+// cannot drift apart. Previously this one alone used AIRTABLE_TABLE_ID while
+// save-user and verify-user hardcoded 'Users' - if that variable ever pointed
+// elsewhere, reminders would query a different table from the one signups are
+// written to, and nothing would reveal it until a renewal silently never sent.
+const TABLE = 'Users';
+
 exports.handler = async (event) => {
   try {
     const sevenDays = 7 * 24 * 60 * 60 * 1000;
@@ -5,7 +12,7 @@ exports.handler = async (event) => {
     const soonExpiry = now + sevenDays;
 
     // Get users from Airtable expiring within 7 days who haven't been reminded
-    const url = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${process.env.AIRTABLE_TABLE_ID}?filterByFormula=AND(NOT({ReminderSent}),{ExpiryTimestamp}<${soonExpiry},{ExpiryTimestamp}>${now})`;
+    const url = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${TABLE}?filterByFormula=AND(NOT({ReminderSent}),{ExpiryTimestamp}<${soonExpiry},{ExpiryTimestamp}>${now})`;
 
     const response = await fetch(url, {
       headers: {
@@ -54,7 +61,7 @@ exports.handler = async (event) => {
 
       // Mark reminder as sent in Airtable
       await fetch(
-        `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${process.env.AIRTABLE_TABLE_ID}/${record.id}`,
+        `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${TABLE}/${record.id}`,
         {
           method: 'PATCH',
           headers: {

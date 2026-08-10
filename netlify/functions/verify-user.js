@@ -1,3 +1,5 @@
+const TABLE = 'Users';
+
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -10,7 +12,7 @@ exports.handler = async (event) => {
     }
 
     // Search Airtable for this email
-    const url = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/Users?filterByFormula=LOWER({Email})="${email.toLowerCase().trim()}"`;
+    const url = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${TABLE}?filterByFormula=LOWER({Email})="${email.toLowerCase().trim()}"`;
 
     const response = await fetch(url, {
       headers: { 'Authorization': `Bearer ${process.env.AIRTABLE_TOKEN}` }
