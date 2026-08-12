@@ -242,7 +242,18 @@ function calcCashflow(f){
   expCats.forEach(c=>{expArr[c.id]=parseMonthly(f[c.id],0);});
   const txArr={};
   txCats.forEach(c=>{txArr[c.id]=parseMonthly(f[c.id],0);});
-  const taxRate=parseFloat(f.taxRate)||0;
+  // A business that is not registered charges no products/services tax, so the
+  // rate is ignored rather than applied. The rate itself is left untouched in
+  // storage, so ticking the box again restores it.
+  //
+  // Plans created before this checkbox existed have no taxRegistered value at
+  // all. Treating those as "not registered" would silently strip the tax line
+  // out of a forecast someone had already built, so an absent flag falls back
+  // to the rate: if they entered one, they were registered.
+  const taxRegistered = (f.taxRegistered===undefined||f.taxRegistered===null)
+    ? (parseFloat(f.taxRate)||0)>0
+    : f.taxRegistered==="1";
+  const taxRate=taxRegistered?(parseFloat(f.taxRate)||0):0;
   let accTax=0;
 
   // Extra sales and costs implied by the Step 4 goals. Opt-in, because a user
@@ -250,7 +261,13 @@ function calcCashflow(f){
   // across the 12 months unless they have entered monthly amounts instead.
   const goalUnitsTotal=parseFloat(f.goalSalesTotal)||0;
   const goalUnitsOn=f.goalSalesApply==="1";
-  const goalUnitsArr=(f.goalSalesMonthly&&String(f.goalSalesMonthly).indexOf("M")>=0)?parseMonthly(f.goalSalesMonthly,0):null;
+  // The monthly grid is used only when its checkbox is ticked. Testing for the
+  // presence of the data alone meant that unticking hid the grid but the twelve
+  // amounts carried on being applied, while the panel above said "spread
+  // evenly" - the explanation on screen and the arithmetic disagreed. The
+  // amounts are kept in storage either way, so re-ticking restores them.
+  const goalUnitsGridOn=f.goalSalesMonthly_monthly==="1";
+  const goalUnitsArr=(goalUnitsGridOn&&f.goalSalesMonthly&&String(f.goalSalesMonthly).indexOf("M")>=0)?parseMonthly(f.goalSalesMonthly,0):null;
   function goalUnitsFor(i){
     if(!goalUnitsOn)return 0;
     return goalUnitsArr?(goalUnitsArr[i]||0):goalUnitsTotal/12;
@@ -278,9 +295,12 @@ function calcCashflow(f){
   function goalExpFor(catId,i){
     var arr0=goalExpMonthly[catId];
     if(!arr0)return 0;
-    // Monthly override, if the user has set one for this category
+    // Monthly override, used only while its checkbox is ticked - see the note
+    // on goalUnitsArr above. Unticking reverts to the even spread without
+    // discarding what was typed.
+    var gridOn=f["goalExpM_"+catId+"_monthly"]==="1";
     var ov=f["goalExpM_"+catId];
-    if(ov&&String(ov).indexOf("M")>=0){
+    if(gridOn&&ov&&String(ov).indexOf("M")>=0){
       var arr=parseMonthly(ov,0);
       return arr[i]||0;
     }
@@ -845,7 +865,7 @@ function FinSection(props){
         style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:open?"#FCFCFA":"#fff",border:"none",borderBottom:open?"1px solid #E7EAED":"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
         <span style={{fontSize:13,color:"#8A98A6",transform:open?"rotate(90deg)":"none",transition:"transform 0.15s",display:"inline-block"}}>▶</span>
         <span style={{fontSize:15,fontWeight:700,color:"#01236D",flex:1}}>{props.title}</span>
-        {props.hint&&<span style={{fontSize:11,color:"#8A98A6"}}>{props.hint}</span>}
+        {props.hint&&<span style={{fontSize:11,color:props.hintColor||"#8A98A6",fontWeight:props.hintColor?700:400}}>{props.hint}</span>}
       </button>
       {open&&<div style={{padding:"14px"}}>{props.children}</div>}
     </div>
@@ -869,6 +889,12 @@ function App(){
   var savedState=useState(function(){
     try{
       var d=JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}");
+      // Plans built before the registration checkbox existed carry a tax rate
+      // but no flag. Setting it here once means the box shows ticked and the
+      // forecast is unchanged, rather than the tax quietly disappearing.
+      if(d&&typeof d==="object"&&d.taxRegistered===undefined){
+        d.taxRegistered=((parseFloat(d.taxRate)||0)>0)?"1":"";
+      }
       return d;
     }catch(e){return{};}
   });
@@ -880,6 +906,9 @@ function App(){
   var tabState=useState("plan");var tab=tabState[0];var setTab=tabState[1];
   var previewTabState=useState("details");var previewTab=previewTabState[0];var setPreviewTab=previewTabState[1];
   var cfStartState=useState(fdRef.current.cfStartDate||"");var cfStart=cfStartState[0];var setCfStart=cfStartState[1];
+  // Held in state, not just in fdRef, because ticking it reveals a note about
+  // how amounts should be entered - that needs a re-render to appear.
+  var taxRegState=useState(fdRef.current.taxRegistered==="1");var taxReg=taxRegState[0];var setTaxReg=taxRegState[1];
   var showOutputState=useState(false);var showOutput=showOutputState[0];var setShowOutput=showOutputState[1];
   var planFailedState=useState(false);var planFailed=planFailedState[0];var setPlanFailed=planFailedState[1];
   var showBackupHelpState=useState(false);var showBackupHelp=showBackupHelpState[0];var setShowBackupHelp=showBackupHelpState[1];
@@ -948,6 +977,10 @@ function App(){
   var gsVersionState=useState(0);var gsVersion=gsVersionState[0];var setGsVersion=gsVersionState[1];
   var gsLoadingState=useState(false);var gsLoading=gsLoadingState[0];var setGsLoading=gsLoadingState[1];
   var msLoadingState=useState(false);var msLoading=msLoadingState[0];var setMsLoading=msLoadingState[1];
+  var tcLoadingState=useState(false);var tcLoading=tcLoadingState[0];var setTcLoading=tcLoadingState[1];
+  var tcVersionState=useState(0);var tcVersion=tcVersionState[0];var setTcVersion=tcVersionState[1];
+  var advLoadingState=useState(false);var advLoading=advLoadingState[0];var setAdvLoading=advLoadingState[1];
+  var advVersionState=useState(0);var advVersion=advVersionState[0];var setAdvVersion=advVersionState[1];
   var compLoadingState=useState(false);var compLoading=compLoadingState[0];var setCompLoading=compLoadingState[1];
   var cswLoadingState=useState(false);var cswLoading=cswLoadingState[0];var setCswLoading=cswLoadingState[1];
   var bkLoadingState=useState(false);var bkLoading=bkLoadingState[0];var setBkLoading=bkLoadingState[1];
@@ -967,9 +1000,28 @@ function App(){
   var peopleOpenState=useState({});var peopleOpen=peopleOpenState[0];var setPeopleOpen=peopleOpenState[1];
   var acOpenState=useState(false);var acOpen=acOpenState[0];var setAcOpen=acOpenState[1];
   var acTotalState=useState("");var acTotal=acTotalState[0];var setAcTotal=acTotalState[1];
+  var acAiLoadState=useState(false);var acAiLoad=acAiLoadState[0];var setAcAiLoad=acAiLoadState[1];
+  var acAiState=useState(null);var acAi=acAiState[0];var setAcAi=acAiState[1];
   var apOpenState=useState(false);var apOpen=apOpenState[0];var setApOpen=apOpenState[1];
   var apTotalState=useState("");var apTotal=apTotalState[0];var setApTotal=apTotalState[1];
+  // "Includes tax" toggles on the two helper calculators, plus the shared
+  // converter. NZ owners generally know their prices GST-inclusive, so entering
+  // a tax-exclusive figure means doing a division in their head - and typing
+  // the inclusive number by mistake looks perfectly reasonable, which would
+  // overstate revenue by the full rate with nothing to flag it.
+  var apInclState=useState(false);var apIncl=apInclState[0];var setApIncl=apInclState[1];
+  var acInclState=useState(false);var acIncl=acInclState[0];var setAcIncl=acInclState[1];
+  var convOpenState=useState(false);var convOpen=convOpenState[0];var setConvOpen=convOpenState[1];
+  var convAmtState=useState("");var convAmt=convAmtState[0];var setConvAmt=convAmtState[1];
+  var apAiLoadState=useState(false);var apAiLoad=apAiLoadState[0];var setApAiLoad=apAiLoadState[1];
+  var apAiState=useState(null);var apAi=apAiState[0];var setApAi=apAiState[1];
   var showAllExpState=useState(false);var showAllExp=showAllExpState[0];var setShowAllExp=showAllExpState[1];
+  // One call suggests the whole set of expenses, so the model can balance the
+  // categories against each other rather than pricing each in isolation. The
+  // result is previewed and nothing is written until it is accepted.
+  var expAiLoadState=useState(false);var expAiLoad=expAiLoadState[0];var setExpAiLoad=expAiLoadState[1];
+  var expAiState=useState(null);var expAi=expAiState[0];var setExpAi=expAiState[1];
+  var expAiPickState=useState({});var expAiPick=expAiPickState[0];var setExpAiPick=expAiPickState[1];
   // Which expense rows are on screen. Seeded from saved data and from the grid
   // toggles, then only added to - never recomputed from the current input value,
   // or a row would vanish the moment you cleared it.
@@ -977,7 +1029,12 @@ function App(){
     var s={};
     try{
       expCats.forEach(function(ec){
-        if(fdRef.current[ec.id])s[ec.id]=true;
+        var v=fdRef.current[ec.id];
+        if(v===undefined||v===null||v==="")return;
+        // "0" is a truthy string, so a stored zero used to reveal the row and
+        // show a 12-month total of $0 for a category with no cost in it.
+        if(String(v).indexOf("M")<0&&!(parseFloat(v)>0))return;
+        s[ec.id]=true;
       });
     }catch(e){}
     return s;
@@ -1103,6 +1160,7 @@ function App(){
 
   async function suggestGoals(mode,note){
     setGoalLoading(true);
+    (function(){var was=goals.slice();stashAI("goals",function(){setGoalsAndSave(was);});})();
     try{
       var prompt="Based on this business SWOT analysis, suggest 5 specific, measurable goals that maximise strengths and opportunities and address weaknesses and threats (one per line, no numbering or bullets, 10-20 words each):\n"+
         "Business: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\n"+
@@ -1124,6 +1182,7 @@ function App(){
 
   async function suggestSWOT(mode,note){
     setGoalLoading(true);
+    (function(){var was={S:fdRef.current.swotS||"",W:fdRef.current.swotW||"",O:fdRef.current.swotO||"",T:fdRef.current.swotT||""};stashAI("swot",function(){fdRef.current.swotS=was.S;fdRef.current.swotW=was.W;fdRef.current.swotO=was.O;fdRef.current.swotT=was.T;saveToStorage();setSwotVersion(function(v){return v+1;});});})();
     setSwotVersion(function(v){return v+1;});
     var prompt="Write a SWOT analysis for this business. Return ONLY the four sections in this exact format:\nStrengths: [3-4 points, comma separated]\nWeaknesses: [3-4 points, comma separated]\nOpportunities: [3-4 points, comma separated]\nThreats: [3-4 points, comma separated]\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nStage: "+(fdRef.current.stage||"")+"\nTeam: "+(fdRef.current.team||"")+"\nCompetitors: "+(fdRef.current.competitors||"")+"\nTarget market: "+(fdRef.current.targetCust||"")+"\nPosition statement: "+(fdRef.current.position||"not specified");
     prompt+=revisionNote(mode,["Strengths: "+(fdRef.current.swotS||""),"Weaknesses: "+(fdRef.current.swotW||""),"Opportunities: "+(fdRef.current.swotO||""),"Threats: "+(fdRef.current.swotT||"")].join("\n"),note);
@@ -1151,6 +1210,20 @@ function App(){
   // current answer back matters - without it the model tends to return
   // something almost identical.
   var reviseOpenState=useState("");var reviseOpen=reviseOpenState[0];var setReviseOpen=reviseOpenState[1];
+  // Suggest with AI, Reword and Rethink all overwrite the field outright, which
+  // takes any hand-editing with them. Before each one runs we stash a closure
+  // that puts the previous text back, so there is always a way out. Held per
+  // field, keyed by the same id ReviseButtons already uses.
+  var aiPrevState=useState({});var aiPrev=aiPrevState[0];var setAiPrev=aiPrevState[1];
+  function stashAI(key,restoreFn){
+    setAiPrev(function(p){var n=Object.assign({},p);n[key]=restoreFn;return n;});
+  }
+  function runRestore(key){
+    var fn=aiPrev[key];
+    if(typeof fn!=="function")return;
+    fn();
+    setAiPrev(function(p){var n=Object.assign({},p);delete n[key];return n;});
+  }
   var reviseNoteState=useState("");var reviseNote2=reviseNoteState[0];var setReviseNote2=reviseNoteState[1];
   var reviseBtn={fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"6px 12px",borderRadius:6,border:"1px solid #D0B16F",background:"none",color:"#01236D",cursor:"pointer",marginLeft:8};
   // Only offered once there is an answer to revise.
@@ -1161,6 +1234,11 @@ function App(){
       <span>
         <button style={reviseBtn} title="Same points, different wording" onClick={function(){setReviseOpen("");props.run("reword");}}>Reword</button>
         <button style={reviseBtn} title="Different points, optionally with a steer" onClick={function(){setReviseNote2("");setReviseOpen(open?"":props.id);}}>Rethink</button>
+        {typeof aiPrev[props.id]==="function"&&(
+          <button style={Object.assign({},reviseBtn,{borderColor:"#E7EAED",color:"#5F7183"})}
+            title="Put back what was here before the last suggestion"
+            onClick={function(){setReviseOpen("");runRestore(props.id);}}>Undo</button>
+        )}
         {open&&(
           <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"10px 12px"}}>
             <div style={{fontSize:13,color:"#1F5C5D",marginBottom:6}}>What should it focus on? Leave blank for a fresh take.</div>
@@ -1344,6 +1422,7 @@ function App(){
 
   async function suggestMarketSize(mode,note){
     setMsLoading(true);
+    (function(){var was=fdRef.current.marketSize||"";stashAI("ms",function(){fdRef.current.marketSize=was;saveToStorage();setMsVersion(function(v){return v+1;});});})();
     setMsVersion(function(v){return v+1;});
     var prompt="Provide a brief market size estimate (2-3 sentences, include numbers/sources where possible) for:\n"+
       "Business: "+(fdRef.current.bizName||"")+" in "+(fdRef.current.industry||"")+"\n"+
@@ -1361,8 +1440,75 @@ function App(){
     setMsLoading(false);
   }
 
+  async function suggestTargetCust(mode,note){
+    setTcLoading(true);
+    (function(){var was=fdRef.current.targetCust||"";stashAI("tc",function(){fdRef.current.targetCust=was;saveToStorage();setTcVersion(function(v){return v+1;});});})();
+    setTcVersion(function(v){return v+1;});
+    var prompt="Describe the target customer or market for this business, in 2-4 sentences of plain prose.\n\n"+
+      "Business: "+(fdRef.current.bizName||"this business")+"\n"+
+      "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
+      "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
+      "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
+      "Stage: "+(fdRef.current.stage||"not specified")+"\n"+
+      "Current customers: "+(fdRef.current.currentCust||"none stated")+"\n\n"+
+      "Rules:\n"+
+      "- Be specific about who they are: the type of person or organisation, roughly what size or life stage, where they are, and what situation puts them in the market.\n"+
+      "- Say what they need or what problem they are trying to solve, and why this business suits them.\n"+
+      "- Where the position statement names a customer, build on that rather than contradicting it.\n"+
+      "- Narrow it to a market this business can realistically reach at its stage. Do not describe everyone who could conceivably buy.\n"+
+      "- Realistic for a small New Zealand business. Plain prose, no bullet points, no headings, no preamble. Under 120 words.";
+    prompt+=revisionNote(mode,fdRef.current.targetCust,note);
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
+      fdRef.current.targetCust=text;
+      saveToStorage();
+      setTcVersion(function(v){return v+1;});
+    }catch(e){}
+    setTcLoading(false);
+  }
+
+  // Sits below the competitor fields on the form, so it can use them. An
+  // advantage stated without reference to who you are competing against tends
+  // to come back as generic marketing copy.
+  async function suggestAdvantage(mode,note){
+    setAdvLoading(true);
+    (function(){var was=fdRef.current.advantage||"";stashAI("adv",function(){fdRef.current.advantage=was;saveToStorage();setAdvVersion(function(v){return v+1;});});})();
+    setAdvVersion(function(v){return v+1;});
+    var prompt="State the competitive advantage or unique selling point of this business, in 2-4 sentences of plain prose.\n\n"+
+      "Business: "+(fdRef.current.bizName||"this business")+"\n"+
+      "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
+      "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
+      "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
+      "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n"+
+      "Competitors: "+(fdRef.current.competitors||"not specified")+"\n"+
+      "Competitor strengths and weaknesses: "+(fdRef.current.compStrWeakness||"not specified")+"\n"+
+      "Intellectual property: "+(fdRef.current.ip||"none stated")+"\n"+
+      "Team: "+(fdRef.current.team||"not specified")+"\n\n"+
+      "Rules:\n"+
+      "- Say what this business offers that the named competitors do not, and why that matters to the target customer above.\n"+
+      "- Be concrete. Avoid empty claims like \"great service\", \"passionate team\" or \"customer focused\" unless there is something specific behind them.\n"+
+      "- Where there is real intellectual property, a genuine cost or access advantage, or specific expertise, lead with it.\n"+
+      "- Do not claim an advantage the information above does not support. If the honest answer is that the business competes on a narrower focus or on serving a segment the larger players ignore, say that instead.\n"+
+      "- Realistic for a small New Zealand business. Plain prose, no bullet points, no headings, no preamble. Under 120 words.";
+    prompt+=revisionNote(mode,fdRef.current.advantage,note);
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
+      fdRef.current.advantage=text;
+      saveToStorage();
+      setAdvVersion(function(v){return v+1;});
+    }catch(e){}
+    setAdvLoading(false);
+  }
+
   async function suggestCompetitors(mode,note){
     setCompLoading(true);
+    (function(){var was=fdRef.current.competitors||"";stashAI("comp",function(){fdRef.current.competitors=was;saveToStorage();setCompVersion(function(v){return v+1;});});})();
     setCompVersion(function(v){return v+1;});
     // The field asks two things - who the competitors are AND how this business
     // differs - so the prompt has to answer both, and needs the positioning and
@@ -1396,6 +1542,7 @@ function App(){
 
   async function suggestCompSW(mode,note){
     setCswLoading(true);
+    (function(){var was=fdRef.current.compStrWeakness||"";stashAI("csw",function(){fdRef.current.compStrWeakness=was;saveToStorage();setCompSwVersion(function(v){return v+1;});});})();
     setCompSwVersion(function(v){return v+1;});
     var comps=fdRef.current.competitors||"";
     if(!comps.trim()){setCompSwVersion(function(v){return v+1;});return;}
@@ -1414,6 +1561,7 @@ function App(){
 
   async function suggestGoalCard(i,mode,note){
     setGoalCardLoading(function(prev){var n=Object.assign({},prev);n[i]=true;return n;});
+    (function(){var wasH=fdRef.current["goalHow"+(i+1)]||"",wasR=fdRef.current["goalRes"+(i+1)]||"";stashAI("gc"+i,function(){fdRef.current["goalHow"+(i+1)]=wasH;fdRef.current["goalRes"+(i+1)]=wasR;saveToStorage();setGoalCardVer(function(prev){var n=Object.assign({},prev);n[i]=(n[i]||0)+1;return n;});});})();
     var prompt="For this specific business goal, suggest:\n1. How to achieve it (2-3 concrete action steps, 1-2 sentences)\n2. Resources needed (people, tools, budget - 1-2 sentences)\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nPosition statement: "+(fdRef.current.position||"not specified")+"\nGoal: "+(goals[i]||"")+"\n\nReturn in this exact format:\nHow: [your suggestion]\nResources: [your suggestion]";
     prompt+=revisionNote(mode,["How: "+(fdRef.current["goalHow"+(i+1)]||""),"Resources: "+(fdRef.current["goalRes"+(i+1)]||"")].join("\n"),note);
     try{
@@ -2206,7 +2354,7 @@ function App(){
     fdRef.current={};
     try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem("bpg_step");}catch(e){}
     setStep(0);setShowOutput(false);setPlanHtml("");setLiveRows([]);
-    setLegalStatus("");setGoals(Array(6).fill(""));
+    setLegalStatus("");setGoals(Array(6).fill(""));setTaxReg(false);
     window.scrollTo(0,0);
   }
 
@@ -2267,9 +2415,15 @@ function App(){
           if(!data||typeof data!=="object"||Array.isArray(data))throw new Error("bad shape");
           if(!window.confirm("This will replace everything currently in the app with the contents of your backup file. Continue?"))return;
           delete data._README; delete data._HOW_TO_RESTORE;
+          // Backups taken before the registration checkbox existed need the
+          // same one-time inference as plans loaded from storage.
+          if(data.taxRegistered===undefined){
+            data.taxRegistered=((parseFloat(data.taxRate)||0)>0)?"1":"";
+          }
           fdRef.current=data;
           saveToStorage();
           setLegalStatus(data.legalStatus||"");
+          setTaxReg(data.taxRegistered==="1");
           setGoals(Array.from({length:6},function(_,i){return data["goal"+(i+1)]||"";}));
           setLiveRows(calcCashflow(data));
           setShowDirection(false);setShowOutput(false);
@@ -2456,6 +2610,31 @@ function App(){
   }
 
 
+  // Both Step 4 carry-over panels sit among a long run of ordinary inputs, and
+  // as plain white rows they were easy to scroll straight past - which matters,
+  // because an unticked box silently leaves figures out of the forecast. They
+  // now carry the gold accent used elsewhere for "read this", label where the
+  // numbers came from, and say plainly when they are not being counted.
+  function goalPanelShell(on){
+    return {border:"1px solid "+(on?"#BFE3E1":"#E7EAED"),borderLeft:"5px solid #D0B16F",
+      background:on?"#E7F5F4":"#FCFCFA",borderRadius:12,padding:"14px 16px",marginBottom:16,
+      boxShadow:"0 1px 3px rgba(41,56,74,0.07)"};
+  }
+  function GoalPanelEyebrow(){
+    return (
+      <div style={{fontSize:11,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:7}}>
+        Carried over from Step 4
+      </div>
+    );
+  }
+  function GoalPanelOffNote(){
+    return (
+      <div style={{fontSize:13,color:"#5F7183",marginTop:7,marginLeft:25,lineHeight:1.5}}>
+        Not included in your forecast yet &mdash; tick the box above to add it.
+      </div>
+    );
+  }
+
   function GoalExpApply(){
     var byCat=goalExpByCategory();
     var rows=Object.keys(byCat).map(function(id){return {id:id,amt:byCat[id]};});
@@ -2464,20 +2643,37 @@ function App(){
     var total=goalExpTotalSum();
     function labelFor(id){var m=expCats.filter(function(e){return e.id===id;})[0];return m?m.l:id;}
     return (
-      <div style={{border:"1px solid "+(on?"#BFE3E1":"#E7EAED"),background:on?"#E7F5F4":"#fff",borderRadius:6,padding:"10px 12px",marginBottom:12}}>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <input type="checkbox" id="apply-goalExp" checked={on} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}
-            onChange={function(){fdRef.current.goalExpApply=on?"0":"1";saveToStorage();refreshLive();}}/>
-          <label htmlFor="apply-goalExp" style={{fontSize:13,color:"#29384A",cursor:"pointer",flex:1}}>
+      <div style={goalPanelShell(on)}>
+        {GoalPanelEyebrow()}
+        <div style={{display:"flex",alignItems:"center",gap:9}}>
+          <input type="checkbox" id="apply-goalExp" checked={on} style={{width:17,height:17,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
+            onChange={function(){
+              var turningOn=!on;
+              fdRef.current.goalExpApply=on?"0":"1";
+              if(turningOn){
+                setGridChecks(function(pp){
+                  var n=Object.assign({},pp);
+                  rows.forEach(function(r){
+                    var k="goalExpM_"+r.id;
+                    fdRef.current[k+"_monthly"]="";
+                    n[k]=false;
+                  });
+                  return n;
+                });
+              }
+              saveToStorage();refreshLive();
+            }}/>
+          <label htmlFor="apply-goalExp" style={{fontSize:15,color:"#29384A",cursor:"pointer",flex:1,lineHeight:1.45}}>
             Add the extra <strong style={{color:"#01236D"}}>{fmt(total)}</strong> of costs from your Step 4 goals
           </label>
         </div>
+        {!on&&GoalPanelOffNote()}
         {on&&(<div style={{marginTop:10}}>
           <div style={{fontSize:13,color:"#5F7183",marginBottom:6}}>Added to these expense categories:</div>
           {rows.map(function(r,i){
             var gk="goalExpM_"+r.id;
             var ov=fdRef.current[gk]||"";
-            var overridden=String(ov).indexOf("M")>=0;
+            var overridden=!!gridChecks[gk]&&String(ov).indexOf("M")>=0;
             var sum=overridden?parseMonthly(ov,0).reduce(function(a,b){return a+(b||0);},0):r.amt;
             var diff=Math.round(sum-r.amt);
             return (
@@ -2512,19 +2708,33 @@ function App(){
     var total=parseFloat(fdRef.current[props.totalKey])||0;
     var on=fdRef.current[props.applyKey]==="1";
     var monthly=fdRef.current[props.monthlyKey]||"";
-    var overridden=String(monthly).indexOf("M")>=0;
+    var overridden=!!gridChecks[props.monthlyKey]&&String(monthly).indexOf("M")>=0;
     var sum=overridden?parseMonthly(monthly,0).reduce(function(a,b){return a+(b||0);},0):total;
     var diff=Math.round(sum-total);
     if(!total)return null;
     return (
-      <div style={{border:"1px solid "+(on?"#BFE3E1":"#E7EAED"),background:on?"#E7F5F4":"#fff",borderRadius:6,padding:"10px 12px",marginBottom:10}}>
-        <div style={{display:"flex",alignItems:"center",gap:8}}>
-          <input type="checkbox" id={"apply-"+props.applyKey} checked={on} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}
-            onChange={function(){fdRef.current[props.applyKey]=on?"0":"1";saveToStorage();refreshLive();}}/>
-          <label htmlFor={"apply-"+props.applyKey} style={{fontSize:13,color:"#29384A",cursor:"pointer",flex:1}}>
+      <div style={goalPanelShell(on)}>
+        {GoalPanelEyebrow()}
+        <div style={{display:"flex",alignItems:"center",gap:9}}>
+          <input type="checkbox" id={"apply-"+props.applyKey} checked={on} style={{width:17,height:17,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
+            onChange={function(){
+              var turningOn=!on;
+              fdRef.current[props.applyKey]=on?"0":"1";
+              // Start collapsed every time this is switched on. The even spread
+              // is the sensible default; setting twelve amounts by hand is the
+              // exception, and it should be chosen deliberately rather than
+              // inherited from whatever was ticked in an earlier session.
+              if(turningOn){
+                fdRef.current[props.monthlyKey+"_monthly"]="";
+                setGridChecks(function(pp){var n=Object.assign({},pp);n[props.monthlyKey]=false;return n;});
+              }
+              saveToStorage();refreshLive();
+            }}/>
+          <label htmlFor={"apply-"+props.applyKey} style={{fontSize:15,color:"#29384A",cursor:"pointer",flex:1,lineHeight:1.45}}>
             {props.label} <strong style={{color:"#01236D"}}>{props.money?fmt(total):Math.round(total).toLocaleString()}</strong> from your Step 4 goals
           </label>
         </div>
+        {!on&&GoalPanelOffNote()}
         {on&&(<div style={{marginTop:8}}>
           <div style={{fontSize:13,color:"#5F7183",marginBottom:6}}>
             {overridden?"Using your monthly amounts below.":"Spread evenly: "+(props.money?fmt(total/12):Math.round(total/12).toLocaleString())+" a month."}
@@ -2571,6 +2781,18 @@ function App(){
     var p=String(fdRef.current.cfStartDate||"").split("-");
     var y=parseInt(p[0]),sm=parseInt(p[1]);
     if(!y||!sm||sm<1||sm>12)return "month "+m;
+    var idx=(sm-1+(m-1))%12;
+    var yr=y+Math.floor((sm-1+(m-1))/12);
+    return SM[idx]+" "+String(yr).slice(2);
+  }
+
+  // Compact version for tight grids: real months once a cashflow start date is
+  // set, M1..M12 until then. Matches the labelling MonthGrid uses.
+  function shortMonthFor(m){
+    var SM=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    var p=String(fdRef.current.cfStartDate||"").split("-");
+    var y=parseInt(p[0]),sm=parseInt(p[1]);
+    if(!y||!sm||sm<1||sm>12)return "M"+m;
     var idx=(sm-1+(m-1))%12;
     var yr=y+Math.floor((sm-1+(m-1))/12);
     return SM[idx]+" "+String(yr).slice(2);
@@ -2747,6 +2969,221 @@ function App(){
     );
   }
 
+  // Suggests the running cost base. Two things it must not do: duplicate costs
+  // the Step 4 goals already contribute to the same categories, and hand back a
+  // flat monthly figure for Team or Contractors - those two are built from
+  // named people with start months, so they are suggested as rows for the
+  // people helper instead.
+  async function suggestExpenses(){
+    setExpAiLoad(true);
+    setExpAi(null);
+    var goalByCat=goalExpByCategory();
+    var goalOn=fdRef.current.goalExpApply==="1";
+    var goalText=Object.keys(goalByCat).map(function(id){
+      var m=expCats.filter(function(e){return e.id===id;})[0];
+      return (m?m.l:id)+": "+fmt(Math.round(goalByCat[id]))+" a year";
+    }).join("; ")||"none";
+    var rate=activeTaxRate();
+    var catList=expCats.filter(function(c){return !PEOPLE_CATS[c.id];})
+      .map(function(c){return c.l;}).join(", ");
+    var units=(liveRows||[]).reduce(function(s,r){return s+(r.units||0);},0);
+    var rev=(liveRows||[]).reduce(function(s,r){return s+(r.revenue||0);},0);
+
+    var prompt="Estimate the monthly running expenses for this business, category by category.\n\n"+
+      "Business: "+(fdRef.current.bizName||"this business")+"\n"+
+      "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
+      "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
+      "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "Stage: "+(fdRef.current.stage||"not specified")+"\n"+
+      "Team as it stands: "+(fdRef.current.team||fdRef.current.execTeam||"not specified")+"\n"+
+      "Planned new hires: "+(fdRef.current.execTeamNew||"none stated")+"\n"+
+      "Forecast sales over 12 months: "+(rev?fmt(Math.round(rev)):"not yet entered")+
+        (units?(" from "+Math.round(units).toLocaleString()+" units"):"")+"\n\n"+
+      "ALREADY COUNTED - do not include these again. The Step 4 goals add the following"+
+        (goalOn?"":" (currently switched off, but still do not duplicate them)")+":\n"+goalText+"\n"+
+      "Suggest only the ordinary running costs the business would carry anyway, on top of those.\n\n"+
+      "Categories to use, and no others: "+catList+"\n"+
+      "Give a MONTHLY figure in New Zealand dollars for each category that genuinely applies. Omit a category entirely rather than guessing a token amount.\n"+
+      (rate>0
+        ? "The business is registered for GST, so give every figure EXCLUDING tax.\n"
+        : "The business is not registered for GST, so give the amounts actually paid.\n")+
+      "Be realistic and conservative for a small business at this stage. A sole trader working from home has very few of these.\n\n"+
+      "Then, separately, suggest the people needed. For each one give a role, an annual salary in New Zealand dollars, and the month of the 12 they start (1 if from the beginning). Use PERMANENT for employees and CONTRACT for contractors. If none are needed, write PEOPLE: none.\n\n"+
+      "Reply in EXACTLY this format and nothing else:\n"+
+      "EXPENSE: [category name] | [monthly amount, digits only] | [max 12 words on what it covers]\n"+
+      "(one EXPENSE line per category)\n"+
+      "PEOPLE: [PERMANENT or CONTRACT] | [role] | [annual salary, digits only] | [start month 1-12] | [max 10 words why]\n"+
+      "(one PEOPLE line per person, or the single line PEOPLE: none)";
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:900,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      var text=(data.content||[]).map(function(x){return x.text||"";}).join("");
+      var cats=[],people=[];
+      text.split("\n").forEach(function(line){
+        var em=line.match(/EXPENSE:\s*([^|]+)\|\s*\$?\s*([0-9][0-9,]*\.?[0-9]*)\s*\|?\s*(.*)$/i);
+        if(em){
+          var name=em[1].replace(/[^a-z &]/gi,"").trim().toLowerCase();
+          var cat=expCats.filter(function(e){return e.l.toLowerCase()===name;})[0];
+          if(!cat)cat=expCats.filter(function(e){return e.l.toLowerCase().indexOf(name)>=0||name.indexOf(e.l.toLowerCase())>=0;})[0];
+          var amt=parseFloat(em[2].replace(/,/g,""));
+          // A zero is dropped rather than stored. Writing "0" into a category
+          // reveals its row and prints a "12-month total: $0" line for a cost
+          // that does not exist - the model was asked to omit these, but it
+          // sometimes answers 0 instead.
+          if(cat&&!PEOPLE_CATS[cat.id]&&!isNaN(amt)&&amt>0){
+            cats.push({id:cat.id,label:cat.l,amt:amt,why:(em[3]||"").trim()});
+          }
+          return;
+        }
+        var pm=line.match(/PEOPLE:\s*(PERMANENT|CONTRACT)\s*\|\s*([^|]+)\|\s*\$?\s*([0-9][0-9,]*\.?[0-9]*)\s*\|\s*([0-9]{1,2})\s*\|?\s*(.*)$/i);
+        if(pm){
+          var start=parseInt(pm[4]);
+          if(isNaN(start)||start<1||start>12)start=1;
+          var pamt=parseFloat(pm[3].replace(/,/g,""));
+          if(!isNaN(pamt)&&pamt>0){
+            people.push({
+              cat:/PERMANENT/i.test(pm[1])?"xTeam":"xCon",
+              name:pm[2].trim(),
+              amt:pamt,
+              start:start,
+              why:(pm[5]||"").trim()
+            });
+          }
+        }
+      });
+      if(!cats.length&&!people.length){
+        setExpAi({error:"Could not work out any figures just now. Please try again."});
+      } else {
+        // Anything already filled in is left unticked, so a typed figure is
+        // never replaced without the user deliberately choosing it.
+        var pick={};
+        cats.forEach(function(c){ pick["c:"+c.id]=!fdRef.current[c.id]; });
+        people.forEach(function(p,i){ pick["p:"+i]=true; });
+        setExpAiPick(pick);
+        setExpAi({cats:cats,people:people});
+      }
+    }catch(e){ setExpAi({error:"Could not get suggestions just now. Please try again."}); }
+    setExpAiLoad(false);
+  }
+
+  // Preview only. Rows are applied on Add, never on arrival.
+  function ExpenseSuggestions(){
+    if(!expAi)return null;
+    if(expAi.error){
+      return (
+        <div style={{background:"#FDEEEB",border:"1px solid #F2CFC7",borderRadius:6,padding:"11px 13px",marginBottom:12,fontSize:13,color:"#B14A38"}}>
+          {expAi.error}
+        </div>
+      );
+    }
+    var chosen=(expAi.cats||[]).filter(function(c){return expAiPick["c:"+c.id];});
+    var chosenPeople=(expAi.people||[]).filter(function(p,i){return expAiPick["p:"+i];});
+    var monthlyTotal=chosen.reduce(function(s,c){return s+(c.amt||0);},0)
+      +chosenPeople.reduce(function(s,p){return s+(p.amt||0)/12;},0);
+    function toggle(k){setExpAiPick(function(p){var n=Object.assign({},p);n[k]=!n[k];return n;});}
+    var rowStyle={display:"flex",gap:9,alignItems:"flex-start",padding:"8px 0",borderTop:"1px solid #BFE3E1"};
+    return (
+      <div style={{background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"13px 15px",marginBottom:14}}>
+        <div style={{fontSize:13,color:"#1F5C5D",lineHeight:1.55,marginBottom:4}}>
+          Suggested running costs. Nothing is added until you press <strong style={{color:"#01236D"}}>Add ticked items</strong>. Categories you have already filled in start unticked.
+          {activeTaxRate()>0?" Figures exclude product/services tax.":""}
+        </div>
+        {(expAi.cats||[]).map(function(c){
+          var filled=!!fdRef.current[c.id];
+          return (
+            <div key={c.id} style={rowStyle}>
+              <input type="checkbox" checked={!!expAiPick["c:"+c.id]} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:3}}
+                onChange={function(){toggle("c:"+c.id);}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,color:"#29384A"}}>
+                  <strong style={{color:"#01236D"}}>{c.label}</strong> &mdash; {fmt(Math.round(c.amt))} a month
+                  {filled&&<span style={{color:"#B14A38",fontWeight:600}}> &middot; will replace {fmt(parseFloat(fdRef.current[c.id])||0)}</span>}
+                </div>
+                {!!c.why&&<div style={{fontSize:13,color:"#5F7183",marginTop:2,lineHeight:1.45}}>{c.why}</div>}
+              </div>
+            </div>
+          );
+        })}
+        {(expAi.people||[]).map(function(p,i){
+          return (
+            <div key={"p"+i} style={rowStyle}>
+              <input type="checkbox" checked={!!expAiPick["p:"+i]} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:3}}
+                onChange={function(){toggle("p:"+i);}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,color:"#29384A"}}>
+                  <strong style={{color:"#01236D"}}>{p.cat==="xTeam"?"Team":"Contractors"}</strong> &mdash; {p.name}, {fmt(Math.round(p.amt))} a year
+                  {p.start>1?<span> from {monthNameFor(p.start)}</span>:<span> from the start</span>}
+                </div>
+                <div style={{fontSize:13,color:"#5F7183",marginTop:2,lineHeight:1.45}}>
+                  {p.why?p.why+" \u00b7 ":""}Added as a person, so the cost is spread across the months they are actually paid.
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <div style={{borderTop:"1px solid #BFE3E1",marginTop:6,paddingTop:10}}>
+          <div style={{fontSize:13,color:"#29384A",marginBottom:9}}>
+            Ticked items add about <strong style={{color:"#01236D"}}>{fmt(Math.round(monthlyTotal))}</strong> a month.
+          </div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            <button style={Object.assign({},suggestBtn,{background:"#01236D"})} disabled={!chosen.length&&!chosenPeople.length}
+              onClick={applyExpenseSuggestions}>Add ticked items</button>
+            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#5F7183",background:"none",border:"1px solid #E7EAED",borderRadius:6,padding:"5px 12px",cursor:"pointer"}}
+              onClick={function(){setExpAi(null);}}>Discard</button>
+          </div>
+          <div style={{fontSize:11,color:"#5F7183",fontStyle:"italic",marginTop:8,lineHeight:1.5}}>
+            Estimates only. Check them against real quotes and your own costs before relying on them.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function applyExpenseSuggestions(){
+    if(!expAi||expAi.error)return;
+    (expAi.cats||[]).forEach(function(c){
+      if(!expAiPick["c:"+c.id])return;
+      if(!(c.amt>0))return;
+      fdRef.current[c.id]=String(Math.round(c.amt));
+      // Any monthly grid for this category is stale now, so close it and fall
+      // back to the flat figure rather than leaving the two disagreeing.
+      fdRef.current[c.id+"_monthly"]="";
+      setGridChecks(function(p){var n=Object.assign({},p);n[c.id]=false;return n;});
+      revealExp(c.id);
+    });
+    // People are appended to the existing helper rows rather than replacing
+    // them, so anyone already listed is kept.
+    var byCat={};
+    (expAi.people||[]).forEach(function(p,i){
+      if(!expAiPick["p:"+i])return;
+      if(!byCat[p.cat])byCat[p.cat]=[];
+      byCat[p.cat].push(p);
+    });
+    Object.keys(byCat).forEach(function(cat){
+      var rows=teamRows(cat).filter(function(r){return r.name||r.amt;});
+      byCat[cat].forEach(function(p){
+        rows.push({name:p.name,amt:String(Math.round(p.amt)),start:p.start>1?String(p.start):""});
+      });
+      writeTeamRows(cat,rows,true);
+      // Push the pro-rated monthly cost into the category, as "Use this figure"
+      // does, so the forecast reflects the new people immediately.
+      var mc=teamMonthlyCosts(cat);
+      if(teamCostsVary(cat)){
+        fdRef.current[cat]=mc.map(function(v,i){return "M"+(i+1)+":"+Math.round(v);}).join(",");
+        fdRef.current[cat+"_monthly"]="1";
+        setGridChecks(function(p){var n=Object.assign({},p);n[cat]=true;return n;});
+      } else {
+        fdRef.current[cat]=String(Math.round(mc[0]));
+        fdRef.current[cat+"_monthly"]="";
+        setGridChecks(function(p){var n=Object.assign({},p);n[cat]=false;return n;});
+      }
+      revealExp(cat);
+    });
+    saveToStorage();refreshLive();
+    setExpAi(null);
+    setAvgSalesVer(function(v){return v+1;});
+  }
+
   function PeopleCostHelper(cat){
     var meta=PEOPLE_CATS[cat];
     var open=!!peopleOpen[cat];
@@ -2839,16 +3276,92 @@ function App(){
     );
   }
 
+  // Cost of sales only - what it takes to deliver one unit. Overheads belong in
+  // the expense categories, and counting them here would double up.
+  async function suggestAvgCost(){
+    setAcAiLoad(true);
+    setAcAi(null);
+    var prompt="Suggest a realistic average cost per unit for this business - the direct cost of delivering one sale.\n\n"+
+      "Business: "+(fdRef.current.bizName||"this business")+"\n"+
+      "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
+      "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
+      "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n"+
+      "Stage: "+(fdRef.current.stage||"not specified")+"\n"+
+      "Average sale price per unit, if entered: "+(fdRef.current.avgPrice||"not entered")+"\n\n"+
+      "A \"unit\" is one sale - for a service business that may be an hour, a job or a monthly subscription.\n"+
+      "Count ONLY direct cost of sales: materials, stock bought in, packaging, freight, subcontracted labour for that job, payment fees.\n"+
+      "Do NOT include rent, salaries of permanent staff, insurance, marketing, accounting or any other overhead - those are entered separately as expenses, and counting them here would double up.\n"+
+      "Many service businesses have little or no direct unit cost. If that is the case here, say 0 rather than inventing one.\n"+
+      "Use current New Zealand costs, excluding GST. If a sale price is given above, the cost must sit below it.\n\n"+
+      "Reply in EXACTLY this format and nothing else:\n"+
+      "COST: [number only, no dollar sign, no commas]\n"+
+      "UNIT: [what one unit is, 2-5 words]\n"+
+      "WHY: [one or two short sentences on what the figure covers and what it assumes]";
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      var text=(data.content||[]).map(function(x){return x.text||"";}).join("");
+      var cm=text.match(/COST:\s*\$?\s*([0-9][0-9,]*\.?[0-9]*)/i);
+      var um=text.match(/UNIT:\s*(.+)/i);
+      var wm=text.match(/WHY:\s*([\s\S]+)/i);
+      if(cm){
+        setAcAi({
+          cost:parseFloat(cm[1].replace(/,/g,"")),
+          unit:um?um[1].trim():"",
+          why:wm?wm[1].trim():""
+        });
+      } else {
+        setAcAi({error:"Could not work out a figure just now. Please try again."});
+      }
+    }catch(e){ setAcAi({error:"Could not get a suggestion just now. Please try again."}); }
+    setAcAiLoad(false);
+  }
+
   function AvgCostHelper(){
     var units=(liveRows||[]).reduce(function(s,r){return s+(r.units||0);},0);
     var total=parseFloat(String(acTotal).replace(/[^0-9.-]/g,""));
-    var cost=(units>0&&!isNaN(total)&&total>0)?total/units:null;
+    var acNet=(!isNaN(total)&&total>0)?(acIncl?exclOfTax(total):total):null;
+    var cost=(units>0&&acNet!==null)?acNet/units:null;
     return (
       <div style={{marginBottom:8}}>
-        <button style={acOpen?Object.assign({},suggestBtn,{background:"#01236D"}):suggestBtn}
-          onClick={function(){setAcOpen(!acOpen);}}>
-          {acOpen?"Close":"Help me work this out"}
-        </button>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <button style={acOpen?Object.assign({},suggestBtn,{background:"#01236D"}):suggestBtn}
+            onClick={function(){setAcOpen(!acOpen);}}>
+            {acOpen?"Close":"Help me work this out"}
+          </button>
+          <button style={acAiLoad?suggestBtnBusy:suggestBtn} disabled={acAiLoad}
+            onClick={function(){suggestAvgCost();}}>
+            {acAiLoad?busyLabel("Working on it\u2026"):"Suggest with AI"}
+          </button>
+        </div>
+        {!!acAi&&(
+          <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"12px 14px"}}>
+            {acAi.error
+              ?<div style={{fontSize:13,color:"#B14A38",lineHeight:1.55}}>{acAi.error}</div>
+              :(<div>
+                  <div style={{fontSize:13,color:"#1F5C5D",lineHeight:1.6}}>
+                    Suggested average cost <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(acAi.cost*100)/100)}</strong>
+                    {acAi.unit?<span> per {acAi.unit.replace(/\.$/,"")}</span>:null}
+                  </div>
+                  {!!acAi.why&&<div style={{fontSize:13,color:"#29384A",lineHeight:1.6,marginTop:6}}>{acAi.why}</div>}
+                  <div style={{fontSize:11,color:"#5F7183",fontStyle:"italic",marginTop:8,lineHeight:1.5}}>
+                    An estimate of direct costs only. Overheads such as rent, salaries and insurance belong in Money out, not here.
+                  </div>
+                  <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+                    <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
+                      onClick={function(){
+                        fdRef.current.avgCost=String(Math.round(acAi.cost*100)/100);
+                        saveToStorage();refreshLive();
+                        setAcAi(null);
+                        setAvgSalesVer(function(v){return v+1;});
+                      }}>Use this figure</button>
+                    <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#5F7183",background:"none",border:"1px solid #E7EAED",borderRadius:6,padding:"5px 12px",cursor:"pointer"}}
+                      onClick={function(){setAcAi(null);}}>Discard</button>
+                  </div>
+                </div>)}
+          </div>
+        )}
         {acOpen&&(
           <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"12px 14px"}}>
             {units>0?(
@@ -2859,9 +3372,19 @@ function App(){
                 <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Total cost of making those sales over 12 months ($)</div>
                 <input style={Object.assign({},inp,{fontSize:15})} placeholder="e.g. 48000" value={acTotal}
                   onChange={function(e){setAcTotal(e.target.value);}}/>
+                {activeTaxRate()>0&&(
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginTop:7}}>
+                    <input type="checkbox" id="acIncl" checked={acIncl} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
+                      onChange={function(e){setAcIncl(e.target.checked);}}/>
+                    <label htmlFor="acIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes product/services tax</label>
+                  </div>
+                )}
                 {cost!==null&&(
                   <div style={{marginTop:10,fontSize:13,color:"#29384A",lineHeight:1.6}}>
-                    {fmt(total)} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(cost*100)/100)}</strong> per unit
+                    {acIncl&&activeTaxRate()>0&&(
+                      <div style={{marginBottom:4,color:"#5F7183"}}>{fmt(total)} including tax &divide; {(1+activeTaxRate()/100).toFixed(2)} = {fmt(Math.round(acNet))} excluding tax</div>
+                    )}
+                    {fmt(Math.round(acNet))} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(cost*100)/100)}</strong> per unit
                     <div style={{marginTop:10}}>
                       <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
                         onClick={function(){
@@ -2885,19 +3408,95 @@ function App(){
     );
   }
 
+  // The calculator divides a total the user already knows. This is for the
+  // other case - they have no idea what to charge and want a starting point.
+  async function suggestAvgPrice(){
+    setApAiLoad(true);
+    setApAi(null);
+    var prompt="Suggest a realistic average sale price per unit for this business.\n\n"+
+      "Business: "+(fdRef.current.bizName||"this business")+"\n"+
+      "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
+      "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
+      "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n"+
+      "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
+      "Competitors: "+(fdRef.current.competitors||"not specified")+"\n"+
+      "Stage: "+(fdRef.current.stage||"not specified")+"\n"+
+      "Average cost per unit, if entered: "+(fdRef.current.avgCost||"not entered")+"\n\n"+
+      "A \"unit\" is one sale - for a service business that may be an hour, a job or a monthly subscription.\n"+
+      "Use current New Zealand market prices. Give the price the business would actually charge, excluding GST.\n"+
+      "If a unit cost is given above, the price must sit comfortably above it or the business cannot trade.\n\n"+
+      "Reply in EXACTLY this format and nothing else:\n"+
+      "PRICE: [number only, no dollar sign, no commas]\n"+
+      "UNIT: [what one unit is, 2-5 words]\n"+
+      "WHY: [one or two short sentences on how you arrived at it, and what it assumes]";
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      var text=(data.content||[]).map(function(x){return x.text||"";}).join("");
+      var pm=text.match(/PRICE:\s*\$?\s*([0-9][0-9,]*\.?[0-9]*)/i);
+      var um=text.match(/UNIT:\s*(.+)/i);
+      var wm=text.match(/WHY:\s*([\s\S]+)/i);
+      if(pm){
+        setApAi({
+          price:parseFloat(pm[1].replace(/,/g,"")),
+          unit:um?um[1].trim():"",
+          why:wm?wm[1].trim():""
+        });
+      } else {
+        setApAi({error:"Could not work out a figure just now. Please try again."});
+      }
+    }catch(e){ setApAi({error:"Could not get a suggestion just now. Please try again."}); }
+    setApAiLoad(false);
+  }
+
   function AvgPriceHelper(){
     // Deterministic arithmetic rather than a model call - instant, free, and it
     // cannot get the sum wrong. Units come from liveRows so the figure matches
     // the forecast, including monthly grids and goal-driven units.
     var units=(liveRows||[]).reduce(function(s,r){return s+(r.units||0);},0);
     var total=parseFloat(String(apTotal).replace(/[^0-9.-]/g,""));
-    var price=(units>0&&!isNaN(total)&&total>0)?total/units:null;
+    var apNet=(!isNaN(total)&&total>0)?(apIncl?exclOfTax(total):total):null;
+    var price=(units>0&&apNet!==null)?apNet/units:null;
     return (
       <div style={{marginBottom:8}}>
-        <button style={apOpen?Object.assign({},suggestBtn,{background:"#01236D"}):suggestBtn}
-          onClick={function(){setApOpen(!apOpen);}}>
-          {apOpen?"Close":"Help me work this out"}
-        </button>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          <button style={apOpen?Object.assign({},suggestBtn,{background:"#01236D"}):suggestBtn}
+            onClick={function(){setApOpen(!apOpen);}}>
+            {apOpen?"Close":"Help me work this out"}
+          </button>
+          <button style={apAiLoad?suggestBtnBusy:suggestBtn} disabled={apAiLoad}
+            onClick={function(){suggestAvgPrice();}}>
+            {apAiLoad?busyLabel("Working on it\u2026"):"Suggest with AI"}
+          </button>
+        </div>
+        {!!apAi&&(
+          <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"12px 14px"}}>
+            {apAi.error
+              ?<div style={{fontSize:13,color:"#B14A38",lineHeight:1.55}}>{apAi.error}</div>
+              :(<div>
+                  <div style={{fontSize:13,color:"#1F5C5D",lineHeight:1.6}}>
+                    Suggested average price <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(apAi.price*100)/100)}</strong>
+                    {apAi.unit?<span> per {apAi.unit.replace(/\.$/,"")}</span>:null}
+                  </div>
+                  {!!apAi.why&&<div style={{fontSize:13,color:"#29384A",lineHeight:1.6,marginTop:6}}>{apAi.why}</div>}
+                  <div style={{fontSize:11,color:"#5F7183",fontStyle:"italic",marginTop:8,lineHeight:1.5}}>
+                    An estimate only. Check it against what you and your competitors actually charge before relying on it.
+                  </div>
+                  <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+                    <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
+                      onClick={function(){
+                        fdRef.current.avgPrice=String(Math.round(apAi.price*100)/100);
+                        saveToStorage();refreshLive();
+                        setApAi(null);
+                        setAvgSalesVer(function(v){return v+1;});
+                      }}>Use this figure</button>
+                    <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#5F7183",background:"none",border:"1px solid #E7EAED",borderRadius:6,padding:"5px 12px",cursor:"pointer"}}
+                      onClick={function(){setApAi(null);}}>Discard</button>
+                  </div>
+                </div>)}
+          </div>
+        )}
         {apOpen&&(
           <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"12px 14px"}}>
             {units>0?(
@@ -2908,9 +3507,19 @@ function App(){
                 <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Total sales expected over 12 months ($)</div>
                 <input style={Object.assign({},inp,{fontSize:15})} placeholder="e.g. 120000" value={apTotal}
                   onChange={function(e){setApTotal(e.target.value);}}/>
+                {activeTaxRate()>0&&(
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginTop:7}}>
+                    <input type="checkbox" id="apIncl" checked={apIncl} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
+                      onChange={function(e){setApIncl(e.target.checked);}}/>
+                    <label htmlFor="apIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes product/services tax</label>
+                  </div>
+                )}
                 {price!==null&&(
                   <div style={{marginTop:10,fontSize:13,color:"#29384A",lineHeight:1.6}}>
-                    {fmt(total)} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(price*100)/100)}</strong> per unit
+                    {apIncl&&activeTaxRate()>0&&(
+                      <div style={{marginBottom:4,color:"#5F7183"}}>{fmt(total)} including tax &divide; {(1+activeTaxRate()/100).toFixed(2)} = {fmt(Math.round(apNet))} excluding tax</div>
+                    )}
+                    {fmt(Math.round(apNet))} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(price*100)/100)}</strong> per unit
                     <div style={{marginTop:10}}>
                       <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
                         onClick={function(){
@@ -2934,6 +3543,66 @@ function App(){
     );
   }
 
+  // Compact echo of the notice in section 1. The instruction is given where the
+  // box is ticked, but the amounts it governs are typed further down the page,
+  // well past the point that notice has scrolled out of sight.
+  function TaxExclNote(subject){
+    if(!taxReg)return null;
+    return (
+      <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"3px solid #D0B16F",borderRadius:6,padding:"8px 11px",marginBottom:12,lineHeight:1.5}}>
+        {subject||"Amounts"} in this section should <strong style={{color:"#01236D"}}>exclude</strong> product/services tax.
+      </div>
+    );
+  }
+
+  // Only meaningful when the business is registered AND a rate has been set.
+  function activeTaxRate(){
+    if(!taxReg)return 0;
+    var r=parseFloat(fdRef.current.taxRate)||0;
+    return r>0?r:0;
+  }
+  function exclOfTax(v){
+    var r=activeTaxRate();
+    return r>0?v/(1+r/100):v;
+  }
+
+  // One converter for the whole tab. The alternative - a widget beside all
+  // fourteen expense categories, other revenue and the asset lines - would be
+  // far more clutter for the same job. Nothing is converted automatically:
+  // silently altering a typed number is worse than making someone do the sum,
+  // because they cannot tell whether it has been applied.
+  function TaxConverter(){
+    var rate=activeTaxRate();
+    if(!rate)return null;
+    var raw=parseFloat(String(convAmt).replace(/[^0-9.-]/g,""));
+    var ok=!isNaN(raw)&&raw!==0;
+    var excl=ok?exclOfTax(raw):null;
+    return (
+      <div style={{marginBottom:14}}>
+        <button style={convOpen?Object.assign({},suggestBtn,{background:"#01236D"}):suggestBtn}
+          onClick={function(){setConvOpen(!convOpen);}}>
+          {convOpen?"Close":"Take the tax off an amount"}
+        </button>
+        {convOpen&&(
+          <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"12px 14px"}}>
+            <div style={{fontSize:13,color:"#1F5C5D",marginBottom:8,lineHeight:1.55}}>
+              Amounts on this tab are entered without tax. If you know a figure with tax included, put it in here and use the amount that comes out.
+            </div>
+            <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Amount including tax ($)</div>
+            <input style={Object.assign({},inp,{fontSize:15,maxWidth:220})} placeholder="e.g. 115" value={convAmt}
+              onChange={function(e){setConvAmt(e.target.value);}}/>
+            {ok&&(
+              <div style={{marginTop:10,fontSize:13,color:"#29384A",lineHeight:1.7}}>
+                {fmt(raw)} &divide; {(1+rate/100).toFixed(2)} = <strong style={{color:"#01236D",fontSize:17}}>{fmt(Math.round(excl*100)/100)}</strong> excluding tax
+                <div style={{fontSize:13,color:"#5F7183",marginTop:3}}>The tax portion is {fmt(Math.round((raw-excl)*100)/100)} at {rate}%.</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function FinSummary(){
     if(!liveRows||!liveRows.length)return null;
     var closing=liveRows[liveRows.length-1].closingBalance||0;
@@ -2949,6 +3618,11 @@ function App(){
         <div><div style={{fontSize:11,color:"#5F7183",textTransform:"uppercase",letterSpacing:"0.05em"}}>Closing balance</div><div style={{fontSize:15,fontWeight:700,color:closing<0?"#B14A38":"#1F7A7C"}}>{fmt(closing)}</div></div>
         <div><div style={{fontSize:11,color:"#5F7183",textTransform:"uppercase",letterSpacing:"0.05em"}}>Lowest month</div><div style={{fontSize:18,fontWeight:700,color:neg?"#B14A38":"#1F7A7C"}} className="bpd-num bpd-pop">{fmt(lowV)} <span style={{fontSize:11,fontWeight:500,color:"#5F7183"}}>{low.month}</span></div></div>
         {neg&&<div style={{fontSize:11,color:"#B14A38",flex:"1 1 200px",lineHeight:1.45}}>Cash goes negative in {low.month}. You may need funding, or to reduce costs, before then.</div>}
+        {taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)&&(
+          <div style={{fontSize:11,color:"#B14A38",fontWeight:700,flex:"1 1 200px",lineHeight:1.45}}>
+            No tax rate entered in section 3, so no tax is included. These figures overstate your cash.
+          </div>
+        )}
       </div>
     );
   }
@@ -3101,31 +3775,37 @@ function App(){
     {label:"Step 2 of 5 - Market & Customers",title:"Tell us about your customers, market and competitors",desc:"Providing facts and figures is important.",
       render:function(){return (<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Who is the target customer/market?</div>
-          {RT("targetCust","e.g. Small business owners aged 30-50...",3)}
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={tcLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestTargetCust();}} disabled={tcLoading}>{tcLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"tc",has:!!(fdRef.current.targetCust||"").trim(),loading:tcLoading,run:suggestTargetCust})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div key={"tc-"+tcVersion} style={{marginTop:8}}>
+            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.targetCust||""} placeholder="e.g. Small business owners aged 30-50..." onChange={function(e){fdRef.current.targetCust=e.target.value;saveToStorage();}}/>
+          </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Does the business have any current customers/market share?</div>
           {RT("currentCust","e.g. 45 paying customers, approx 2% of local market...",2)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What is the target market opportunity (estimated)?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={msLoading?suggestBtnBusy:suggestBtn} onClick={suggestMarketSize} disabled={msLoading}>{msLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"ms",has:!!(fdRef.current.marketSize||"").trim(),loading:msLoading,run:suggestMarketSize})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={msLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestMarketSize();}} disabled={msLoading}>{msLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"ms",has:!!(fdRef.current.marketSize||"").trim(),loading:msLoading,run:suggestMarketSize})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"ms-"+msVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.marketSize||""} placeholder="e.g. NZ SME accounting software market ~$120M..." onChange={function(e){fdRef.current.marketSize=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Who are the main competitors to your business and how does your business differ from them?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={compLoading?suggestBtnBusy:suggestBtn} onClick={suggestCompetitors} disabled={compLoading}>{compLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"comp",has:!!(fdRef.current.competitors||"").trim(),loading:compLoading,run:suggestCompetitors})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={compLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestCompetitors();}} disabled={compLoading}>{compLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"comp",has:!!(fdRef.current.competitors||"").trim(),loading:compLoading,run:suggestCompetitors})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"comp-"+compVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.competitors||""} placeholder="e.g. Xero (market leader, feature-rich but expensive)..." onChange={function(e){fdRef.current.competitors=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What are the strengths and weaknesses of the main competitors to your business?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={cswLoading?suggestBtnBusy:suggestBtn} onClick={suggestCompSW} disabled={cswLoading}>{cswLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"csw",has:!!(fdRef.current.compStrWeakness||"").trim(),loading:cswLoading,run:suggestCompSW})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={cswLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestCompSW();}} disabled={cswLoading}>{cswLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"csw",has:!!(fdRef.current.compStrWeakness||"").trim(),loading:cswLoading,run:suggestCompSW})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"csw-"+compSwVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.compStrWeakness||""} placeholder="e.g. Xero: strengths - brand, integrations. Weaknesses - price..." onChange={function(e){fdRef.current.compStrWeakness=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What is the competitive advantage or unique selling point of your business?</div>
-          {RT("advantage","What makes you better or different?",2)}
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={advLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestAdvantage();}} disabled={advLoading}>{advLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"adv",has:!!(fdRef.current.advantage||"").trim(),loading:advLoading,run:suggestAdvantage})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div key={"adv-"+advVersion} style={{marginTop:8}}>
+            <textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current.advantage||""} placeholder="What makes you better or different?" onChange={function(e){fdRef.current.advantage=e.target.value;saveToStorage();}}/>
+          </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What Intellectual Property does your business have?</div>
           {RT("ip","e.g. Registered trademark, proprietary software. Or: none.",2)}
@@ -3137,7 +3817,7 @@ function App(){
     {label:"Step 3 of 5 - Vision & Strategy",title:"Tell us how you see the future of your business",desc:"What does success look like?",
       render:function(){return (<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>SWOT Analysis</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={suggestSWOT} disabled={!!goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"swot",has:!!((fdRef.current.swotS||"")+(fdRef.current.swotW||"")).trim(),loading:!!goalLoading,run:suggestSWOT})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Strengths, Weaknesses, Opportunities, Threats the business has.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestSWOT();}} disabled={!!goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"swot",has:!!((fdRef.current.swotS||"")+(fdRef.current.swotW||"")).trim(),loading:!!goalLoading,run:suggestSWOT})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Strengths, Weaknesses, Opportunities, Threats the business has.</span></div>
           <div key={"swot-"+swotVersion} style={{display:"flex",flexDirection:"column",gap:10,marginTop:10}}>
             {[{id:"swotS",l:"Strengths",h:"What your business does well",ph:"e.g. Strong technical team, first-mover advantage..."},{id:"swotW",l:"Weaknesses",h:"What your business could do better",ph:"e.g. Limited marketing budget..."},{id:"swotO",l:"Opportunities",h:"The possibilities available",ph:"e.g. Growing market, underserved segment..."},{id:"swotT",l:"Threats",h:"The risks to your business",ph:"e.g. Well-funded competitors..."}].map(function(x){return (<div key={x.id}><label style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:3,display:"block"}}>{x.l}</label><span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>{x.h}</span><textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current[x.id]||""} placeholder={x.ph} onChange={function(e){fdRef.current[x.id]=e.target.value;saveToStorage();}}/></div>);})}
           </div>
@@ -3155,7 +3835,7 @@ function App(){
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Goals</div>
           <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>The main steps to achieve success</span>
-          <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:8}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoals} disabled={goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"goals",has:goals.some(function(g){return !!(g||"").trim();}),loading:!!goalLoading,run:suggestGoals})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Goals the business should have.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:8}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestGoals();}} disabled={goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"goals",has:goals.some(function(g){return !!(g||"").trim();}),loading:!!goalLoading,run:suggestGoals})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Goals the business should have.</span></div>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {goals.map(function(g,i){var gs={display:"flex",gap:8,alignItems:"flex-start",marginBottom:6};return (<div key={i} style={gs}><div style={{fontSize:13,fontWeight:700,color:"#5F7183",width:18,flexShrink:0,paddingTop:10}}>{i+1}</div><input style={Object.assign({},inp,{flex:1})} value={g} placeholder={"e.g. Reach 500 paying customers within 12 months..."} onChange={function(e){var n=goals.slice();n[i]=e.target.value;setGoalsAndSave(n);}}/></div>);})}
           </div>
@@ -3287,6 +3967,7 @@ function App(){
           </div>
           {s5key==="details"&&(<>
             {FinSummary()}
+            {TaxConverter()}
             <FinSection open={finOpen.start} onToggle={function(){toggleFin("start");}} title="1. Starting position" hint="where you are today">
             <div style={{marginBottom:14}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Cashflow start date (Month 1)</div>
@@ -3307,15 +3988,15 @@ function App(){
                 <input style={inp} defaultValue={fdRef.current.openingBalance||""} placeholder="e.g. 5000 (cash in bank at start)" onChange={function(e){fdRef.current.openingBalance=e.target.value;saveToStorage();refreshLive();}}/>
               </div>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Assets the business owns</div>
-                <input style={inp} defaultValue={fdRef.current.assets||""} placeholder="e.g. $3,000 debtors, laptop $4,000" onChange={function(e){fdRef.current.assets=e.target.value;saveToStorage();}}/>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Money the business owes</div>
+                <input style={inp} defaultValue={fdRef.current.debt||""} placeholder="e.g. $5,000 suppliers, $10,000 loan" onChange={function(e){fdRef.current.debt=e.target.value;saveToStorage();}}/>
               </div>
             </div>
             <div style={{marginBottom:14}}/>
             <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
               <div style={{flex:1}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Money the business owes</div>
-                <input style={inp} defaultValue={fdRef.current.debt||""} placeholder="e.g. $5,000 suppliers, $10,000 loan" onChange={function(e){fdRef.current.debt=e.target.value;saveToStorage();}}/>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Assets the business owns</div>
+                <input style={inp} defaultValue={fdRef.current.assets||""} placeholder="e.g. $3,000 debtors, laptop $4,000" onChange={function(e){fdRef.current.assets=e.target.value;saveToStorage();}}/>
               </div>
               <div style={{flex:1}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Money you or investors have put in</div>
@@ -3323,9 +4004,31 @@ function App(){
               </div>
             </div>
             <div style={{marginBottom:14}}/>
+            <div style={{display:"flex",alignItems:"center",gap:9,background:"#FCFCFA",border:"1px solid #E7EAED",borderRadius:10,padding:"13px 14px"}}>
+              <input type="checkbox" id="chkTaxReg" checked={taxReg} style={{width:17,height:17,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
+                onChange={function(e){
+                  var v=e.target.checked;
+                  setTaxReg(v);
+                  fdRef.current.taxRegistered=v?"1":"";
+                  saveToStorage();refreshLive();
+                  // Section 3 is collapsed by default, so ticking this while it
+                  // is shut would leave the rate unasked for and unnoticed.
+                  if(v)setFinOpen(function(p){var n=Object.assign({},p);n.tax=true;return n;});
+                }}/>
+              <label htmlFor="chkTaxReg" style={{fontSize:15,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>Are you registered for products/services tax?</label>
+            </div>
+            {taxReg
+              ?(<div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"11px 13px",marginTop:8}}>
+                  <span style={{fontSize:14,color:"#1F5C5D",lineHeight:1.55}}>
+                    <strong style={{color:"#01236D"}}>All $ amounts entered should exclude product/services tax.</strong> Enter your sales, costs and expenses at their tax-exclusive value. The tax itself is worked out separately from the rate and payment months you set in section 3.
+                  </span>
+                </div>)
+              :(<div style={{fontSize:13,color:"#5F7183",marginTop:6,lineHeight:1.5}}>In New Zealand this is GST. If you are registered, set the rate and the months you pay it in section 3.</div>)}
+            <div style={{marginBottom:14}}/>
 
             </FinSection>
             <FinSection open={finOpen.sales} onToggle={function(){toggleFin("sales");}} title="2. Money in" hint="sales and other income">
+            {TaxExclNote()}
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Monthly sales units</div>
             <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:6}}>
@@ -3357,13 +4060,13 @@ function App(){
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Average sale price ($)</div>
             {AvgPriceHelper()}
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgPrice" checked={!!gridChecks["avgPrice"]} onChange={function(){toggleGrid("avgPrice");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgPrice" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
-            {gridChecks["avgPrice"]?<div key={"avgPriceGrid"}><MonthGrid keyPrefix={"avgPriceM"} storeKey={"avgPrice"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.avgPrice||""} placeholder="e.g. 49" onChange={function(e){fdRef.current.avgPrice=e.target.value;saveToStorage();refreshLive();}}/>}
+            {gridChecks["avgPrice"]?<div key={"avgPriceGrid"}><MonthGrid keyPrefix={"avgPriceM"} storeKey={"avgPrice"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input key={"avgPrice-"+avgSalesVer} style={inp} defaultValue={fdRef.current.avgPrice||""} placeholder="e.g. 49" onChange={function(e){fdRef.current.avgPrice=e.target.value;saveToStorage();refreshLive();}}/>}
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Average cost per unit ($)</div>
             <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, your average cost per unit may be zero.</div>
             {AvgCostHelper()}
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgCost" checked={!!gridChecks["avgCost"]} onChange={function(){toggleGrid("avgCost");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgCost" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
-            {gridChecks["avgCost"]?<div key={"avgCostGrid"}><MonthGrid keyPrefix={"avgCostM"} storeKey={"avgCost"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.avgCost||""} placeholder="e.g. 12" onChange={function(e){fdRef.current.avgCost=e.target.value;saveToStorage();refreshLive();}}/>}
+            {gridChecks["avgCost"]?<div key={"avgCostGrid"}><MonthGrid keyPrefix={"avgCostM"} storeKey={"avgCost"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input key={"avgCost-"+avgSalesVer} style={inp} defaultValue={fdRef.current.avgCost||""} placeholder="e.g. 12" onChange={function(e){fdRef.current.avgCost=e.target.value;saveToStorage();refreshLive();}}/>}
             <FinWarn show={lossMakingMonths().length>0}>
               Your cost per unit is the same as or higher than your sale price{lossMakingMonths().length<12?" in "+lossMakingMonths().length+" of the 12 months":""}, so each sale loses money before any expenses. Check the two figures above.
             </FinWarn>
@@ -3374,24 +4077,38 @@ function App(){
             {AnnualTotal({value:sumLive(function(r){return r.revOther;})})}
             <div style={{marginBottom:14}}/>
             </FinSection>
-            <FinSection open={finOpen.tax} onToggle={function(){toggleFin("tax");}} title="3. Tax">
-            <div style={{display:"flex",gap:16,alignItems:"flex-start",flexWrap:"wrap"}}>
+            <FinSection open={finOpen.tax} onToggle={function(){toggleFin("tax");}} title="3. Tax"
+              hint={taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)?"rate still needed":undefined}
+              hintColor={taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)?"#B14A38":undefined}>
+            {taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)&&(
+              <div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#FDEEEB",border:"1px solid #F2CFC7",borderLeft:"4px solid #B14A38",borderRadius:6,padding:"11px 13px",marginBottom:12}}>
+                <span style={{fontSize:14,color:"#B14A38",lineHeight:1.55}}>
+                  <strong>You still need to enter your tax rate.</strong> You have said the business is registered, but without a rate no tax is being calculated and your forecast will overstate the cash you have. In New Zealand GST is 15%.
+                </span>
+              </div>
+            )}
+            {!taxReg&&(
+              <div style={{fontSize:13,color:"#5F7183",background:"#FCFCFA",border:"1px solid #E7EAED",borderLeft:"3px solid #D0B16F",borderRadius:6,padding:"9px 12px",marginBottom:12,lineHeight:1.55}}>
+                You have said you are not registered for products/services tax, so nothing here applies and no tax is included in your forecast. Tick <strong style={{color:"#01236D"}}>Are you registered for products/services tax?</strong> in section 1 to use it.
+              </div>
+            )}
+            <div style={Object.assign({display:"flex",gap:16,alignItems:"flex-start",flexWrap:"wrap"},taxReg?{}:{opacity:0.45})}>
               <div style={{flex:"0 0 auto"}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Tax rate on products/services (%)</div>
                 <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>e.g. GST 15% — used to calculate tax in Other Transactions</span>
-                <input style={Object.assign({},inp,{width:120})} defaultValue={fdRef.current.taxRate||""} placeholder="e.g. 15" onChange={function(e){fdRef.current.taxRate=e.target.value;saveToStorage();refreshLive();}}/>
+                <input style={Object.assign({},inp,{width:120},taxReg?{}:{background:"#FCFCFA",cursor:"not-allowed"})} disabled={!taxReg} defaultValue={fdRef.current.taxRate||""} placeholder="e.g. 15" onChange={function(e){fdRef.current.taxRate=e.target.value;saveToStorage();refreshLive();}}/>
               </div>
               <div style={{flex:1,minWidth:200}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What months do you pay your tax?</div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,marginTop:4}}>
                   {Array.from({length:12},function(_,m){
                     var key="taxPayM"+(m+1);
-                    return (<label key={m} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,fontSize:11,color:"#29384A",cursor:"pointer"}}>
-                      <input type="checkbox" defaultChecked={!!fdRef.current[key]} onChange={function(e){
+                    return (<label key={m} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,fontSize:11,color:"#29384A",cursor:taxReg?"pointer":"not-allowed",whiteSpace:"nowrap"}}>
+                      <input type="checkbox" disabled={!taxReg} defaultChecked={!!fdRef.current[key]} onChange={function(e){
                         fdRef.current[key]=e.target.checked?"1":"";
                         saveToStorage();refreshLive();
                       }} style={{width:14,height:14,accentColor:GREEN,cursor:"pointer"}}/>
-                      M{m+1}
+                      {shortMonthFor(m+1)}
                     </label>);
                   })}
                 </div>
@@ -3399,9 +4116,17 @@ function App(){
             </div>
             </FinSection>
             <FinSection open={finOpen.other} onToggle={function(){toggleFin("other");}} title="4. Money out" hint="your expenses">
+            {TaxExclNote()}
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Monthly expenses</div>
             <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>Do not include tax payments here - tax is calculated separately from the tax rate above.</span>
+            <div style={{marginBottom:10}}>
+              <button style={expAiLoad?suggestBtnBusy:suggestBtn} disabled={expAiLoad} onClick={function(){suggestExpenses();}}>
+                {expAiLoad?busyLabel("Working on it\u2026"):"Suggest with AI"}
+              </button>
+              <span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Suggests all categories at once, including any people you may need.</span>
+            </div>
+            {ExpenseSuggestions()}
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:8}}>
                           </div>
             {expCats.filter(function(c){
@@ -3426,6 +4151,7 @@ function App(){
             {GoalExpApply()}
             </FinSection>
             <FinSection open={finOpen.tx} onToggle={function(){toggleFin("tx");}} title="5. Other transactions" hint="loans, assets, drawings">
+            {TaxExclNote("Asset and Other Transactions")}
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Other money in and out ($)</div>
             <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>Regular monthly or one-off</span>
             <div style={{background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"8px 11px",marginBottom:10,fontSize:13,color:"#1F5C5D",lineHeight:1.55}}>
