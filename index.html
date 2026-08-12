@@ -160,6 +160,26 @@ section[style*="--navy"] .btn-primary{
 .mock-next{background:var(--navy);color:#fff;border:none;border-radius:5px;padding:7px 16px;font-size:12px;font-weight:600;}
 
 /* PLAN SAMPLE */
+/* --- Demo video ---------------------------------------------------------
+   The iframe-free approach: a poster image with a play button, and the
+   <video> element only given its source when the button is pressed. Nothing
+   downloads until someone chooses to watch, so the page loads as fast as it
+   did before. ------------------------------------------------------------ */
+.demo{padding:80px 24px;background:var(--aqua);}
+.demo-frame{position:relative;max-width:920px;margin:0 auto;border-radius:14px;overflow:hidden;
+  box-shadow:0 4px 28px rgba(1,35,109,0.16);background:var(--navy);aspect-ratio:16/9;}
+.demo-frame video{width:100%;height:100%;display:block;object-fit:cover;background:var(--navy);}
+.demo-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border:none;padding:0;
+  cursor:pointer;display:block;}
+.demo-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  border:none;background:rgba(1,35,109,0.28);cursor:pointer;transition:background 0.15s;padding:0;}
+.demo-play:hover{background:rgba(1,35,109,0.42);}
+.demo-play span{width:78px;height:78px;border-radius:50%;background:var(--gold);display:flex;
+  align-items:center;justify-content:center;box-shadow:0 4px 18px rgba(0,0,0,0.28);transition:transform 0.15s;}
+.demo-play:hover span{transform:scale(1.07);}
+.demo-play svg{margin-left:5px;}
+.demo-meta{text-align:center;margin-top:16px;font-size:14px;color:var(--grey);}
+@media(max-width:640px){.demo{padding:56px 18px;}.demo-play span{width:60px;height:60px;}}
 .plan-sample{background:var(--off-white);padding:80px 24px;}
 .plan-doc{max-width:720px;margin:0 auto;background:white;border-radius:14px;box-shadow:0 4px 24px rgba(1,35,109,0.1);overflow:hidden;}
 .plan-doc-header{background:var(--navy);padding:32px;text-align:center;}
@@ -476,6 +496,25 @@ footer a{color:var(--navy);text-decoration:underline;}
 </section>
 
 <!-- PLAN SAMPLE -->
+<section class="demo">
+  <div class="section-header">
+    <div class="eyebrow">See it in action</div>
+    <h2 class="section-title" style="font-size:clamp(22px,3.5vw,36px);">Watch a plan and cashflow built from scratch</h2>
+    <div class="section-sub">Under three minutes, start to finish - no sign-up needed to watch.</div>
+  </div>
+  <div class="demo-frame">
+    <video id="demoVideo" controls preload="none" playsinline poster="img/video-poster.jpg" crossorigin="anonymous">
+      <track id="demoCaptions" kind="captions" srclang="en" label="English" src="video/b-plandiy-demo.vtt" default>
+    </video>
+    <button class="demo-play" id="demoPlay" aria-label="Play the B-PlanDIY demo video">
+      <span>
+        <svg width="30" height="34" viewBox="0 0 30 34" fill="#01236D" aria-hidden="true"><path d="M0 0l30 17L0 34z"/></svg>
+      </span>
+    </button>
+  </div>
+  <div class="demo-meta">2 min 54 sec &middot; captions available</div>
+</section>
+
 <section class="plan-sample" id="plan-sample">
   <div class="section-header">
     <div class="eyebrow" style="font-size:clamp(28px,4vw,42px);letter-spacing:0.04em;margin-bottom:14px;">Sample Output</div>
@@ -627,5 +666,23 @@ footer a{color:var(--navy);text-decoration:underline;}
   <p>&copy; 2025 B-PlanDIY &bull; <a href="mailto:support@b-plandiy.com">support@b-plandiy.com</a> &bull; <a href="./privacy-policy.html">Privacy Policy</a> &bull; <a href="./terms.html">Terms</a></p>
 </footer>
 
+<script>
+(function(){
+  var btn=document.getElementById('demoPlay'), vid=document.getElementById('demoVideo');
+  if(!btn||!vid)return;
+  btn.addEventListener('click',function(){
+    // Source is attached on click, so the 4.5MB file is never fetched by
+    // visitors who do not press play.
+    if(!vid.getAttribute('src')){
+      vid.setAttribute('src','video/b-plandiy-demo.mp4');
+      vid.load();
+    }
+    btn.style.display='none';
+    var p=vid.play();
+    if(p&&p.catch)p.catch(function(){ btn.style.display=''; });
+  });
+  vid.addEventListener('pause',function(){ if(vid.currentTime===0)btn.style.display=''; });
+})();
+</script>
 </body>
 </html>
