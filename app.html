@@ -909,6 +909,21 @@ function App(){
   // Held in state, not just in fdRef, because ticking it reveals a note about
   // how amounts should be entered - that needs a re-render to appear.
   var taxRegState=useState(fdRef.current.taxRegistered==="1");var taxReg=taxRegState[0];var setTaxReg=taxRegState[1];
+  // Date established needs state for the same reason the cashflow start date
+  // does. These are controlled selects, and React restores a controlled
+  // value to the prop from the last render once the event finishes - so
+  // writing only to fdRef made the choice snap back. Desktop often hid it
+  // behind an unrelated re-render; a phone picker made it happen every time.
+  var bizDateState=useState(fdRef.current.bizDate||"");var bizDate=bizDateState[0];var setBizDate=bizDateState[1];
+  // Branding for the exported plan. The logo is held as a data URI in fdRef, so
+  // it persists in local storage and travels in the backup file like anything
+  // else - which is exactly why it must be downscaled first: local storage runs
+  // to about 5MB total and already holds the whole plan, so a photo straight off
+  // a phone would blow the quota and break saving entirely.
+  var logoState=useState(fdRef.current.brandLogo||"");var brandLogo=logoState[0];var setBrandLogo=logoState[1];
+  var brandColourState=useState(fdRef.current.brandColour||"");var brandColour=brandColourState[0];var setBrandColour=brandColourState[1];
+  var useOwnStylesState=useState(fdRef.current.brandOwnStyles==="1");var useOwnStyles=useOwnStylesState[0];var setUseOwnStyles=useOwnStylesState[1];
+  var logoErrState=useState("");var logoErr=logoErrState[0];var setLogoErr=logoErrState[1];
   var showOutputState=useState(false);var showOutput=showOutputState[0];var setShowOutput=showOutputState[1];
   var planFailedState=useState(false);var planFailed=planFailedState[0];var setPlanFailed=planFailedState[1];
   var showBackupHelpState=useState(false);var showBackupHelp=showBackupHelpState[0];var setShowBackupHelp=showBackupHelpState[1];
@@ -1011,7 +1026,23 @@ function App(){
   // overstate revenue by the full rate with nothing to flag it.
   var apInclState=useState(false);var apIncl=apInclState[0];var setApIncl=apInclState[1];
   var acInclState=useState(false);var acIncl=acInclState[0];var setAcIncl=acInclState[1];
-  var convOpenState=useState(false);var convOpen=convOpenState[0];var setConvOpen=convOpenState[1];
+  // Units used by the two calculators. Blank falls back to the forecast, but a
+  // figure typed here lets someone divide last year's sales by last year's
+  // units - which is how most existing businesses actually know their average
+  // price, and it also makes the calculators usable before any forecast units
+  // have been entered.
+  var apUnitsState=useState("");var apUnits=apUnitsState[0];var setApUnits=apUnitsState[1];
+  var acUnitsState=useState("");var acUnits=acUnitsState[0];var setAcUnits=acUnitsState[1];
+  // For businesses selling more than one thing. Rather than modelling each
+  // product separately - which would touch the whole forecast, the What If
+  // sliders and every export - the mix is blended into one weighted average
+  // here, with the working shown. The forecast only needs total revenue and
+  // total cost of sales, so a blended unit models a stable mix correctly.
+  var apMixOpenState=useState(false);var apMixOpen=apMixOpenState[0];var setApMixOpen=apMixOpenState[1];
+  var apMixState=useState([{name:"",qty:"",amt:""}]);var apMix=apMixState[0];var setApMix=apMixState[1];
+  var acMixOpenState=useState(false);var acMixOpen=acMixOpenState[0];var setAcMixOpen=acMixOpenState[1];
+  var acMixState=useState([{name:"",qty:"",amt:""}]);var acMix=acMixState[0];var setAcMix=acMixState[1];
+  var convOpenState=useState("");var convOpen=convOpenState[0];var setConvOpen=convOpenState[1];
   var convAmtState=useState("");var convAmt=convAmtState[0];var setConvAmt=convAmtState[1];
   var apAiLoadState=useState(false);var apAiLoad=apAiLoadState[0];var setApAiLoad=apAiLoadState[1];
   var apAiState=useState(null);var apAi=apAiState[0];var setApAi=apAiState[1];
@@ -1073,22 +1104,40 @@ function App(){
   // Height is reset to "auto" first so the box can shrink as well as grow.
   // overflow is only hidden once we have successfully measured - if measuring
   // fails the textarea keeps its default scrollbar rather than clipping text.
+  // Measuring requires setting height to "auto" first so the box can shrink as
+  // well as grow. The previous height is put back when nothing has changed, so
+  // measuring never alters the page: collapsing and re-expanding every textarea
+  // shifts the document height, which on a phone throws the scroll position to
+  // the top and closes the keyboard.
   function autoGrow(el){
     if(!el||typeof el.scrollHeight!=="number")return;
+    var prev=el.style.height;
     el.style.height="auto";
     var h=el.scrollHeight;
-    if(h>0){el.style.height=h+"px";el.style.overflowY="hidden";}
+    if(h>0){
+      var next=h+"px";
+      if(next===prev){el.style.height=prev;return;}
+      el.style.height=next;
+      el.style.overflowY="hidden";
+    } else {
+      el.style.height=prev;
+    }
   }
   // Callback ref: fires on mount, and again whenever a textarea's key changes -
   // which is how the AI Suggest buttons refresh a field.
   // The measurement is repeated on the next frame because scrollHeight can be
   // wrong on first paint, before styles and web fonts have been applied - which
   // left pre-filled fields stuck at their minimum height.
-  var growRef=function(el){
+  //
+  // Held stable with useCallback. A fresh function identity each render makes
+  // React detach and re-attach the ref on EVERY render, re-measuring every
+  // textarea on the step - so a single keystroke in one field disturbed all of
+  // them.
+  var growRef=useCallback(function(el){
     if(!el)return;
     autoGrow(el);
     if(typeof requestAnimationFrame==="function")requestAnimationFrame(function(){autoGrow(el);});
-  };
+  },[]);
   var growOn=function(e){autoGrow(e.target);};
   var sel=Object.assign({},inp,{cursor:"pointer"});
   var btnSm={fontFamily:"inherit",fontSize:13,padding:"6px 12px",borderRadius:6,border:"1px solid #E7EAED",background:"#fff",cursor:"pointer",color:"#29384A"};
@@ -1578,6 +1627,63 @@ function App(){
     setGoalCardLoading(function(prev){var n=Object.assign({},prev);n[i]=false;return n;});
   }
 
+  // Accent used in the Word document. Blank means the B-PlanDIY navy.
+  function brandHex(){
+    var c=String(brandColour||"").replace("#","").trim();
+    return /^[0-9a-fA-F]{6}$/.test(c)?c.toLowerCase():"01236d";
+  }
+
+  // Downscaled in a canvas before it is stored, never at render time. Keeps the
+  // data URI to roughly 40-60KB whatever was chosen.
+  function handleLogoFile(file){
+    setLogoErr("");
+    if(!file)return;
+    if(!/^image\//.test(file.type)){setLogoErr("That is not an image file. Please choose a PNG or JPG.");return;}
+    if(file.size>8*1024*1024){setLogoErr("That image is very large. Please choose one under 8MB.");return;}
+    var reader=new FileReader();
+    reader.onload=function(){
+      var img=new Image();
+      img.onload=function(){
+        try{
+          var MAX=500;
+          var w=img.width,h=img.height;
+          if(w>MAX||h>MAX){ var k=Math.min(MAX/w,MAX/h); w=Math.round(w*k); h=Math.round(h*k); }
+          var cv=document.createElement("canvas");
+          cv.width=w;cv.height=h;
+          var ctx=cv.getContext("2d");
+          // White behind the image: a transparent PNG would otherwise come out
+          // black once flattened into the Word document.
+          ctx.fillStyle="#ffffff";ctx.fillRect(0,0,w,h);
+          ctx.drawImage(img,0,0,w,h);
+          var out=cv.toDataURL("image/png");
+          if(out.length>900000){ out=cv.toDataURL("image/jpeg",0.85); }
+          fdRef.current.brandLogo=out;
+          fdRef.current.brandLogoW=String(w);
+          fdRef.current.brandLogoH=String(h);
+          try{ saveToStorage(); }catch(e){}
+          // saveToStorage swallows quota errors, so confirm it actually landed.
+          var ok=false;
+          try{ ok=(JSON.parse(localStorage.getItem(STORAGE_KEY)||"{}").brandLogo||"")===out; }catch(e){}
+          if(!ok){
+            fdRef.current.brandLogo="";
+            saveToStorage();
+            setLogoErr("There was not enough room to save that logo. Try a smaller or simpler image.");
+            return;
+          }
+          setBrandLogo(out);
+        }catch(e){ setLogoErr("That image could not be read. Please try a different file."); }
+      };
+      img.onerror=function(){ setLogoErr("That image could not be read. Please try a different file."); };
+      img.src=reader.result;
+    };
+    reader.onerror=function(){ setLogoErr("That file could not be read. Please try again."); };
+    reader.readAsDataURL(file);
+  }
+  function clearLogo(){
+    fdRef.current.brandLogo="";fdRef.current.brandLogoW="";fdRef.current.brandLogoH="";
+    saveToStorage();setBrandLogo("");setLogoErr("");
+  }
+
   function downloadCashflowExcel(){
     var cfRows=liveRows;
     if(!cfRows||!cfRows.length){alert("No cashflow data to export.");return;}
@@ -1692,8 +1798,28 @@ function App(){
 
       // --- Section 1: Business Plan (Portrait) ---
       var planChildren=[];
-      planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:160},children:[new TextRun({text:f.bizName||"Business Plan",bold:true,size:48,color:"01236d",font:FONT})]}));
-      planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80},children:[new TextRun({text:"Business Plan and Cashflow Forecast",size:32,color:"d0b16f",font:FONT})]}));
+      var ACCENT=brandHex();
+      // "Use my own Word styles" leaves headings as bare Heading 1 / Heading 2.
+      // Direct formatting beats styles in Word, so hard-coding a colour and size
+      // means applying a company template or Style Set from the Design tab does
+      // nothing. Omitting them lets the user's own template take over.
+      var OWN=useOwnStyles;
+      if(f.brandLogo){
+        try{
+          var lw=parseInt(f.brandLogoW)||0, lh=parseInt(f.brandLogoH)||0;
+          // Scaled to at most 180pt wide and 90pt tall, keeping the aspect ratio.
+          var dw=180, dh=lh&&lw?Math.round(180*lh/lw):90;
+          if(dh>90){ dh=90; dw=lw&&lh?Math.round(90*lw/lh):180; }
+          var b64=String(f.brandLogo).split(",")[1]||"";
+          var mt=/^data:image\/([a-z]+)/.exec(String(f.brandLogo));
+          planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:180},children:[
+            new ImageRun({data:Uint8Array.from(atob(b64),function(ch){return ch.charCodeAt(0);}),
+              transformation:{width:dw,height:dh},type:(mt&&mt[1]==="jpeg")?"jpg":"png"})
+          ]}));
+        }catch(logoErr2){}
+      }
+      planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:160},children:[new TextRun(Object.assign({text:f.bizName||"Business Plan",font:FONT},OWN?{bold:true,size:48}:{bold:true,size:48,color:ACCENT}))]}));
+      planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80},children:[new TextRun(Object.assign({text:"Business Plan and Cashflow Forecast",size:32,font:FONT},OWN?{}:{color:"d0b16f"}))]}));
       planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:320},children:[new TextRun({text:dateStr,size:20,color:"6b7280",font:FONT})]}));
       if(planHtml){
         var strippedHtml=planHtml.replace(/<div[^>]*text-align:center[\s\S]*?<\/div>\s*<\/div>/i,"").replace(/<div[^>]*text-align:center[^>]*>[\s\S]*?<\/div>/i,"").trim();
@@ -1713,16 +1839,16 @@ function App(){
         var clean=decodeEntities(strippedHtml.replace(/<h2[^>]*>(.*?)<\/h2>/gi,"\n##$1\n").replace(/<h3[^>]*>(.*?)<\/h3>/gi,"\n###$1\n").replace(/<p[^>]*>(.*?)<\/p>/gi,"$1\n").replace(/<li[^>]*>(.*?)<\/li>/gi,"- $1\n").replace(/<[^>]+>/g,"").replace(/\*\*/g,""));
         clean.split("\n").forEach(function(ln){
           var t=ln.trim();if(!t)return;
-          if(t.startsWith("##")&&!t.startsWith("###"))planChildren.push(new Paragraph({heading:HeadingLevel.HEADING_1,spacing:{before:280,after:80},children:[new TextRun({text:t.replace(/^##\s*/,""),bold:true,color:"01236d",size:28,font:FONT})]}));
-          else if(t.startsWith("###"))planChildren.push(new Paragraph({heading:HeadingLevel.HEADING_2,spacing:{before:160,after:60},children:[new TextRun({text:t.replace(/^###\s*/,""),bold:true,color:"374151",size:24,font:FONT})]}));
-          else if(t.startsWith("- "))planChildren.push(new Paragraph({bullet:{level:0},spacing:{after:40},children:[new TextRun({text:t.slice(2),size:20,font:FONT})]}));
-          else planChildren.push(new Paragraph({spacing:{after:80},children:[new TextRun({text:t,size:20,font:FONT})]}));
+          if(t.startsWith("##")&&!t.startsWith("###"))planChildren.push(new Paragraph({heading:HeadingLevel.HEADING_1,spacing:{before:280,after:80},children:[new TextRun(OWN?{text:t.replace(/^##\s*/,"")}:{text:t.replace(/^##\s*/,""),bold:true,color:ACCENT,size:28,font:FONT})]}));
+          else if(t.startsWith("###"))planChildren.push(new Paragraph({heading:HeadingLevel.HEADING_2,spacing:{before:160,after:60},children:[new TextRun(OWN?{text:t.replace(/^###\s*/,"")}:{text:t.replace(/^###\s*/,""),bold:true,color:"374151",size:24,font:FONT})]}));
+          else if(t.startsWith("- "))planChildren.push(new Paragraph({bullet:{level:0},spacing:{after:40},children:[new TextRun(OWN?{text:t.slice(2)}:{text:t.slice(2),size:20,font:FONT})]}));
+          else planChildren.push(new Paragraph({spacing:{after:80},children:[new TextRun(OWN?{text:t}:{text:t,size:20,font:FONT})]}));
         });
       }
 
       // --- Section 2: Graphs (Portrait) ---
       var graphChildren=[];
-      graphChildren.push(new Paragraph({pageBreakBefore:true,spacing:{after:200},children:[new TextRun({text:"Financial Graphs",bold:true,size:36,color:"01236d",font:FONT})]}));
+      graphChildren.push(new Paragraph({pageBreakBefore:true,spacing:{after:200},children:[new TextRun(Object.assign({text:"Financial Graphs",bold:true,size:36,font:FONT},OWN?{}:{color:ACCENT}))]}));
 
       var CHART_COLORS=["#01236D","#D0B16F","#2A9D9F","#E97868","#5F7183","#1F5C5D","#1F7A7C","#B14A38","#8A98A6","#BFE3E1","#29384A","#BFE3E1","#E7F5F4","#E7F5F4"];
 
@@ -1972,7 +2098,7 @@ function App(){
           // (fits A4 portrait inside 0.5in margins) preserving aspect ratio.
           var CW=680, CH=278, IMG_W=468, IMG_H=Math.round(IMG_W*CH/CW);
           function pushChart(heading,b64,w,h){
-            graphChildren.push(new Paragraph({spacing:{after:100},children:[new TextRun({text:heading,bold:true,size:22,color:"01236d",font:FONT})]}));
+            graphChildren.push(new Paragraph({spacing:{after:100},children:[new TextRun(Object.assign({text:heading,bold:true,size:22,font:FONT},OWN?{}:{color:ACCENT}))]}));
             graphChildren.push(new Paragraph({spacing:{after:240},children:[new ImageRun({data:Uint8Array.from(atob(b64),function(ch){return ch.charCodeAt(0);}),transformation:{width:w,height:h},type:"png"})]}));
           }
 
@@ -1994,7 +2120,7 @@ function App(){
 
       // --- Section 3: Cashflow (Landscape) ---
       var cfChildren=[];
-      cfChildren.push(new Paragraph({spacing:{after:200},children:[new TextRun({text:"12-Month Cashflow Forecast",bold:true,size:32,color:"01236d",font:FONT})]}));
+      cfChildren.push(new Paragraph({spacing:{after:200},children:[new TextRun(Object.assign({text:"12-Month Cashflow Forecast",bold:true,size:32,font:FONT},OWN?{}:{color:ACCENT}))]}));
       if(cfRows&&cfRows.length){
         var mos=cfRows.map(function(r){return r.month.replace("Month ","M");});
         // A4 landscape 16838tw - 1440tw margins = 15398tw usable.
@@ -2002,7 +2128,7 @@ function App(){
         var LBL_W=2200, cw=1015;
         var colWidths=[LBL_W].concat(Array(mos.length+1).fill(cw));
         var TBL_W=LBL_W+cw*(mos.length+1);
-        var navy={type:ShadingType.SOLID,color:"01236d",fill:"01236d"};
+        var navy={type:ShadingType.SOLID,color:ACCENT,fill:ACCENT};
         var hBg={type:ShadingType.SOLID,color:"eef1f8",fill:"eef1f8"};
         var bBg={type:ShadingType.SOLID,color:"f9fafb",fill:"f9fafb"};
         function mc(txt,o){o=o||{};return new TableCell({width:{size:o.first?LBL_W:cw,type:WidthType.DXA},margins:{top:20,bottom:20,left:50,right:50},shading:o.sh,children:[new Paragraph({alignment:o.first?AlignmentType.LEFT:AlignmentType.RIGHT,children:[new TextRun({text:String(txt||""),bold:!!o.b,color:o.c||"1a1a1a",size:16,font:FONT})]})]}); }
@@ -2052,7 +2178,7 @@ function App(){
       }
 
       var doc=new Document({
-        styles:{default:{document:{run:{font:FONT}}}},
+        styles:OWN?undefined:{default:{document:{run:{font:FONT}}}},
         sections:[
           {properties:{page:{size:PORTRAIT,margin:MARGIN}},children:planChildren.concat(graphChildren)},
           {properties:{page:{size:LANDSCAPE,margin:MARGIN}},children:cfChildren}
@@ -2354,7 +2480,7 @@ function App(){
     fdRef.current={};
     try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem("bpg_step");}catch(e){}
     setStep(0);setShowOutput(false);setPlanHtml("");setLiveRows([]);
-    setLegalStatus("");setGoals(Array(6).fill(""));setTaxReg(false);
+    setLegalStatus("");setGoals(Array(6).fill(""));setTaxReg(false);setBizDate("");setBrandLogo("");setBrandColour("");setUseOwnStyles(false);
     window.scrollTo(0,0);
   }
 
@@ -2424,6 +2550,8 @@ function App(){
           saveToStorage();
           setLegalStatus(data.legalStatus||"");
           setTaxReg(data.taxRegistered==="1");
+          setBizDate(data.bizDate||"");
+          setBrandLogo(data.brandLogo||"");setBrandColour(data.brandColour||"");setUseOwnStyles(data.brandOwnStyles==="1");
           setGoals(Array.from({length:6},function(_,i){return data["goal"+(i+1)]||"";}));
           setLiveRows(calcCashflow(data));
           setShowDirection(false);setShowOutput(false);
@@ -3293,7 +3421,10 @@ function App(){
       "Count ONLY direct cost of sales: materials, stock bought in, packaging, freight, subcontracted labour for that job, payment fees.\n"+
       "Do NOT include rent, salaries of permanent staff, insurance, marketing, accounting or any other overhead - those are entered separately as expenses, and counting them here would double up.\n"+
       "Many service businesses have little or no direct unit cost. If that is the case here, say 0 rather than inventing one.\n"+
-      "Use current New Zealand costs, excluding GST. If a sale price is given above, the cost must sit below it.\n\n"+
+      (activeTaxRate()>0
+        ? "Give the price INCLUDING GST, as a supplier would quote it in New Zealand. Do not deduct GST yourself.\n"
+        : "Give the amount actually paid. This business is not registered for GST.\n")+
+      "If a sale price is given above, the cost must sit below it.\n\n"+
       "Reply in EXACTLY this format and nothing else:\n"+
       "COST: [number only, no dollar sign, no commas]\n"+
       "UNIT: [what one unit is, 2-5 words]\n"+
@@ -3306,8 +3437,11 @@ function App(){
       var um=text.match(/UNIT:\s*(.+)/i);
       var wm=text.match(/WHY:\s*([\s\S]+)/i);
       if(cm){
+        var grossC=parseFloat(cm[1].replace(/,/g,""));
         setAcAi({
-          cost:parseFloat(cm[1].replace(/,/g,"")),
+          gross:grossC,
+          cost:exclOfTax(grossC),
+          rate:activeTaxRate(),
           unit:um?um[1].trim():"",
           why:wm?wm[1].trim():""
         });
@@ -3318,8 +3452,65 @@ function App(){
     setAcAiLoad(false);
   }
 
+  // Weighted average across a product mix: total money divided by total units,
+  // NOT the average of the per-unit prices. Averaging the prices would weight a
+  // product selling 400 units the same as one selling 6,000.
+  function mixTotals(rows){
+    var qty=0,money=0,used=0;
+    (rows||[]).forEach(function(r){
+      var q=parseFloat(String(r.qty).replace(/[^0-9.]/g,""));
+      var a=parseFloat(String(r.amt).replace(/[^0-9.]/g,""));
+      if(isNaN(q)||q<=0||isNaN(a))return;
+      qty+=q;money+=q*a;used++;
+    });
+    return {qty:qty,money:money,rows:used,avg:qty>0?money/qty:null};
+  }
+  function MixTable(props){
+    var rows=props.rows,setRows=props.setRows,label=props.label;
+    var t=mixTotals(rows);
+    function upd(i,k,v){var a=rows.slice();a[i]=Object.assign({},a[i]);a[i][k]=v;setRows(a);}
+    return (
+      <div style={{marginTop:8,background:"#fff",border:"1px solid #BFE3E1",borderRadius:6,padding:"11px 13px"}}>
+        <div style={{fontSize:13,color:"#1F5C5D",marginBottom:9,lineHeight:1.55}}>
+          List what you sell and we will work out one blended figure. {label}
+        </div>
+        <div style={{display:"flex",gap:6,marginBottom:4,fontSize:11,color:"#5F7183",fontWeight:600}}>
+          <span style={{flex:"1 1 130px",minWidth:0}}>Product or service</span>
+          <span style={{flex:"0 0 86px",textAlign:"right"}}>Units</span>
+          <span style={{flex:"0 0 96px",textAlign:"right"}}>{props.amtLabel}</span>
+          <span style={{flex:"0 0 34px"}}></span>
+        </div>
+        {rows.map(function(r,i){return (
+          <div key={i} style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>
+            <input style={Object.assign({},inp,{flex:"1 1 130px",minWidth:0,fontSize:13})} placeholder={props.ph||"e.g. Coffee"} value={r.name}
+              onChange={function(e){upd(i,"name",e.target.value);}}/>
+            <input style={Object.assign({},inp,{flex:"0 0 86px",textAlign:"right",fontSize:13})} placeholder="0" value={r.qty}
+              onChange={function(e){upd(i,"qty",e.target.value.replace(/[^0-9.]/g,""));}}/>
+            <input style={Object.assign({},inp,{flex:"0 0 96px",textAlign:"right",fontSize:13})} placeholder="0" value={r.amt}
+              onChange={function(e){upd(i,"amt",e.target.value.replace(/[^0-9.]/g,""));}}/>
+            <button title="Remove" style={{fontFamily:"inherit",fontSize:15,lineHeight:1,color:"#8A98A6",background:"none",border:"1px solid #E7EAED",borderRadius:6,padding:"0 10px",cursor:"pointer",flex:"0 0 34px"}}
+              onClick={function(){var a=rows.slice();a.splice(i,1);if(!a.length)a=[{name:"",qty:"",amt:""}];setRows(a);}}>&times;</button>
+          </div>
+        );})}
+        <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#01236D",background:"none",border:"1px dashed #D0B16F",borderRadius:6,padding:"6px 12px",cursor:"pointer"}}
+          onClick={function(){setRows(rows.concat([{name:"",qty:"",amt:""}]));}}>+ Add another</button>
+        {t.avg!==null&&t.rows>0&&(
+          <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #E7EAED",fontSize:13,color:"#29384A",lineHeight:1.7}}>
+            {fmt(Math.round(t.money))} across {Math.round(t.qty).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:16}}>{fmt(Math.round(t.avg*100)/100)}</strong> on average
+            <div style={{marginTop:8}}>
+              <button style={Object.assign({},suggestBtn,{background:"#01236D"})} onClick={function(){props.onUse(t);}}>Use this blend</button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   function AvgCostHelper(){
-    var units=(liveRows||[]).reduce(function(s,r){return s+(r.units||0);},0);
+    var fcUnits=(liveRows||[]).reduce(function(s,r){return s+(r.units||0);},0);
+    var typedUnits=parseFloat(String(acUnits).replace(/[^0-9.]/g,""));
+    var usingTyped=!isNaN(typedUnits)&&typedUnits>0;
+    var units=usingTyped?typedUnits:fcUnits;
     var total=parseFloat(String(acTotal).replace(/[^0-9.-]/g,""));
     var acNet=(!isNaN(total)&&total>0)?(acIncl?exclOfTax(total):total):null;
     var cost=(units>0&&acNet!==null)?acNet/units:null;
@@ -3344,6 +3535,11 @@ function App(){
                     Suggested average cost <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(acAi.cost*100)/100)}</strong>
                     {acAi.unit?<span> per {acAi.unit.replace(/\.$/,"")}</span>:null}
                   </div>
+                  {acAi.rate>0&&(
+                    <div style={{fontSize:13,color:"#5F7183",marginTop:4,lineHeight:1.55}}>
+                      Supplier price {fmt(Math.round(acAi.gross*100)/100)} including tax &divide; {(1+acAi.rate/100).toFixed(2)} = {fmt(Math.round(acAi.cost*100)/100)} excluding tax, which is what goes in the field.
+                    </div>
+                  )}
                   {!!acAi.why&&<div style={{fontSize:13,color:"#29384A",lineHeight:1.6,marginTop:6}}>{acAi.why}</div>}
                   <div style={{fontSize:11,color:"#5F7183",fontStyle:"italic",marginTop:8,lineHeight:1.5}}>
                     An estimate of direct costs only. Overheads such as rent, salaries and insurance belong in Money out, not here.
@@ -3364,42 +3560,57 @@ function App(){
         )}
         {acOpen&&(
           <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"12px 14px"}}>
-            {units>0?(
-              <div>
-                <div style={{fontSize:13,color:"#1F5C5D",marginBottom:8,lineHeight:1.55}}>
-                  You have entered <strong>{Math.round(units).toLocaleString()} units</strong> over the 12 months. Enter what those sales will cost you to deliver and we will work out the cost per unit.
+            <div style={{fontSize:13,color:"#1F5C5D",marginBottom:10,lineHeight:1.55}}>
+              Divide the cost of delivering your sales by units sold. Use last year&rsquo;s figures if you have them, or what you expect for the year ahead.
+            </div>
+            <div style={{marginBottom:12}}>
+              <button style={acMixOpen?Object.assign({},suggestBtn,{background:"#01236D"}):Object.assign({},suggestBtn,{background:"#fff",color:"#01236D",border:"1px solid #D0B16F"})}
+                onClick={function(){setAcMixOpen(!acMixOpen);}}>
+                {acMixOpen?"Close the mix":"I sell more than one thing"}
+              </button>
+              {acMixOpen&&<MixTable rows={acMix} setRows={setAcMix} amtLabel="Cost each" ph="e.g. Coffee"
+                label="Use the same units you used for the sale price, so the two match."
+                onUse={function(t){setAcTotal(String(Math.round(t.money)));setAcUnits(String(Math.round(t.qty)));setAcMixOpen(false);}}/>}
+            </div>
+            <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Total cost of making those sales ($)</div>
+            <input style={Object.assign({},inp,{fontSize:15,maxWidth:260})} placeholder="e.g. 48000" value={acTotal}
+              onChange={function(e){setAcTotal(e.target.value);}}/>
+            {activeTaxRate()>0&&(
+              <div style={{display:"flex",alignItems:"center",gap:8,marginTop:7}}>
+                <input type="checkbox" id="acIncl" checked={acIncl} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
+                  onChange={function(e){setAcIncl(e.target.checked);}}/>
+                <label htmlFor="acIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes product/services tax</label>
+              </div>
+            )}
+            <div style={{fontSize:13,color:"#29384A",margin:"12px 0 4px"}}>Units sold over the same period</div>
+            <input style={Object.assign({},inp,{fontSize:15,maxWidth:260})} placeholder={fcUnits>0?String(Math.round(fcUnits)):"e.g. 2400"} value={acUnits}
+              onChange={function(e){setAcUnits(e.target.value);}}/>
+            <div style={{fontSize:11,color:"#5F7183",marginTop:5,lineHeight:1.5}}>
+              {fcUnits>0
+                ? (usingTyped
+                    ? <span>Using the {Math.round(typedUnits).toLocaleString()} units you entered. <button style={{fontFamily:"inherit",fontSize:11,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={function(){setAcUnits("");}}>Use my forecast of {Math.round(fcUnits).toLocaleString()} instead</button></span>
+                    : <span>Leave blank to use your forecast of {Math.round(fcUnits).toLocaleString()} units.</span>)
+                : <span>You have no forecast units entered yet, so put last year&rsquo;s figure here.</span>}
+            </div>
+            {cost!==null?(
+              <div style={{marginTop:12,fontSize:13,color:"#29384A",lineHeight:1.6,borderTop:"1px solid #BFE3E1",paddingTop:10}}>
+                {acIncl&&activeTaxRate()>0&&(
+                  <div style={{marginBottom:4,color:"#5F7183"}}>{fmt(total)} including tax &divide; {(1+activeTaxRate()/100).toFixed(2)} = {fmt(Math.round(acNet))} excluding tax</div>
+                )}
+                {fmt(Math.round(acNet))} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:17}}>{fmt(Math.round(cost*100)/100)}</strong> per unit
+                <div style={{marginTop:10}}>
+                  <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
+                    onClick={function(){
+                      fdRef.current.avgCost=String(Math.round(cost*100)/100);
+                      saveToStorage();refreshLive();
+                      setAcOpen(false);setAcTotal("");setAcUnits("");
+                      setAvgSalesVer(function(v){return v+1;});
+                    }}>Use this figure</button>
                 </div>
-                <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Total cost of making those sales over 12 months ($)</div>
-                <input style={Object.assign({},inp,{fontSize:15})} placeholder="e.g. 48000" value={acTotal}
-                  onChange={function(e){setAcTotal(e.target.value);}}/>
-                {activeTaxRate()>0&&(
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginTop:7}}>
-                    <input type="checkbox" id="acIncl" checked={acIncl} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
-                      onChange={function(e){setAcIncl(e.target.checked);}}/>
-                    <label htmlFor="acIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes product/services tax</label>
-                  </div>
-                )}
-                {cost!==null&&(
-                  <div style={{marginTop:10,fontSize:13,color:"#29384A",lineHeight:1.6}}>
-                    {acIncl&&activeTaxRate()>0&&(
-                      <div style={{marginBottom:4,color:"#5F7183"}}>{fmt(total)} including tax &divide; {(1+activeTaxRate()/100).toFixed(2)} = {fmt(Math.round(acNet))} excluding tax</div>
-                    )}
-                    {fmt(Math.round(acNet))} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(cost*100)/100)}</strong> per unit
-                    <div style={{marginTop:10}}>
-                      <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
-                        onClick={function(){
-                          fdRef.current.avgCost=String(Math.round(cost*100)/100);
-                          saveToStorage();refreshLive();
-                          setAcOpen(false);setAcTotal("");
-                          setAvgSalesVer(function(v){return v+1;});
-                        }}>Use this figure</button>
-                    </div>
-                  </div>
-                )}
               </div>
             ):(
-              <div style={{fontSize:13,color:"#B14A38",lineHeight:1.55}}>
-                Enter your monthly sales units above first, then we can work out the cost per unit from your total costs.
+              <div style={{marginTop:12,fontSize:13,color:"#5F7183",lineHeight:1.55,borderTop:"1px solid #BFE3E1",paddingTop:10}}>
+                Enter both figures above and the average cost appears here.
               </div>
             )}
           </div>
@@ -3408,53 +3619,14 @@ function App(){
     );
   }
 
-  // The calculator divides a total the user already knows. This is for the
-  // other case - they have no idea what to charge and want a starting point.
-  async function suggestAvgPrice(){
-    setApAiLoad(true);
-    setApAi(null);
-    var prompt="Suggest a realistic average sale price per unit for this business.\n\n"+
-      "Business: "+(fdRef.current.bizName||"this business")+"\n"+
-      "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
-      "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
-      "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
-      "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n"+
-      "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
-      "Competitors: "+(fdRef.current.competitors||"not specified")+"\n"+
-      "Stage: "+(fdRef.current.stage||"not specified")+"\n"+
-      "Average cost per unit, if entered: "+(fdRef.current.avgCost||"not entered")+"\n\n"+
-      "A \"unit\" is one sale - for a service business that may be an hour, a job or a monthly subscription.\n"+
-      "Use current New Zealand market prices. Give the price the business would actually charge, excluding GST.\n"+
-      "If a unit cost is given above, the price must sit comfortably above it or the business cannot trade.\n\n"+
-      "Reply in EXACTLY this format and nothing else:\n"+
-      "PRICE: [number only, no dollar sign, no commas]\n"+
-      "UNIT: [what one unit is, 2-5 words]\n"+
-      "WHY: [one or two short sentences on how you arrived at it, and what it assumes]";
-    try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
-      var text=(data.content||[]).map(function(x){return x.text||"";}).join("");
-      var pm=text.match(/PRICE:\s*\$?\s*([0-9][0-9,]*\.?[0-9]*)/i);
-      var um=text.match(/UNIT:\s*(.+)/i);
-      var wm=text.match(/WHY:\s*([\s\S]+)/i);
-      if(pm){
-        setApAi({
-          price:parseFloat(pm[1].replace(/,/g,"")),
-          unit:um?um[1].trim():"",
-          why:wm?wm[1].trim():""
-        });
-      } else {
-        setApAi({error:"Could not work out a figure just now. Please try again."});
-      }
-    }catch(e){ setApAi({error:"Could not get a suggestion just now. Please try again."}); }
-    setApAiLoad(false);
-  }
-
   function AvgPriceHelper(){
     // Deterministic arithmetic rather than a model call - instant, free, and it
     // cannot get the sum wrong. Units come from liveRows so the figure matches
     // the forecast, including monthly grids and goal-driven units.
-    var units=(liveRows||[]).reduce(function(s,r){return s+(r.units||0);},0);
+    var fcUnits=(liveRows||[]).reduce(function(s,r){return s+(r.units||0);},0);
+    var typedUnits=parseFloat(String(apUnits).replace(/[^0-9.]/g,""));
+    var usingTyped=!isNaN(typedUnits)&&typedUnits>0;
+    var units=usingTyped?typedUnits:fcUnits;
     var total=parseFloat(String(apTotal).replace(/[^0-9.-]/g,""));
     var apNet=(!isNaN(total)&&total>0)?(apIncl?exclOfTax(total):total):null;
     var price=(units>0&&apNet!==null)?apNet/units:null;
@@ -3479,6 +3651,11 @@ function App(){
                     Suggested average price <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(apAi.price*100)/100)}</strong>
                     {apAi.unit?<span> per {apAi.unit.replace(/\.$/,"")}</span>:null}
                   </div>
+                  {apAi.rate>0&&(
+                    <div style={{fontSize:13,color:"#5F7183",marginTop:4,lineHeight:1.55}}>
+                      Market price {fmt(Math.round(apAi.gross*100)/100)} including tax &divide; {(1+apAi.rate/100).toFixed(2)} = {fmt(Math.round(apAi.price*100)/100)} excluding tax, which is what goes in the field.
+                    </div>
+                  )}
                   {!!apAi.why&&<div style={{fontSize:13,color:"#29384A",lineHeight:1.6,marginTop:6}}>{apAi.why}</div>}
                   <div style={{fontSize:11,color:"#5F7183",fontStyle:"italic",marginTop:8,lineHeight:1.5}}>
                     An estimate only. Check it against what you and your competitors actually charge before relying on it.
@@ -3499,58 +3676,61 @@ function App(){
         )}
         {apOpen&&(
           <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"12px 14px"}}>
-            {units>0?(
-              <div>
-                <div style={{fontSize:13,color:"#1F5C5D",marginBottom:8,lineHeight:1.55}}>
-                  You have entered <strong>{Math.round(units).toLocaleString()} units</strong> over the 12 months. Enter the total sales you expect and we will work out the average price per unit.
+            <div style={{fontSize:13,color:"#1F5C5D",marginBottom:10,lineHeight:1.55}}>
+              Divide total sales by units sold. Use last year&rsquo;s figures if you have them, or what you expect for the year ahead.
+            </div>
+            <div style={{marginBottom:12}}>
+              <button style={apMixOpen?Object.assign({},suggestBtn,{background:"#01236D"}):Object.assign({},suggestBtn,{background:"#fff",color:"#01236D",border:"1px solid #D0B16F"})}
+                onClick={function(){setApMixOpen(!apMixOpen);}}>
+                {apMixOpen?"Close the mix":"I sell more than one thing"}
+              </button>
+              {apMixOpen&&<MixTable rows={apMix} setRows={setApMix} amtLabel="Price each" ph="e.g. Coffee"
+                label="A unit then means one average sale, whatever the customer bought."
+                onUse={function(t){setApTotal(String(Math.round(t.money)));setApUnits(String(Math.round(t.qty)));setApMixOpen(false);}}/>}
+            </div>
+            <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Total sales ($)</div>
+            <input style={Object.assign({},inp,{fontSize:15,maxWidth:260})} placeholder="e.g. 120000" value={apTotal}
+              onChange={function(e){setApTotal(e.target.value);}}/>
+            {activeTaxRate()>0&&(
+              <div style={{display:"flex",alignItems:"center",gap:8,marginTop:7}}>
+                <input type="checkbox" id="apIncl" checked={apIncl} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
+                  onChange={function(e){setApIncl(e.target.checked);}}/>
+                <label htmlFor="apIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes product/services tax</label>
+              </div>
+            )}
+            <div style={{fontSize:13,color:"#29384A",margin:"12px 0 4px"}}>Units sold over the same period</div>
+            <input style={Object.assign({},inp,{fontSize:15,maxWidth:260})} placeholder={fcUnits>0?String(Math.round(fcUnits)):"e.g. 2400"} value={apUnits}
+              onChange={function(e){setApUnits(e.target.value);}}/>
+            <div style={{fontSize:11,color:"#5F7183",marginTop:5,lineHeight:1.5}}>
+              {fcUnits>0
+                ? (usingTyped
+                    ? <span>Using the {Math.round(typedUnits).toLocaleString()} units you entered. <button style={{fontFamily:"inherit",fontSize:11,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={function(){setApUnits("");}}>Use my forecast of {Math.round(fcUnits).toLocaleString()} instead</button></span>
+                    : <span>Leave blank to use your forecast of {Math.round(fcUnits).toLocaleString()} units.</span>)
+                : <span>You have no forecast units entered yet, so put last year&rsquo;s figure here.</span>}
+            </div>
+            {price!==null?(
+              <div style={{marginTop:12,fontSize:13,color:"#29384A",lineHeight:1.6,borderTop:"1px solid #BFE3E1",paddingTop:10}}>
+                {apIncl&&activeTaxRate()>0&&(
+                  <div style={{marginBottom:4,color:"#5F7183"}}>{fmt(total)} including tax &divide; {(1+activeTaxRate()/100).toFixed(2)} = {fmt(Math.round(apNet))} excluding tax</div>
+                )}
+                {fmt(Math.round(apNet))} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:17}}>{fmt(Math.round(price*100)/100)}</strong> per unit
+                <div style={{marginTop:10}}>
+                  <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
+                    onClick={function(){
+                      fdRef.current.avgPrice=String(Math.round(price*100)/100);
+                      saveToStorage();refreshLive();
+                      setApOpen(false);setApTotal("");setApUnits("");
+                      setAvgSalesVer(function(v){return v+1;});
+                    }}>Use this figure</button>
                 </div>
-                <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Total sales expected over 12 months ($)</div>
-                <input style={Object.assign({},inp,{fontSize:15})} placeholder="e.g. 120000" value={apTotal}
-                  onChange={function(e){setApTotal(e.target.value);}}/>
-                {activeTaxRate()>0&&(
-                  <div style={{display:"flex",alignItems:"center",gap:8,marginTop:7}}>
-                    <input type="checkbox" id="apIncl" checked={apIncl} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
-                      onChange={function(e){setApIncl(e.target.checked);}}/>
-                    <label htmlFor="apIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes product/services tax</label>
-                  </div>
-                )}
-                {price!==null&&(
-                  <div style={{marginTop:10,fontSize:13,color:"#29384A",lineHeight:1.6}}>
-                    {apIncl&&activeTaxRate()>0&&(
-                      <div style={{marginBottom:4,color:"#5F7183"}}>{fmt(total)} including tax &divide; {(1+activeTaxRate()/100).toFixed(2)} = {fmt(Math.round(apNet))} excluding tax</div>
-                    )}
-                    {fmt(Math.round(apNet))} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(price*100)/100)}</strong> per unit
-                    <div style={{marginTop:10}}>
-                      <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
-                        onClick={function(){
-                          fdRef.current.avgPrice=String(Math.round(price*100)/100);
-                          saveToStorage();refreshLive();
-                          setApOpen(false);setApTotal("");
-                          setAvgSalesVer(function(v){return v+1;});
-                        }}>Use this figure</button>
-                    </div>
-                  </div>
-                )}
               </div>
             ):(
-              <div style={{fontSize:13,color:"#B14A38",lineHeight:1.55}}>
-                Enter your monthly sales units above first, then we can work out the average price from your expected total sales.
+              <div style={{marginTop:12,fontSize:13,color:"#5F7183",lineHeight:1.55,borderTop:"1px solid #BFE3E1",paddingTop:10}}>
+                Enter both figures above and the average price appears here.
               </div>
             )}
           </div>
         )}
-      </div>
-    );
-  }
-
-  // Compact echo of the notice in section 1. The instruction is given where the
-  // box is ticked, but the amounts it governs are typed further down the page,
-  // well past the point that notice has scrolled out of sight.
-  function TaxExclNote(subject){
-    if(!taxReg)return null;
-    return (
-      <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"3px solid #D0B16F",borderRadius:6,padding:"8px 11px",marginBottom:12,lineHeight:1.5}}>
-        {subject||"Amounts"} in this section should <strong style={{color:"#01236D"}}>exclude</strong> product/services tax.
       </div>
     );
   }
@@ -3566,28 +3746,38 @@ function App(){
     return r>0?v/(1+r/100):v;
   }
 
-  // One converter for the whole tab. The alternative - a widget beside all
-  // fourteen expense categories, other revenue and the asset lines - would be
-  // far more clutter for the same job. Nothing is converted automatically:
-  // silently altering a typed number is worse than making someone do the sum,
-  // because they cannot tell whether it has been applied.
-  function TaxConverter(){
+  // The converter lives inside the section reminder rather than sitting on its
+  // own, so it is offered at the point the instruction is given. convOpen holds
+  // the section key, so opening it in one section does not open the others.
+  // Nothing is converted automatically: silently altering a typed number is
+  // worse than making someone do the sum, because they cannot tell whether it
+  // has been applied.
+  function TaxExclNote(sectionKey,subject){
+    if(!taxReg)return null;
     var rate=activeTaxRate();
-    if(!rate)return null;
+    var open=convOpen===sectionKey;
     var raw=parseFloat(String(convAmt).replace(/[^0-9.-]/g,""));
     var ok=!isNaN(raw)&&raw!==0;
     var excl=ok?exclOfTax(raw):null;
     return (
-      <div style={{marginBottom:14}}>
-        <button style={convOpen?Object.assign({},suggestBtn,{background:"#01236D"}):suggestBtn}
-          onClick={function(){setConvOpen(!convOpen);}}>
-          {convOpen?"Close":"Take the tax off an amount"}
-        </button>
-        {convOpen&&(
-          <div style={{marginTop:8,background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"12px 14px"}}>
-            <div style={{fontSize:13,color:"#1F5C5D",marginBottom:8,lineHeight:1.55}}>
-              Amounts on this tab are entered without tax. If you know a figure with tax included, put it in here and use the amount that comes out.
-            </div>
+      <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"3px solid #D0B16F",borderRadius:6,padding:"8px 11px",marginBottom:12,lineHeight:1.5}}>
+        <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap"}}>
+          <span style={{flex:"1 1 240px",minWidth:0}}>
+            {subject||"Amounts"} in this section should <strong style={{color:"#01236D"}}>exclude</strong> product/services tax.
+          </span>
+          {rate>0&&(
+            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,flexShrink:0,marginLeft:"auto",
+              padding:"6px 12px",borderRadius:6,cursor:"pointer",
+              border:"1px solid "+(open?"#01236D":"#D0B16F"),
+              background:open?"#01236D":"#fff",color:open?"#fff":"#01236D"}}
+              onClick={function(){setConvOpen(open?"":sectionKey);setConvAmt("");}}>
+              {open?"Close":"Take the tax off an amount"}
+            </button>
+          )}
+        </div>
+        {open&&(
+          <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #BFE3E1"}}>
+            <div style={{marginBottom:6}}>If you know a figure with tax included, put it in here and use the amount that comes out.</div>
             <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Amount including tax ($)</div>
             <input style={Object.assign({},inp,{fontSize:15,maxWidth:220})} placeholder="e.g. 115" value={convAmt}
               onChange={function(e){setConvAmt(e.target.value);}}/>
@@ -3673,6 +3863,73 @@ function App(){
     );
   }
 
+  // Shown beside the Word download, where it is relevant.
+  function BrandingPanel(){
+    var swatches=["01236D","2A9D9F","1F5C5D","B14A38","29384A","5F7183"];
+    return (
+      <div style={{background:"#FCFCFA",border:"1px solid #E7EAED",borderLeft:"4px solid #D0B16F",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+        <div style={{fontSize:11,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>Brand your Word document</div>
+
+        <div style={{display:"flex",gap:14,alignItems:"center",flexWrap:"wrap",marginBottom:12}}>
+          {brandLogo
+            ? <img src={brandLogo} alt="Your logo" style={{maxWidth:120,maxHeight:60,objectFit:"contain",border:"1px solid #E7EAED",borderRadius:6,background:"#fff",padding:4}}/>
+            : <div style={{width:120,height:60,border:"1px dashed #D0B16F",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#8A98A6",textAlign:"center",padding:6}}>No logo yet</div>}
+          <div style={{flex:"1 1 220px",minWidth:0}}>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              <button style={suggestBtn} onClick={function(){
+                var picker=document.createElement("input");
+                picker.type="file";picker.accept="image/*";
+                picker.onchange=function(){ handleLogoFile(picker.files&&picker.files[0]); };
+                picker.click();
+              }}>{brandLogo?"Change logo":"Add your logo"}</button>
+              {!!brandLogo&&(
+                <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#5F7183",background:"none",border:"1px solid #E7EAED",borderRadius:6,padding:"5px 12px",cursor:"pointer"}}
+                  onClick={clearLogo}>Remove</button>
+              )}
+            </div>
+            <div style={{fontSize:11,color:"#5F7183",marginTop:6,lineHeight:1.5}}>
+              PNG or JPG. It is resized before saving and appears on the cover page.
+            </div>
+            {!!logoErr&&<div style={{fontSize:13,color:"#B14A38",marginTop:6,lineHeight:1.5}}>{logoErr}</div>}
+          </div>
+        </div>
+
+        <div style={{opacity:useOwnStyles?0.45:1}}>
+          <div style={{fontSize:13,color:"#29384A",marginBottom:6}}>Heading colour</div>
+          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+            {swatches.map(function(hx){
+              var on=brandHex().toUpperCase()===hx;
+              return <button key={hx} title={"#"+hx} disabled={useOwnStyles}
+                onClick={function(){fdRef.current.brandColour=hx;setBrandColour(hx);saveToStorage();}}
+                style={{width:26,height:26,borderRadius:"50%",background:"#"+hx,cursor:useOwnStyles?"not-allowed":"pointer",
+                  border:on?"3px solid #D0B16F":"1px solid #E7EAED",padding:0}}/>;
+            })}
+            <input type="color" disabled={useOwnStyles} value={"#"+brandHex()}
+              onChange={function(e){var hx=e.target.value.replace("#","").toUpperCase();fdRef.current.brandColour=hx;setBrandColour(hx);saveToStorage();}}
+              style={{width:34,height:30,border:"1px solid #E7EAED",borderRadius:6,background:"#fff",cursor:useOwnStyles?"not-allowed":"pointer",padding:2}}/>
+            {brandHex()!=="01236d"&&!useOwnStyles&&(
+              <button style={{fontFamily:"inherit",fontSize:13,color:"#5F7183",background:"none",border:"1px solid #E7EAED",borderRadius:6,padding:"5px 10px",cursor:"pointer"}}
+                onClick={function(){fdRef.current.brandColour="";setBrandColour("");saveToStorage();}}>Reset</button>
+            )}
+          </div>
+        </div>
+
+        <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid #E7EAED"}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:9}}>
+            <input type="checkbox" id="ownStyles" checked={useOwnStyles} style={{width:16,height:16,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:2}}
+              onChange={function(e){var v=e.target.checked;setUseOwnStyles(v);fdRef.current.brandOwnStyles=v?"1":"";saveToStorage();}}/>
+            <label htmlFor="ownStyles" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.5}}>
+              I will apply my own Word template
+              <div style={{fontSize:13,color:"#5F7183",marginTop:3}}>
+                Leaves the text unformatted so it uses Word&rsquo;s Heading 1 and Heading 2 styles. Open the file in Word and pick your template or a Style Set from the <strong>Design</strong> tab, and the whole document takes on your branding. Your logo is still included.
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   function downloadPlan(){
     var text=planHtml.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
     var blob=new Blob([text],{type:"text/plain"});
@@ -3709,11 +3966,11 @@ function App(){
             <div style={f2col}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Date established</div>
               <div style={{display:"flex",gap:8}}>
-                <select style={{...sel,flex:1,minWidth:0}} value={(fdRef.current.bizDate||"").split("-")[1]||""} onChange={function(e){var parts=(fdRef.current.bizDate||"----").split("-");parts[1]=e.target.value;fdRef.current.bizDate=(parts[0]||String(new Date().getFullYear()))+"-"+parts[1]+"-01";saveToStorage();}}>
+                <select style={{...sel,flex:1,minWidth:0}} value={(bizDate||"").split("-")[1]||""} onChange={function(e){var parts=(bizDate||"----").split("-");parts[1]=e.target.value;var v=(parts[0]||String(new Date().getFullYear()))+"-"+parts[1]+"-01";fdRef.current.bizDate=v;setBizDate(v);saveToStorage();}}>
                   <option value="">Month</option>
                   {["01","02","03","04","05","06","07","08","09","10","11","12"].map(function(m,i){return <option key={m} value={m}>{["January","February","March","April","May","June","July","August","September","October","November","December"][i]}</option>;})}
                 </select>
-                <select style={{...sel,flex:1,minWidth:0}} value={(fdRef.current.bizDate||"").split("-")[0]||""} onChange={function(e){var parts=(fdRef.current.bizDate||"----").split("-");parts[0]=e.target.value;fdRef.current.bizDate=parts[0]+"-"+(parts[1]||"01")+"-01";saveToStorage();}}>
+                <select style={{...sel,flex:1,minWidth:0}} value={(bizDate||"").split("-")[0]||""} onChange={function(e){var parts=(bizDate||"----").split("-");parts[0]=e.target.value;var v=parts[0]+"-"+(parts[1]||"01")+"-01";fdRef.current.bizDate=v;setBizDate(v);saveToStorage();}}>
                   <option value="">Year</option>
                   {Array.from({length:50},function(_,i){var y=new Date().getFullYear()-i;return <option key={y} value={String(y)}>{y}</option>;})}
                 </select>
@@ -3872,8 +4129,8 @@ function App(){
           </div>
           {!goals.some(Boolean)&&<div style={{fontSize:13,color:"#29384A",fontStyle:"italic"}}>No goals entered yet — go back to Step 3 to add them.</div>}
           <div style={{marginBottom:14}}/>
-          <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
-            <div style={{flex:1}}>
+          <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
+            <div style={{flex:"1 1 300px",minWidth:0}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How many extra sales units will each goal deliver over the next 12 months?</div>
               <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>One line per goal, so the total is easy to check. Leave a goal blank if it does not add sales.</span>
               <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
@@ -3882,8 +4139,8 @@ function App(){
                 {goals.map(function(g,gi){
                   if(!g)return null;
                   return (
-                    <div key={gi} style={{display:"flex",gap:8,alignItems:"center",marginBottom:6}}>
-                      <span style={{flex:1,minWidth:0,fontSize:13,color:"#29384A",lineHeight:1.4}}>
+                    <div key={gi} style={{display:"flex",gap:8,alignItems:"center",marginBottom:6,flexWrap:"wrap"}}>
+                      <span style={{flex:"1 1 170px",minWidth:0,fontSize:13,color:"#29384A",lineHeight:1.4}}>
                         <strong style={{color:"#01236D"}}>Goal {gi+1}:</strong> {g.length>70?g.slice(0,69)+"\u2026":g}
                       </span>
                       <input style={Object.assign({},inp,{flex:"0 0 110px",textAlign:"right"})} defaultValue={goalSalesFor(gi)} placeholder="0" onChange={function(e){setGoalSalesFor(gi,e.target.value);}}/>
@@ -3898,7 +4155,7 @@ function App(){
                 )}
               </div>
             </div>
-            <div style={{flex:1}}>
+            <div style={{flex:"1 1 300px",minWidth:0}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Which expenses will increase to deliver each goal?</div>
               <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>Pick the category and give the 12-month amount. For a new hire or contractor, choose Team or Contractors and enter the annual amount and start month.</span>
               <div style={{marginBottom:6}}><button style={geLoading?suggestBtnBusy:suggestBtn} onClick={suggestGoalExpenses} disabled={geLoading}>{geLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button></div>
@@ -3967,7 +4224,6 @@ function App(){
           </div>
           {s5key==="details"&&(<>
             {FinSummary()}
-            {TaxConverter()}
             <FinSection open={finOpen.start} onToggle={function(){toggleFin("start");}} title="1. Starting position" hint="where you are today">
             <div style={{marginBottom:14}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Cashflow start date (Month 1)</div>
@@ -3982,23 +4238,23 @@ function App(){
                 </select>
               </div>
             </div>
-            <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
-              <div style={{flex:1}}>
+            <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
+              <div style={{flex:"1 1 260px",minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Cash in the bank on day one ($)</div>
                 <input style={inp} defaultValue={fdRef.current.openingBalance||""} placeholder="e.g. 5000 (cash in bank at start)" onChange={function(e){fdRef.current.openingBalance=e.target.value;saveToStorage();refreshLive();}}/>
               </div>
-              <div style={{flex:1}}>
+              <div style={{flex:"1 1 260px",minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Money the business owes</div>
                 <input style={inp} defaultValue={fdRef.current.debt||""} placeholder="e.g. $5,000 suppliers, $10,000 loan" onChange={function(e){fdRef.current.debt=e.target.value;saveToStorage();}}/>
               </div>
             </div>
             <div style={{marginBottom:14}}/>
-            <div style={{display:"flex",gap:12,alignItems:"flex-start"}}>
-              <div style={{flex:1}}>
+            <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
+              <div style={{flex:"1 1 260px",minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Assets the business owns</div>
                 <input style={inp} defaultValue={fdRef.current.assets||""} placeholder="e.g. $3,000 debtors, laptop $4,000" onChange={function(e){fdRef.current.assets=e.target.value;saveToStorage();}}/>
               </div>
-              <div style={{flex:1}}>
+              <div style={{flex:"1 1 260px",minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Money you or investors have put in</div>
                 <input style={inp} defaultValue={fdRef.current.equity||""} placeholder="e.g. $30,000 from founder Jane Smith" onChange={function(e){fdRef.current.equity=e.target.value;saveToStorage();}}/>
               </div>
@@ -4023,14 +4279,16 @@ function App(){
                     <strong style={{color:"#01236D"}}>All $ amounts entered should exclude product/services tax.</strong> Enter your sales, costs and expenses at their tax-exclusive value. The tax itself is worked out separately from the rate and payment months you set in section 3.
                   </span>
                 </div>)
-              :(<div style={{fontSize:13,color:"#5F7183",marginTop:6,lineHeight:1.5}}>In New Zealand this is GST. If you are registered, set the rate and the months you pay it in section 3.</div>)}
+              :(<div style={{fontSize:13,color:"#5F7183",marginTop:6,lineHeight:1.5}}>In New Zealand this is GST. If you are registered tick the box above.</div>)}
             <div style={{marginBottom:14}}/>
 
             </FinSection>
             <FinSection open={finOpen.sales} onToggle={function(){toggleFin("sales");}} title="2. Money in" hint="sales and other income">
-            {TaxExclNote()}
+            {TaxExclNote("sales")}
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Monthly sales units</div>
-            <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, units may be hours or jobs.</div>
+            <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>
+              Tip: if your business provides services, units may be hours or jobs. If you sell several different things, a unit is usually one average sale &mdash; the helpers under Average sale price and Average cost per unit will blend them for you.
+            </div>
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:6}}>
                           </div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkMonthlyUnits" checked={!!gridChecks["monthlyUnits"]} onChange={function(){toggleGrid("monthlyUnits");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkMonthlyUnits" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
@@ -4116,7 +4374,7 @@ function App(){
             </div>
             </FinSection>
             <FinSection open={finOpen.other} onToggle={function(){toggleFin("other");}} title="4. Money out" hint="your expenses">
-            {TaxExclNote()}
+            {TaxExclNote("other")}
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Monthly expenses</div>
             <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>Do not include tax payments here - tax is calculated separately from the tax rate above.</span>
@@ -4139,7 +4397,7 @@ function App(){
             }).map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
               <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}</div>
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
-              {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 200"} onChange={function(e){fdRef.current[c.id]=e.target.value;if(e.target.value)revealExp(c.id);saveToStorage();refreshLive();}}/>}
+              {gridChecks[c.id]?<MonthGrid key={c.id+"-grid-"+avgSalesVer} keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input key={c.id+"-"+avgSalesVer} style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 200"} onChange={function(e){fdRef.current[c.id]=e.target.value;if(e.target.value)revealExp(c.id);saveToStorage();refreshLive();}}/>}
                 {AnnualTotal({value:sumLive(function(r){return r.expDetail&&r.expDetail[c.id];})})}
                 {PEOPLE_CATS[c.id]?PeopleCostHelper(c.id):null}
             </div>);})}            <div style={{marginBottom:14}}/>
@@ -4151,7 +4409,7 @@ function App(){
             {GoalExpApply()}
             </FinSection>
             <FinSection open={finOpen.tx} onToggle={function(){toggleFin("tx");}} title="5. Other transactions" hint="loans, assets, drawings">
-            {TaxExclNote("Asset and Other Transactions")}
+            {TaxExclNote("tx","Asset and Other Transactions")}
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Other money in and out ($)</div>
             <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>Regular monthly or one-off</span>
             <div style={{background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"8px 11px",marginBottom:10,fontSize:13,color:"#1F5C5D",lineHeight:1.55}}>
@@ -4198,6 +4456,38 @@ function App(){
       );}},
   ];
 
+  // One progress bar for both the step screens and the Summary. It used to be
+  // duplicated, and the Summary copy was left behind on an older flat design -
+  // same five labels, different presentation, and a tick on every step whether
+  // it was finished or not.
+  //
+  // Pass the index of the step being edited, or stepDefs.length from Summary,
+  // where every step is behind the user.
+  function StepNav(current){
+    var names=["Details","Market","Strategy","How","Finances"];
+    return (
+      <div style={{display:"flex",alignItems:"flex-start",gap:0,marginBottom:26,overflowX:"auto"}}>
+        {stepDefs.map(function(s,i){
+          var active=i===current;
+          var done=i<current;
+          var dotBg=(active||done)?"#01236D":"#F1F3F5";
+          var dotFg=(active||done)?"#fff":"#8A98A6";
+          return (
+            <button key={i} onClick={function(){setShowDirection(false);setStepAndSave(i);}}
+              style={{flex:1,minWidth:66,border:"none",background:"none",cursor:"pointer",padding:0,fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:7}}>
+              <div style={{display:"flex",alignItems:"center",width:"100%"}}>
+                <div style={{flex:1,height:3,borderRadius:2,background:i===0?"transparent":((done||active)?"#01236D":"#E7EAED")}}/>
+                <div style={{width:30,height:30,borderRadius:"50%",background:dotBg,color:dotFg,fontSize:13,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:active?"0 0 0 4px rgba(1,35,109,0.12)":"none"}}>{done?"\u2713":(i+1)}</div>
+                <div style={{flex:1,height:3,borderRadius:2,background:i===stepDefs.length-1?"transparent":(active?"#D0B16F":done?"#01236D":"#E7EAED")}}/>
+              </div>
+              <span style={{fontSize:12,fontWeight:active?700:600,color:(active||done)?"#01236D":"#8A98A6",whiteSpace:"nowrap"}}>{names[i]||s.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   // Every screen uses the same width so nothing shifts as you move through the
   // app. 1080px lets the cashflow table (~916px) fit without sideways scrolling.
   // maxWidth only bites above the limit, so narrow devices are unaffected.
@@ -4220,23 +4510,13 @@ function App(){
         </div>
         <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
         <div style={cardStyle}>
-          <div style={{display:"flex",gap:2,marginBottom:20,overflowX:"auto"}}>
-            {stepDefs.map(function(s,i){
-              return <button key={i} onClick={function(){setShowDirection(false);setStepAndSave(i);}} style={{
-                flex:1,minWidth:0,padding:"9px 4px",border:"none",borderRadius:6,cursor:"pointer",
-                background:"#E7F5F4",color:"#01236D",
-                fontSize:11,fontWeight:500,
-                whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",
-                borderBottom:"3px solid #D0B16F",fontFamily:"inherit"
-              }}>{"✓ "}{["Details","Market","Strategy","How","Finances"][i]||s.label}</button>;
-            })}
-          </div>
-          <div style={{fontSize:11,fontWeight:600,color:"#29384A",letterSpacing:"0.07em",textTransform:"uppercase",marginBottom:6}}>Summary</div>
-          <div style={{fontSize:18,fontWeight:700,color:"#01236D",marginBottom:8}}>Business Direction</div>
-          <div style={{fontSize:15,color:"#29384A",marginBottom:12,lineHeight:1.6}}>Here is a summary of the key information for your business.</div>
+          {StepNav(stepDefs.length)}
+          <div style={{fontSize:11,fontWeight:700,color:"#8A98A6",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:8}}>Summary</div>
+          <div style={{fontSize:26,fontWeight:800,color:"#01236D",marginBottom:10,lineHeight:1.2,letterSpacing:"-0.01em"}}>Business Direction<div style={{width:56,height:3,background:"#D0B16F",borderRadius:2,marginTop:9}}/></div>
+          <div style={{fontSize:15,color:"#5F7183",marginBottom:20,lineHeight:1.6}}>Here is a summary of the key information for your business.</div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
-            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"6px 14px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>← Back</button>
-            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"8px 16px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",marginLeft:"auto"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
+            <button style={{fontFamily:"inherit",fontSize:15,fontWeight:600,padding:"11px 20px",borderRadius:10,border:"1px solid #E7EAED",background:"#fff",color:"#29384A",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>&larr; Back</button>
+            <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 26px",borderRadius:10,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:10}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan <span style={{fontSize:18,lineHeight:1}}>&rarr;</span></button>
           </div>
           {[
             {label:"Vision",val:f.vision},
@@ -4282,9 +4562,9 @@ function App(){
                 :<span style={{color:"#8A98A6"}}>Not yet completed</span>}
             </div>
           </div>
-          <div style={{display:"flex",gap:10,justifyContent:"space-between",paddingTop:16,borderTop:"2px solid #E7F5F4"}}>
-            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"6px 14px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>← Back</button>
-            <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 28px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan →</button>
+          <div style={{display:"flex",gap:10,alignItems:"center",marginTop:32,paddingTop:24,borderTop:"1px solid #E7EAED"}}>
+            <button style={{fontFamily:"inherit",fontSize:15,fontWeight:600,padding:"13px 22px",borderRadius:10,border:"1px solid #E7EAED",background:"#fff",color:"#29384A",cursor:"pointer"}} onClick={function(){setShowDirection(false);}}>&larr; Back</button>
+            <button style={{fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"14px 34px",borderRadius:10,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:10}} onClick={function(){generatePlan();setShowOutput(true);setShowDirection(false);}}>Generate Business Plan <span style={{fontSize:18,lineHeight:1}}>&rarr;</span></button>
           </div>
         </div>
         <AppFooter/>
@@ -4300,6 +4580,7 @@ function App(){
           {!loading&&<button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){generateWordDoc();}}>Download Word (.docx)</button>}
         </div>
         <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
+        {!loading&&!!planHtml&&BrandingPanel()}
         <div style={cardStyle}>
           {tab==="plan"&&(
             <div>
@@ -4367,27 +4648,7 @@ function App(){
       </div>
       <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
       <div style={cardStyle}>
-        <div style={{display:"flex",alignItems:"flex-start",gap:0,marginBottom:26,overflowX:"auto"}}>
-          {stepDefs.map(function(s,i){
-            var active=i===step;
-            var done=i<step;
-            var names=["Details","Market","Strategy","How","Finances"];
-            // Active navy, completed teal, still to come light grey
-            var dotBg=active?"#01236D":done?"#01236D":"#F1F3F5";
-            var dotFg=(active||done)?"#fff":"#8A98A6";
-            return (
-              <button key={i} onClick={function(){setShowDirection(false);setStepAndSave(i);}}
-                style={{flex:1,minWidth:66,border:"none",background:"none",cursor:"pointer",padding:0,fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:7}}>
-                <div style={{display:"flex",alignItems:"center",width:"100%"}}>
-                  <div style={{flex:1,height:3,borderRadius:2,background:i===0?"transparent":((done||active)?"#01236D":"#E7EAED")}}/>
-                  <div style={{width:30,height:30,borderRadius:"50%",background:dotBg,color:dotFg,fontSize:13,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:active?"0 0 0 4px rgba(1,35,109,0.12)":"none"}}>{done?"\u2713":(i+1)}</div>
-                  <div style={{flex:1,height:3,borderRadius:2,background:i===stepDefs.length-1?"transparent":(active?"#D0B16F":done?"#01236D":"#E7EAED")}}/>
-                </div>
-                <span style={{fontSize:12,fontWeight:active?700:600,color:active?"#01236D":done?"#01236D":"#8A98A6",whiteSpace:"nowrap"}}>{names[i]||s.label}</span>
-              </button>
-            );
-          })}
-        </div>
+        {StepNav(step)}
         <div style={{fontSize:11,fontWeight:700,color:"#8A98A6",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:8}}>{currentStep.label}</div>
         <div style={{fontSize:26,fontWeight:800,color:"#01236D",marginBottom:10,lineHeight:1.2,letterSpacing:"-0.01em"}}>{currentStep.title}<div style={{width:56,height:3,background:"#D0B16F",borderRadius:2,marginTop:9}}/></div>
         <div style={{fontSize:15,color:"#5F7183",marginBottom:26,lineHeight:1.6}}>{currentStep.desc}</div>
