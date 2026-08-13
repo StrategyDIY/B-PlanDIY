@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18115223677"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-18115223677');
+</script>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Sample business plan and cashflow forecast &mdash; B-PlanDIY</title>
+<meta name="description" content="A complete example business plan and 12-month cashflow forecast for a New Zealand small business, produced with B-PlanDIY."/>
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/favicon-192.png">
+<style>
+
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+:root{--navy:#01236D;--gold:#D0B16F;--teal:#2A9D9F;--aqua:#E7F5F4;--sand:#E7F5F4;--white:#FCFCFA;--slate:#29384A;--mist:#E7EAED;--coral:#E97868;--gold-light:#E7F5F4;--off-white:#E7F5F4;--grey:#5F7183;--dark:#29384A;--pure-white:#ffffff}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--dark);background:var(--white);line-height:1.6;}
+
+/* NAV */
+nav{background:var(--white);border-bottom:1px solid #E7EAED;padding:0 24px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;height:84px;}
+.nav-logo{display:flex;align-items:center;gap:10px;}
+a.nav-logo{text-decoration:none;color:inherit;cursor:pointer;}
+a.nav-logo:hover span{color:var(--teal);}
+.nav-logo img{width:72px;height:72px;object-fit:contain;}
+.nav-logo span{font-size:17px;font-weight:700;color:var(--navy);letter-spacing:-0.02em;}
+.nav-links{display:flex;gap:28px;font-size:15px;color:var(--navy);font-weight:700;}
+.nav-links a:hover{color:var(--gold);}
+.nav-right{display:flex;align-items:center;gap:18px;}
+.nav-paid{font-size:14px;color:var(--grey);white-space:nowrap;}
+.nav-paid a{color:var(--navy);font-weight:600;text-decoration:underline;}
+.nav-paid a:hover{color:var(--gold);}
+.nav-cta{background:var(--navy);color:#fff;padding:9px 22px;border-radius:6px;font-size:14px;font-weight:600;transition:opacity 0.15s;}
+.nav-cta:hover{opacity:0.88;}
+
+/* HERO */
+.hero h1{font-size:clamp(14px,1.6vw,18px);font-weight:600;line-height:1.3;letter-spacing:-0.01em;margin-bottom:20px;max-width:600px;margin-left:auto;margin-right:auto;}
+/* ---- Hero: two columns, text left, rotating illustration right ---- */
+.hero{background:var(--white);color:var(--navy);padding:0;text-align:left;position:relative;overflow:hidden;}
+/* Direct children only. A bare `.hero-ctas a` also caught the "Verify your
+   email" link nested inside .hero-paid, giving it the button's 15px/28px
+   padding - which is what opened the gap after "Already paid?". */
+.hero-ctas > a.primary{display:inline-flex;align-items:center;gap:10px;font-size:16px;font-weight:700;padding:15px 28px;border-radius:8px;text-decoration:none;}
+/* Three supporting points in one white card */
+.hero-note{display:flex;gap:18px;flex-wrap:wrap;margin-top:24px;font-size:13px;font-weight:600;color:var(--slate);}
+/* The illustration sits on a soft aqua wash */
+.hero-art{position:relative;display:flex;align-items:center;justify-content:center;min-height:400px;}
+/* A navy button vanishes on a navy background. On dark sections the primary
+   button becomes gold with navy lettering - 6.97:1 against the section and
+   6.97:1 for its own text. */
+section[style*="--navy"] .btn-primary{
+  background:var(--gold);color:var(--navy);
+}
+/* Hero block: one wrapper sets the width, both rows fill it exactly.
+   Grid 1fr 1fr guarantees two equal columns - no flex basis, no per-cell
+   max-width, and no inline-block shrink-to-fit to work around. */
+/* Points run across the full width in one row, with the image below */
+/* Points listed one under another, in a box centred under the headline */
+/* Hero illustration crossfade - each question gets its own moment rather than
+   competing side by side. Pure CSS, no script, and it pauses for anyone who
+   has asked their system to reduce motion. */
+@media(max-width:780px){}
+
+/* STEP WALKTHROUGH */
+.walkthrough{padding:80px 24px;background:var(--white);}
+
+/* PLAN SAMPLE */
+.community{padding:80px 24px 90px;background:linear-gradient(135deg,#01236d 0%,#02306F 100%);color:white;text-align:center;}
+/* --- Demo video ---------------------------------------------------------
+   The iframe-free approach: a poster image with a play button, and the
+   <video> element only given its source when the button is pressed. Nothing
+   downloads until someone chooses to watch, so the page loads as fast as it
+   did before. ------------------------------------------------------------ */
+.hero-watch{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:600;
+  color:var(--navy);text-decoration:none;border-bottom:1px solid transparent;transition:border-color .15s,color .15s;}
+/* --- Compact five-step grid ------------------------------------------------
+   Replaces five full-page mockups, which made this section 44% of the page.
+   The demo video sits directly above and shows the real screens, so static
+   replicas of them no longer earn their space. ---------------------------- */
+.steps-grid{max-width:1000px;margin:0 auto;display:grid;gap:16px;
+  grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}
+.plan-doc-body{padding:28px 32px;}
+
+/* CASHFLOW PREVIEW */
+.cf-preview{max-width:720px;margin:28px auto 0;background:white;border-radius:14px;box-shadow:0 4px 24px rgba(1,35,109,0.1);overflow:hidden;}
+
+/* FEATURES GRID */
+.features{padding:80px 24px;background:var(--off-white);}
+
+/* TESTIMONIALS */
+.testimonials{padding:80px 24px;}
+
+/* PRICING */
+.pricing{padding:80px 24px;background:var(--off-white);}
+.p-body{padding:32px;}
+/* FINAL CTA */
+.final{background:var(--aqua);padding:72px 24px;text-align:center;color:var(--navy);}
+
+footer{background:var(--white);border-top:1px solid var(--mist);color:var(--grey);padding:28px 24px;text-align:center;font-size:13px;}
+footer a{color:var(--navy);text-decoration:underline;}
+.sample-intro{background:var(--aqua);padding:56px 24px 48px;text-align:center;}
+.sample-intro .eyebrow{font-size:12px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;color:var(--grey);margin-bottom:10px;}
+.sample-intro h1{font-size:clamp(26px,4vw,40px);font-weight:800;color:var(--navy);letter-spacing:-0.02em;line-height:1.2;max-width:760px;margin:0 auto;}
+.sample-intro p{font-size:16px;color:var(--grey);max-width:640px;margin:14px auto 0;line-height:1.6;}
+.sample-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:24px;}
+.sample-actions a{display:inline-flex;align-items:center;gap:9px;font-size:15px;font-weight:700;
+  padding:13px 26px;border-radius:10px;text-decoration:none;}
+.sample-actions .primary{background:var(--navy);color:#fff;}
+.sample-actions .ghost{background:#fff;color:var(--navy);border:1px solid var(--mist);}
+.sample-note{font-size:13px;color:var(--grey);margin-top:14px;}
+
+.doc-wrap{max-width:860px;margin:44px auto 0;padding:0 20px;}
+.doc{background:#fff;border:1px solid var(--mist);border-radius:14px;
+  box-shadow:0 4px 28px rgba(1,35,109,0.09);overflow:hidden;}
+.doc-head{text-align:center;padding:40px 28px 30px;border-bottom:2px solid var(--aqua);}
+.doc-head .name{font-size:28px;font-weight:800;color:var(--navy);margin-bottom:8px;}
+.doc-head .kind{font-size:16px;font-weight:500;color:var(--gold);margin-bottom:6px;}
+.doc-head .date{font-size:13px;color:var(--grey);}
+.doc-body{padding:30px 34px 38px;}
+.doc-body h2{font-size:19px;font-weight:700;color:var(--navy);margin:30px 0 12px;
+  padding-bottom:6px;border-bottom:2px solid var(--aqua);}
+.doc-body h2:first-child{margin-top:0;}
+.doc-body h3{font-size:15px;font-weight:700;color:var(--slate);margin:20px 0 7px;}
+.doc-body p{font-size:15px;line-height:1.75;color:var(--slate);margin-bottom:12px;}
+.doc-body ul{margin:6px 0 14px 20px;}
+.doc-body li{font-size:15px;line-height:1.75;color:var(--slate);margin-bottom:5px;}
+
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:22px 0 8px;}
+.fig{background:var(--aqua);border:1px solid #BFE3E1;border-radius:10px;padding:14px 16px;}
+.fig .l{font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--grey);margin-bottom:5px;}
+.fig .v{font-size:20px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;}
+
+.cf-scroll{overflow-x:auto;margin-top:8px;-webkit-overflow-scrolling:touch;}
+table.cf{width:100%;border-collapse:collapse;font-size:13px;min-width:760px;}
+table.cf th{background:var(--navy);color:#fff;font-weight:600;font-size:11px;padding:9px 8px;
+  text-align:right;white-space:nowrap;}
+table.cf th:first-child{text-align:left;}
+table.cf td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--aqua);
+  white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--slate);}
+table.cf td:first-child{text-align:left;color:var(--grey);}
+table.cf tr.band td{background:var(--aqua);color:var(--navy);font-weight:700;font-size:11px;
+  text-transform:uppercase;letter-spacing:0.05em;}
+table.cf tr.tot td{font-weight:700;background:#FCFCFA;color:var(--slate);}
+table.cf tr.hl td{background:#1F7A7C;color:#fff;font-weight:700;}
+.cf-note{font-size:13px;color:var(--grey);margin-top:10px;}
+
+.sample-cta{max-width:860px;margin:48px auto 64px;padding:34px 28px;text-align:center;
+  background:var(--navy);border-radius:14px;}
+.sample-cta h2{font-size:clamp(20px,3vw,28px);font-weight:800;color:#fff;margin-bottom:10px;}
+.sample-cta p{font-size:15px;color:rgba(255,255,255,0.75);max-width:520px;margin:0 auto 20px;line-height:1.6;}
+.sample-cta a{display:inline-block;background:var(--gold);color:#fff;font-weight:700;font-size:16px;
+  padding:14px 32px;border-radius:10px;text-decoration:none;}
+@media(max-width:640px){.doc-body{padding:24px 20px 30px;}.doc-head{padding:30px 20px 24px;}}
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="index.html">
+    <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/4QAiRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAEAAAAAAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCANIA0gDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD6pooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKYsqNIYw6mQAEqDyAehxT6ACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACkdgqlicAc0tZXie6+yaLcODhmGxfqeKipNQi5PoOKu7HHabqxHis3W47J5TG2R/Ceg/QV6NXjvuOCDkH3r1fTLxL6xhuE/jUEj0PcfnmvPy+tzc0X6nTiIKNrFuiiivTOUKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKrSX9rGxWS4hRh1DOAalyUd2FizRVI6nZ5/4+7f8A7+Cl/tOy/wCfu3/7+Cl7SPcfKy5XD+Pb4SXUNkh/1Y3v9T0H6frXT3Gs2EEZd7uDA9HBJ/AV5nf3TXd9cTsTiRywz2Hb9AK4cfXSp8sXub0KbbuyGuz8A3u6G4tGPKHzFHsev6/zri81o+G7wWGrwzOcRHKOfQH/AOvivNw1T2VRSOutHngep5oqkNTsP+fy3/7+Cl/tOx/5/Lf/AL+CvoPaR7nm2fYuUVT/ALTsf+fy3/7+CnR39rKwWK5hdj2VwTR7SPcLMtUUUVYgooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK898SeGZbFWuLLdNb5JZP4k/wAa9Co61hXoRrKzLp1HB3R4xijFd74h8LLcs1xp+I5jy0Z4Vj7ehrhZY3ikaOVSrqcFT1FeHXoTpOzO+lNTV0MxRilorA02YlFLRQNiUYpaktrea6mEVvG0kh6Af54o30QtiLFdV4c8MSXBS5vw0UQ5VBw5Pr7D9a19B8Mw2Yjnuz5tyBwD91D7e/vXTAV62GwP2qn3HJVr392IUUUV6hyBRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFZOvaLb6tBiRQsy/ckA5Ht9K1qy/El4LLR55M4dhsT3J4rKsouD5ti6bakrHlpGHZf7pxRSUtfNM9MKKKKCiazgFxcxRFxGHcLuPbJxXqGj6TbaXAUtl+ZvvuerV5SCQQR1HIr1fRbz7bpttODu8xASffvXpZbyuTvucmJvbTYv0UUV7BxBRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABXGfEG5H+iWwPrKR+g/rXZ15d4nuvtmtXDg5VCIl+i//AF81w5hU5KTXVm1CPNIyqns7S4vZhFaRNLIew4AHqT2rV0Hw7cakwllDQ2vd+jMPb/Gu+0/TrewgEVrGFHc92+prz8PgpVXzT0R01Kyhotzlh4K/0MFbjF33P8Brlbu1ns52huYyjqfqD9D3r15RVPU9NttRh8q6TIH3SOGU+oPau2vgIuP7vRmMMRJP3jyeu4+H92ZLW4tnOWjfePof/r5/OsHXfD1zpjl48zWpPD9x9f8AGn+Dbn7PrkSE4WZSh+vUfyriwynRrKMjapapC6PSKKKK9488KKKKBhRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAQXxlWzmNuMzBDsHvjiuW0HwthhPqeGbO7yO3/Aj3+ldhRWNSjGo05dC4zcU0hqIEUKgAUcACnUUVsQFFFFADXUMMEZHpXPXXhO1e7iuLSV7UowYqoyOD2HaujoqJ04z+JFKTWwUUUVZIUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABVTVL+HTrN7i4OFXoO7H0HvUt7cx2ds887BYkGWY9q801vVZdVu97cIMiGP0/+ua5cVX9lHTdmtKk6j8jpfC91d6nqN1eSuy26rsSMHjOc/pj9a6wVnaHYrp+mRQAfMBuc+rHrWgDWlCDhBKW5E5XloLRRRWxIUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUycMYm8sgPj5SfWuG0/xTe2tyYdUVZEU7ZCAAyEfoRWNStGk1zdS4wctjvKKr2N5Be26zWzh4z3H+etWK0jJSV0QFFFFUAUUUUAFFFFABRRRQAUUUUAFQ3FzBbruuJY419XYCub8R+JhaSNa2O151GHfqEPoPU1xNxczXMpkuJGkY9ya8/EY6NJ2jqdFPDuSuz0Z/E2lq2DcEn/AGUYj+VOi8SaVI4UXar7upUfmRXmZwaG5rk/tKp2Nvq0e57FHIkiBkZWU9CDkGnV5Jp1/c6fKXtZWTONy9m+teheH9ch1WPYR5dyo+ZCevuD3rvw+MjW0tZmFSg4K/Q2aKKK7DAKKKKACiiigApssixozuwVVGSScACnV5/4s8QG8Y2lk3+jA/M//PT/AOt/OsMRXjQjdmlOm5uyKfiHWpNVnwMpaqfkT+9/tGpfCGni81ZZnGY7cb8erH7v8qwVNel+F9P/ALP0qJGH71/nc/y/TFeTh4PE1uaWx11WoQ5UbIFFFKa9w4NwooopgFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFcx4s0I3ifabRR9oUHcoH+sH+NdPQRms6tKNWPLIqE3B3R5HYXtxYS+ZayMjHqM8H6iu40bxRa3gEV1i3m7bj8rfQ/41R8XeHt7Pf2SjceZkA6/7QrjGFeMqlXBy5HqjstGtE9lBBFFeb6H4guNOURP++t/7jHp9D2+n8q7nS9TtdSgEtpKGU9VPBX6ivToYuFbRaM5qlJwZfooorqMgooooAKKKKACsfxPqn9maeTHg3EnyxgnGPU/hWxXnPje9Nxq/kAfLbrtznqx5P8ASuXF1fZ035mtGCnOzOfooor589JKwZNGaKKBhU1lcy2d3FcQNtdD+ft9KhooWj5kFrnrunXaX1jDcR/dkXOPT1qzXIfDu4ZrW7tm6RMGH/As/wCFdfX0mHqOrTUmeVUjyScQooorYgKKK5PxZr/kA2lk/wC+6SOD9z2Hv/KsqtWNKPNIuEHN2RV8Za95itYWT/KeJXHcf3RXG4p5OaSvn6tWVWXNI9GEFTRr+FbD7fqiBxmKHEre+Og/PH5V6cq4rD8H6eLLSY3YYlnAdvYdh+XP41u17WDo+zpq+7OGtPmkFFFFdRiFFFFMAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAK4TxdoJtibyyT9wcmVFH3D6j2/lXd0jKGUqwBB4INY1qMa0eWRcJuDujxxTUkE0lvIJIHaOUdGU9K3/FegnT2N1aKTZnllH/LP/wCtXNbq+eq0pUZcsj0oTVRXR22h+LFcCLU12N085R8v4jtXXoyuoZCCp5BFeNsK0tF1u60qT92RJCesb9Pw9K78NjnH3Z7HPUw19YnqdFZGja9a6mNqHy5h/wAs2PJ+nqK169WFSNRXi7nHKLi7MKKKKsQV5f4u/wCRivPqv/oIr1CvO/G9oYdZM4A2zqD+I4P9K8/MYt01Y6MM/fOdooNFeG2d4UUUVQwooooA634eHF1eD1Rf5mu5rkPh7bstvd3DdHZVX8M/4119e/gv4KPMr/xGFFFZ2uarDpNoZpRuY/cQHBY10ykoq7M0nJ2RR8Va0NMtjFF/x8yqdn+yPWvONxLEk5J65qW7uZby4eadyzscknt7D2qKvn8TXdaV+h6VKmoLzCtXwzYf2hq0cbjMKfO/0Hb8ayq9G8Haf9j0pJHGJZwHb2HYf59aeEo+1qK+yJrz5YnQCigUV9CecFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFADZEWRGR1DKwwQe9eZ+KNIGl3oMI/0eUZT29vwz/nFenVBeWsN7btDcRrJG3ZhmuXFUFWjbqaUqjpu54+KWtPxDpL6Te7B81u/MbevqD71mV4M4Om+WR6SmpK6FVirAqSCOhFdRo/iya2xHfIZouzj74+vrXLUtVTqypO8SakVJWZ67Z3cF5Csts4eNhkEVYryG0vrmxk32krRnuOx+ors9D8WwXJEWohYJscP/AAsf6V69DGxnpLRnFUoOKujqz0rG8T6adR01xEu6eP5ox6n0/EVsKwYAqQQehFLXZUgqkXF9TGLcXdHjRGDRXfeIvDUd8zXVq6xXB+8CPlf6+h964i7tZ7SUx3MTRuOMMK+erYWdJ67HpU6imivRRRWJo3YKsafaSX15Hbwj5nOM9lHcmrWmaLe6hIoiiKxHrK3Cj/GvQdF0a30qLbCN0h+9IRya68LhXVd2tDGpXjFabluyto7S1jghUKiKFAFWKKr313FZWzz3DbY0GSa9zSEddkefuR6pfwadatNcNgDoO7H0HvXmOr6jNqd688x4PCL/AHV9Kl1vVZtVujJISIl4jj7KP8fes6vFxWKdR8sdjuoUuVXe4UUUVwJWOjY0PD9idQ1aCIrmMHfJ/uivVQuAAK5nwTpgtrA3briW45+idvz6/jXT17+CpezhfuefXmpS0Ciiiu0wCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAqapYw6jZvb3C5VuQe6nsRXmOr2E2mXjQTjPdW7MPWvWaz9Z0yHU7UxTDkco3dT61xYrCqqrrc3oVeR2ex5UDxRU99ZTWFy0Fwu1x+RHqPaoa8OUXB8r3O+9xtFFFIo1dG1y60t8IfNhPWNj/L0rvNI1yz1IYik2SjrG/B/wDrivLqBlWDKSGHQjqK66OMnS0eqMKlGMtep7NUU0Ec6FJUV1PZlBFcNo/i6e3xHqCmeMcBxww+vrXQp4q0ls5uGX/ejb/CvVhiqU1e5xypTi7WLL+H9Lc/NZQ/8BBX+VS2ukWFo5a3tYkY99uT+ZqsviXSWz/pi/irD+lIfE2kj/l7U/RWP9KalQ6NfgK1R9zYxilFc/L4u0xMbWlf/dTp+dVJvGlsoBhtZpAe5IH+NN4ulHeQezm+h09zPHbQPNO4SJBlmPQCvNPEetSarcYXK2yH5U9fc1FrOt3eqtiZgsIORGvT6/WsuvMxOM9p7sdjro4fl96W46iiivPR0NhWhoNkL/VIYWGY87nH+yOtZ9d14DsDHZteyDDTcIPRB/jXThqXtaiiZVp2idYoCgADAHaiiivoTzQooopgFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAZeu6TFqtrsf5ZlyY5O6n/D2rzO7t5bS4eC4QpKnDCvYKwvFGiDVbbdCVS7QHYxHDD0NcGLwvOueO50Ua3L7stjzgUGiVHhleOZCkiHDKex9KQGvDsd6dxKKKKYWCiiigYUUUUAFFFFABRRRQAUUUUCZa0uxfUb+K1jOA5+c4zhe9esQQrDCkcYwqAACuW8BaeYraS+kAzN8sfH8I6n8T/Kutr28BR9nT5nuzz68+Z2Ciiiu85wooooGFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAHO+KdATUojPAAt0o5/2x6V50QUYqwwRxXs9cl4s8PfaQbyyUeeB+8QD7/v8AWvMxmEv+8gtep1UKtvdkcNRRRXkHancKKKKBhRRRQAUUUUAFFFFABVnTbN7++ito87nPUDOB3P5VWruvAumbLRr6YZeX5Y8/wp/9c5/Kt8NS9rNIyq1ORXOotoUggjijACIoUCpKMUV9ElY8zcKKKKYBRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAHn/jmxS2vo7lBtWfdvx03DH881zNejeOLbztCdwMtC6uPpnB/Q15zXgY2moVNOp6OHleIUUUVyG4UUUUAFFFFABRRRQAV63pUS2+nW8SfdWNQPyrySvZIxtRR7V6eWrWTOPFvRIdRRRXrnGFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAFfUIBc2U8DdJI2T8xXkJGCRXsxryXWoFtdXu4VGFWQkfjz/WvKzGO0jrwstWinRRRXlHaFFFFABRRRQAUUUUAWtJj87VLSIn5WlXP5j/69eudq8t8Lf8AIwWWP7xP4bTXqXevYyxe42cOKd2kFFFFekcgUUUUDCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACvNPGq48QTHP3lU/pivS64L4gxqt/bOB8zRkE/Q/wD164cwV6VzfDO0zlqKKK8M7wooooKCiiigAooooA6TwJCr6u8jjIjjOPqSB/jXoOK474dxgxXsv8LFAPwB/wAa7KvewKtRR5td++FFFFdZiFFFFMAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigArhfiH/wAfdn/uN/Ou6rhPiF/x92f+438648e7UWbUP4iOUooorwT0tgooooAKKKKACiiigD0TwPE0WhgsMb5GYfTp/SuhFZ3h6D7NollGRhhGCfqeT/OtLvX0mHjy04o8mbvJsKKKK2JCiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigArgPiAc6rbj0hH/oRrv68z8Zyl/EE69kVVH5VwZg7UrG+HV53MWiiivDZ6AUUUUxhRRRQAVY0+Fri/toR0kkCn6VXrf8EW/na4jkZWJGbPv0H860ow55pEVJcquejgAAAdBRRRX0x5QUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABXlPiWUTa9euhyu/aD9BivVXO1GPoM1445DOzY+8xNeZmU7RjHudWFWrYyloorxjtCiiiqGFFFFABXY/DyFt95KV4+VQfwJP8xXHV6b4Rt/s2hW6sMO48w++en6YruwEOarfsc+IlaBs0UUV7h54UUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAGd4hlaHRbx0+8Imx+WK8rr0TxxceTorRg4aZgv4dT/KvO68TMZXmkd2G+ESiiiuA6gooooAKKKKAJbSBrm5igT70jBR+Jr16FBHEiAABVAGK888EWvnax53aBCfxPAr0YV7GXQtFy7nBiXqkFFFFekcwUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFABRRRQAUUUUAFFFFAHDfEGcPdWkA6orOfxOB/I1yda3iqYTa7dENkK3l/TAGf1zWTXzeKnz1Wz0qUeWKEooorE2CiiigAoop9vE088cSffdgqj3NAm7Hd+BLIwWMtw64aZ+P90cfzzXUVFaQrbW0UKfdRQoqWvpaNNUoKKPKnLmdwooorUkKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACorqbyLaWXbu2IW2jqcCpaDQB447M7MzHLMck+ppp6V6+beI9YkP4UfZYP8AnjH+VeS8sv8Aa/A61ifI8eNJXsYtof8Ankn/AHzR9mh/55J/3zR/Zf8Ae/Af1vyPHKK9j+zQ/wDPJP8Avmj7ND/zyT/vmj+y/wC9+AfW/I8eroPBdhJc6slwY/3MHzbv9og8V6D9nh/55J/3yKlAAGAMCtKWXqElJu5MsTdWSCiiivSOUKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAooooAKKKKACiiigAoooo" alt="B-PlanDIY"/>
+    <span>B-PlanDIY</span>
+  </a>
+  <div class="nav-links">
+    <a href="index.html#steps">How it works</a>
+    <a href="sample-plan.html">Sample output</a>
+    <a href="index.html#pricing">Pricing</a>
+    <a href="partners.html">Partners</a>
+    <a href="resources.html">Resources</a>
+    <a href="blog/index.html">Blog</a>
+  </div>
+  <div class="nav-right">
+    <span class="nav-paid">Already paid? <a href="https://b-plandiy.com/verify.html">Verify your email</a></span>
+    <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="nav-cta">Get Started</a>
+  </div>
+</nav>
+
+<section class="sample-intro">
+  <div class="eyebrow">Sample output</div>
+  <h1>A complete business plan and cashflow forecast</h1>
+  <p>This is the full output for Rolling Beans, the mobile coffee business built in our demo video &mdash; produced by B-PlanDIY from the answers to five steps. Nothing here has been tidied up by hand.</p>
+  <div class="sample-actions">
+    <a class="primary" href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00">Create your own &rarr;</a>
+    <a class="ghost" href="downloads/rolling-beans-business-plan.docx" download>Download the Word document</a>
+    <a class="ghost" href="index.html#demo">Watch it being built</a>
+  </div>
+  <div class="sample-note">Rolling Beans is a fictional business used for illustration. The Word file is the real export, logo and all &mdash; 409&nbsp;KB.</div>
+</section>
+
+<div class="doc-wrap">
+  <div class="doc">
+    <div class="doc-head">
+      <div class="name">Rolling Beans</div>
+      <div class="kind">Business Plan and Cashflow Forecast</div>
+      <div class="date">14 August 2026</div>
+    </div>
+    <div class="doc-body">
+
+      <h2>1. Business Details</h2>
+      <p>Rolling Beans is a mobile coffee cart business operating within the Whangarei region of Northland, New Zealand. The business specialises in barista-crafted espresso beverages served directly at markets, outdoor events, and similar community gatherings, bringing caf&eacute;-quality coffee to customers at the point of their activity rather than requiring them to seek it out. Rolling Beans is structured as a sole trader operation, run part-time by founder Paula Bean, and is scheduled to begin trading in August 2026.</p>
+      <p>The concept originated from a straightforward market observation. While attending the Whangarei Growers Market, Paula identified that no coffee vendor was present, leaving a clear and unmet demand among the regular foot traffic of shoppers and market-goers. This gap forms the foundation of the business model. Rolling Beans maintains an online presence through its website and across Facebook and Instagram, supporting brand awareness between trading days. The business meets all relevant legal obligations and operates from Whangarei as its primary base.</p>
+
+      <h2>2. Market &amp; Customers</h2>
+      <p>The realistic market for Rolling Beans is defined by the weekly foot traffic at Whangarei&rsquo;s established outdoor markets, particularly the Whangarei Growers Market, and the broader local demand for quality coffee at community events across the Northland region. Rather than drawing on national industry figures, the relevant opportunity is more immediate: a consistent stream of market-goers who are already present, already spending, and currently without access to a quality coffee option on site. At a conservative estimate of 150 to 250 cups per market day and an average price of $5.50 to $6.50, a single-cart operation could realistically generate $40,000 to $70,000 in annual revenue across regular markets and booked events. This is the segment Rolling Beans can genuinely capture at its current scale and staffing level.</p>
+      <p>The competitive landscape includes several meaningful alternatives that customers already use. Established CBD caf&eacute;s such as Caffeine Whangarei carry genuine strengths, including a loyal customer base, a comfortable environment, and a well-earned reputation for consistent quality that takes years to build. Food and beverage vendors at the Whangarei Night Markets bring real experience in outdoor trading and existing familiarity with repeat crowds, which is a meaningful advantage in relationship-driven market environments. Supermarket caf&eacute; kiosks benefit from habitual foot traffic and price-driven convenience, and many market-goers simply arrive with their own coffee, which costs nothing and requires no queuing.</p>
+      <p>Where Rolling Beans can compete is in the combination of location and craft. Fixed caf&eacute;s require customers to leave the market entirely, and supermarket kiosks rarely deliver a genuinely skilled barista experience. Rolling Beans removes the trade-off between quality and convenience by positioning directly within the market environment, serving customers where they already are, without interrupting their shopping or requiring a separate trip.</p>
+
+      <h2>3. Vision &amp; Position</h2>
+      <h3>Vision</h3>
+      <p>By 2027, Rolling Beans will be the most recognised and sought-after mobile coffee cart among Whangarei coffee lovers, known for bringing quality espresso directly to the people who want it most.</p>
+      <h3>Position Statement</h3>
+      <p>For people who need a great coffee while shopping, Rolling Beans is a superior barista experience that meets customers where they are, satisfying any caffeine fix without asking them to leave what they came to do.</p>
+      <h3>Values</h3>
+      <ul>
+        <li>Quality and freshness in every cup served</li>
+        <li>Value for money that respects the customer</li>
+        <li>Convenience that removes the friction from great coffee</li>
+      </ul>
+
+      <h2>4. Goals &amp; Achieving Them</h2>
+      <h3>Goal 1: Secure exclusive vendor status with market organisers by end of Q2</h3>
+      <p>Rolling Beans will approach the Whangarei Growers Market organisers directly to request a formal meeting and present a compelling vendor proposal. The pitch will highlight the unique customer benefit of on-site specialty coffee, the professional setup Rolling Beans brings, and a fee or revenue-sharing structure that makes an exclusive arrangement attractive to organisers. A polished proposal document, prepared using tools such as Canva or Google Slides, will support the meeting, alongside a small budget of $200&ndash;$500 for branding materials and a trial market day to demonstrate operational readiness.</p>
+      <h3>Goal 2: Launch a loyalty stamp card within 30 days targeting 40% repeat customer conversion</h3>
+      <p>A double-sided stamp card offering a free coffee after eight purchases will be designed, printed, and handed personally to every customer from the first market day of trading. Paula will briefly explain the reward at the point of sale and track redemptions weekly using a simple tally sheet or a free app such as Stamp Me. Printing costs are estimated at $50&ndash;$150 through a local Whangarei provider, with card design handled through Canva.</p>
+      <h3>Goal 3: Book six paid catering events annually to reduce weather-dependent revenue risk</h3>
+      <p>Paula will build a simple corporate catering pitch package including a pricing menu, setup photographs, and a one-page capabilities sheet, then personally reach out to 10&ndash;15 local businesses, event planners, and market contacts who regularly host staff or client functions. A limited-time introductory offer will help secure the first bookings, and satisfied market customers will be encouraged to refer Rolling Beans to their workplaces. A budget of $200&ndash;$400 covers printed materials and a basic digital portfolio, with 3&ndash;5 hours per week dedicated to outreach and engagement with networks such as the Whangarei Chamber of Commerce.</p>
+      <h3>Goal 4: Recruit and train one relief barista by month three</h3>
+      <p>Paula will identify and bring on a part-time relief barista to eliminate the single-operator coverage risk. The approach and specific resources for this goal still need to be decided.</p>
+      <h3>Goal 5: Expand to two additional Northland markets by year end</h3>
+      <p>Paula will research and apply to suitable Northland markets, targeting options such as Kerikeri and Dargaville, assessing foot traffic, fees, and scheduling viability before committing.</p>
+      <h3>Team &amp; Resources</h3>
+      <p>Rolling Beans currently operates as a part-time sole trader with Paula Bean as the only team member. The goals outlined above are expected to generate approximately 2,002 additional sales units with no additional expenses projected beyond those already accounted for.</p>
+
+      <h2>5. Financial Position</h2>
+      <div class="figs">
+        <div class="fig"><div class="l">12-month revenue</div><div class="v">$41,616</div></div>
+        <div class="fig"><div class="l">Net profit</div><div class="v">$24,000</div></div>
+        <div class="fig"><div class="l">Gross margin</div><div class="v">75.0%</div></div>
+        <div class="fig"><div class="l">Closing balance</div><div class="v">$28,600</div></div>
+      </div>
+      <h3>Opening Position</h3>
+      <p>Rolling Beans begins trading in August 2026 with a $5,000 opening bank balance, $20,000 in assets, no debt, and total equity of $25,000. This conservative but workable foundation reflects the low-overhead nature of a mobile cart operation and gives Paula a modest buffer as the business finds its feet in those first market weeks.</p>
+      <h3>Shape of the 12-Month Forecast</h3>
+      <p>Revenue builds gradually through the first quarter as customer awareness grows, then stabilises across the middle months as market attendance becomes routine. The business targets roughly 150&ndash;250 cups per market day at an average price of $5.50&ndash;$6.50, pointing toward annual revenue in the $40,000&ndash;$70,000 range depending on weather, event bookings, and how quickly the loyal customer base develops. The six catering events targeted across the year provide a meaningful second income stream that helps smooth the weather-dependent dips inevitable in outdoor trading.</p>
+      <p>Total annual operating expenses sit at approximately $7,212, with vehicle costs ($3,000) and communications and insurance ($1,200 each) forming the three largest ongoing cost lines. Marketing spend of $1,056 annually is modest but sufficient to support the loyalty card programme and basic digital presence. Legal costs of $600 reflect sensible early-stage compliance activity.</p>
+      <h3>Cash Flow Pressures and Closing Position</h3>
+      <p>The months most likely to tighten cash are the winter trading months of June and July 2027, when both foot traffic and willingness to stand outdoors for coffee typically soften in Northland. Holding the $5,000 opening balance in reserve through those months is a practical safeguard.</p>
+      <p>After accounting for $2,400 in tax payments and a net $2,000 asset movement, the business is projected to close the 12-month period in a stronger position than it began, with improving equity and a cash balance that supports continued trading into the following year.</p>
+
+      <h2>12-Month Cashflow Forecast</h2>
+      <div class="cf-scroll">
+        <table class="cf">
+          <thead>
+            <tr><th>Item</th><th>Aug 26</th><th>Sep 26</th><th>Oct 26</th><th>Nov 26</th><th>Dec 26</th><th>Jan 27</th><th>Feb 27</th><th>Mar 27</th><th>Apr 27</th><th>May 27</th><th>Jun 27</th><th>Jul 27</th><th>Total</th></tr>
+          </thead>
+          <tbody>
+            <tr class="band"><td colspan="14">Key drivers</td></tr>
+            <tr><td>Units sold</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>8,004</td></tr>
+            <tr><td>Avg price</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td></td></tr>
+            <tr><td>Avg cost</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td></td></tr>
+            <tr class="band"><td colspan="14">Revenue</td></tr>
+            <tr><td>Products/services</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$41,616</td></tr>
+            <tr><td>Other revenue</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+            <tr class="tot"><td>Total revenue</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$41,616</td></tr>
+            <tr class="band"><td colspan="14">Cost of sales</td></tr>
+            <tr><td>Cost of sales</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$10,404</td></tr>
+            <tr class="hl"><td>Gross profit</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$31,212</td></tr>
+            <tr><td>Gross profit %</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td></tr>
+            <tr class="band"><td colspan="14">Expenses</td></tr>
+            <tr><td>Communications</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$1,200</td></tr>
+            <tr><td>Insurance</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$1,200</td></tr>
+            <tr><td>Legal</td><td>$50</td><td>$50</td><td>$50</td><td>$50</td><td>$50</td><td>$50</td><td>$50</td><td>$50</td><td>$50</td><td>$50</td><td>$50</td><td>$50</td><td>$600</td></tr>
+            <tr><td>Marketing</td><td>$88</td><td>$88</td><td>$88</td><td>$88</td><td>$88</td><td>$88</td><td>$88</td><td>$88</td><td>$88</td><td>$88</td><td>$88</td><td>$88</td><td>$1,056</td></tr>
+            <tr><td>Vehicle</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$3,000</td></tr>
+            <tr><td>Other expenses</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$156</td></tr>
+            <tr class="tot"><td>Total expenses</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$7,212</td></tr>
+            <tr class="hl"><td>Net profit/(loss)</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$24,000</td></tr>
+            <tr class="band"><td colspan="14">Other transactions</td></tr>
+            <tr><td>Asset transactions</td><td>$2,000</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>$2,000</td></tr>
+            <tr><td>Tax payments</td><td></td><td></td><td>-$600</td><td></td><td></td><td></td><td></td><td></td><td>-$1,800</td><td></td><td></td><td></td><td>-$2,400</td></tr>
+            <tr class="tot"><td>Total other transactions</td><td>$2,000</td><td></td><td>-$600</td><td></td><td></td><td></td><td></td><td></td><td>-$1,800</td><td></td><td></td><td></td><td>-$400</td></tr>
+            <tr class="band"><td colspan="14">Cashflow</td></tr>
+            <tr class="tot"><td>Net cashflow</td><td>$4,000</td><td>$2,000</td><td>$1,400</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$200</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$23,600</td></tr>
+            <tr class="hl"><td>Closing balance</td><td>$9,000</td><td>$11,000</td><td>$12,400</td><td>$14,400</td><td>$16,400</td><td>$18,400</td><td>$20,400</td><td>$22,400</td><td>$22,600</td><td>$24,600</td><td>$26,600</td><td>$28,600</td><td></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="cf-note">The Word document also includes charts for units sold and monthly sales, expenses breakdown, net profit and closing bank balance.</div>
+
+    </div>
+  </div>
+</div>
+
+<div class="sample-cta">
+  <h2>Your plan, in under an hour</h2>
+  <p>Answer five sets of questions and B-PlanDIY writes the plan and builds the forecast &mdash; yours to download as Word and Excel.</p>
+  <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00">Get started for $29</a>
+</div>
+
+<footer>
+  <p>&copy; 2025 B-PlanDIY &bull; <a href="mailto:support@b-plandiy.com">support@b-plandiy.com</a> &bull; <a href="privacy-policy.html">Privacy Policy</a> &bull; <a href="terms.html">Terms</a></p>
+</footer>
+
+</body>
+</html>
