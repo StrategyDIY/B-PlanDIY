@@ -19,6 +19,9 @@
 [functions."verify-user"]
   timeout = 10
 
+[functions."user-count"]
+  timeout = 10
+
 [functions."send-reminders"]
   schedule = "@daily"
 
@@ -35,4 +38,9 @@
 [[redirects]]
   from = "/api/verify-user"
   to = "/.netlify/functions/verify-user"
+  status = 200
+
+[[redirects]]
+  from = "/api/user-count"
+  to = "/.netlify/functions/user-count"
   status = 200
