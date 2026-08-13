@@ -171,6 +171,13 @@ const STORAGE_KEY="bpg_fd";
 
 function fmtDate(v){if(!v)return"Not specified";var parts=v.split("-");var months=["January","February","March","April","May","June","July","August","September","October","November","December"];return parseInt(parts[2])+" "+months[parseInt(parts[1])-1]+" "+parts[0];}
 function fmt(n){const v=Math.round(Number(n));return(v<0?"-$":"$")+Math.abs(v).toLocaleString();}
+// Per-unit figures need the cents. fmt() rounds to whole dollars, so a $5.20
+// coffee showed as $5 and a $1.30 cost as $1 - and anything already worked out
+// to two places was being rounded away at the point of display.
+function fmt2(n){
+  const v=Number(n)||0;
+  return (v<0?"-$":"$")+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+}
 // Gross profit as a percentage of sales. Blank when there are no sales, since
 // dividing by zero would otherwise show a meaningless or infinite figure.
 function gpPct(gp,rev){
@@ -429,8 +436,8 @@ function CfTable({rows}){
         <tbody>
           <tr><td style={hdr} colSpan={rows.length+2}>Key Drivers</td></tr>
           <tr><td style={tdF}>Units sold</td>{rows.map(function(r){return <td key={r.month} style={td}>{(r.units||0).toLocaleString()}</td>;})}<td style={Object.assign({},tot,totB)}>{totals("units").toLocaleString()}</td></tr>
-          <tr><td style={tdF}>Average price ($)</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.avgPrice||0)}</td>;})}<td style={Object.assign({},tot,totB)}></td></tr>
-          <tr><td style={tdF}>Average cost ($)</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.avgCost||0)}</td>;})}<td style={Object.assign({},tot,totB)}></td></tr>
+          <tr><td style={tdF}>Average price ($)</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt2(r.avgPrice||0)}</td>;})}<td style={Object.assign({},tot,totB)}></td></tr>
+          <tr><td style={tdF}>Average cost ($)</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt2(r.avgCost||0)}</td>;})}<td style={Object.assign({},tot,totB)}></td></tr>
           <tr><td style={hdr} colSpan={rows.length+2}>Revenue</td></tr>
           <tr><td style={tdF}>Products/services</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.revProducts||0)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(totals("revProducts"))}</td></tr>
           <tr><td style={tdF}>Other revenue</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.revOther||0)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(totals("revOther"))}</td></tr>
@@ -688,7 +695,7 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
             <div style={{fontSize:13,fontWeight:700,color:"#01236D",marginBottom:8}}>Breakeven</div>
             {contrib>0?(
               <div style={{fontSize:13,color:"#29384A",lineHeight:1.6,marginBottom:10}}>
-                Each unit contributes <strong>{fmt(Math.round(contrib*100)/100)}</strong> after its cost. To cover {fmt(Math.round(tExp))} of expenses you need to sell about <strong>{beUnits.toLocaleString()} units</strong> over the year — you are forecasting <strong>{Math.round(tUnits).toLocaleString()}</strong>.
+                Each unit contributes <strong>{fmt2(Math.round(contrib*100)/100)}</strong> after its cost. To cover {fmt(Math.round(tExp))} of expenses you need to sell about <strong>{beUnits.toLocaleString()} units</strong> over the year — you are forecasting <strong>{Math.round(tUnits).toLocaleString()}</strong>.
                 {tUnits>=beUnits?<span style={{color:"#1F7A7C"}}> That is above breakeven.</span>:<span style={{color:"#B14A38"}}> That is {Math.round(beUnits-tUnits).toLocaleString()} short.</span>}
               </div>
             ):(
@@ -1177,14 +1184,49 @@ function App(){
       {opts.map(function(o){return <option key={o} value={o}>{o}</option>;})}</select>;
   }
 
+  // Most grids store their months under the same key as the single amount, but
+  // a few differ: monthly units are typed into month1Units, and the other-income
+  // months are prefixed otherRevM.
+  function flatKeyFor(key){ return key==="monthlyUnits"?"month1Units":key; }
+  function monthPrefixFor(key){
+    var map={monthlyUnits:"monthlyUnitsM",avgPrice:"avgPriceM",avgCost:"avgCostM",otherRevenue:"otherRevM"};
+    return map[key]||(key+"M");
+  }
+
   function toggleGrid(key){
-    setGridChecks(function(prev){
-      var n=Object.assign({},prev);
-      n[key]=!n[key];
-      fdRef.current[key+"_monthly"]=n[key]?"1":"";
-      saveToStorage();
-      return n;
-    });
+    var turningOn=!gridChecks[key];
+    var flatK=flatKeyFor(key), pre=monthPrefixFor(key);
+
+    if(turningOn){
+      // Seed the twelve boxes from the amount already entered. Without this the
+      // grid opened empty while the forecast carried on using the single figure
+      // - boxes showing nothing under a 12-month total that was not zero.
+      var cur=String(fdRef.current[flatK]||"");
+      if(cur&&cur.indexOf("M")<0){
+        var v=parseFloat(cur.replace(/[^0-9.-]/g,""));
+        if(!isNaN(v)){
+          for(var m=1;m<=12;m++)fdRef.current[pre+m]=String(v);
+          fdRef.current[key]=Array.from({length:12},function(_,i){return "M"+(i+1)+":"+v;}).join(",");
+        }
+      }
+    } else {
+      // Collapse back to one amount, so the single box shows a number rather
+      // than the raw "M1:13,M2:13,..." string and the forecast matches it.
+      var stored=String(fdRef.current[key]||"");
+      if(stored.indexOf("M")>=0){
+        var first=parseMonthly(stored,0)[0]||0;
+        var flat=first?String(first):"";
+        fdRef.current[flatK]=flat;
+        if(flatK!==key)fdRef.current[key]="";
+        for(var d=1;d<=12;d++)fdRef.current[pre+d]="";
+      }
+    }
+
+    fdRef.current[key+"_monthly"]=turningOn?"1":"";
+    setGridChecks(function(prev){var n=Object.assign({},prev);n[key]=turningOn;return n;});
+    saveToStorage();
+    refreshLive();
+    setAvgSalesVer(function(v){return v+1;});
   }
 
   function toggleGoalGrid(key){
@@ -1742,6 +1784,16 @@ function App(){
       data.push(dr("Closing Balance",cfRows.map(function(r){return r.closingBalance||0;}),{noTotal:true}));
 
       var ws=XLSX.utils.aoa_to_sheet(data);
+      // Show cents on the Avg Price and Avg Cost rows.
+      (function(){
+        for(var R=0;R<data.length;R++){
+          if(data[R][0]!=="Avg Price"&&data[R][0]!=="Avg Cost")continue;
+          for(var C=1;C<data[R].length;C++){
+            var ref=XLSX.utils.encode_cell({r:R,c:C});
+            if(ws[ref]&&typeof ws[ref].v==="number")ws[ref].z="0.00";
+          }
+        }
+      })();
       var wsCols=[{wch:28}];
       for(var wi=0;wi<mos.length+1;wi++)wsCols.push({wch:12});
       ws["!cols"]=wsCols;
@@ -2137,7 +2189,9 @@ function App(){
         // opts.noTotal = leave the Total cell blank (averages don't sum meaningfully)
         function mr(lbl,vals,bold,opts){
           opts=opts||{};
-          var f=opts.plain?function(v){return Math.round(v).toLocaleString();}:fmtN;
+          // dp2 keeps the cents on per-unit rows, matching the on-screen table.
+          var fmtN2=function(n){var v=Number(n)||0;return(v<0?"-$":"$")+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});};
+          var f=opts.plain?function(v){return Math.round(v).toLocaleString();}:(opts.dp2?fmtN2:fmtN);
           var tot=vals.reduce(function(s,v){return s+v;},0);
           var s=bold?bBg:undefined;
           var cs=[mc(lbl,{first:true,b:bold,sh:s})];
@@ -2153,8 +2207,8 @@ function App(){
         var tblRows=[new TableRow({children:hc})];
         tblRows.push(mhr("Key Drivers"));
         tblRows.push(mr("Units Sold",cfRows.map(function(r){return r.units||0;}),false,{plain:true}));
-        tblRows.push(mr("Avg Price",cfRows.map(function(r){return r.avgPrice||0;}),false,{noTotal:true}));
-        tblRows.push(mr("Avg Cost",cfRows.map(function(r){return r.avgCost||0;}),false,{noTotal:true}));
+        tblRows.push(mr("Avg Price",cfRows.map(function(r){return r.avgPrice||0;}),false,{noTotal:true,dp2:true}));
+        tblRows.push(mr("Avg Cost",cfRows.map(function(r){return r.avgCost||0;}),false,{noTotal:true,dp2:true}));
         tblRows.push(mhr("Revenue"));tblRows.push(mrk("Products/Services","revProducts",false));tblRows.push(mrk("Other Revenue","revOther",false));tblRows.push(mrk("Total Revenue","revenue",true));
         tblRows.push(mhr("Cost of Sales"));tblRows.push(mrk("Cost of Sales","cogs",false));tblRows.push(mrk("Gross Profit","grossProfit",true));
         // Percentage row - values are text, and the Total is the margin for the
@@ -3496,7 +3550,7 @@ function App(){
           onClick={function(){setRows(rows.concat([{name:"",qty:"",amt:""}]));}}>+ Add another</button>
         {t.avg!==null&&t.rows>0&&(
           <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #E7EAED",fontSize:13,color:"#29384A",lineHeight:1.7}}>
-            {fmt(Math.round(t.money))} across {Math.round(t.qty).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:16}}>{fmt(Math.round(t.avg*100)/100)}</strong> on average
+            {fmt(Math.round(t.money))} across {Math.round(t.qty).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:16}}>{fmt2(Math.round(t.avg*100)/100)}</strong> on average
             <div style={{marginTop:8}}>
               <button style={Object.assign({},suggestBtn,{background:"#01236D"})} onClick={function(){props.onUse(t);}}>Use this blend</button>
             </div>
@@ -3532,12 +3586,12 @@ function App(){
               ?<div style={{fontSize:13,color:"#B14A38",lineHeight:1.55}}>{acAi.error}</div>
               :(<div>
                   <div style={{fontSize:13,color:"#1F5C5D",lineHeight:1.6}}>
-                    Suggested average cost <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(acAi.cost*100)/100)}</strong>
+                    Suggested average cost <strong style={{color:"#01236D",fontSize:15}}>{fmt2(Math.round(acAi.cost*100)/100)}</strong>
                     {acAi.unit?<span> per {acAi.unit.replace(/\.$/,"")}</span>:null}
                   </div>
                   {acAi.rate>0&&(
                     <div style={{fontSize:13,color:"#5F7183",marginTop:4,lineHeight:1.55}}>
-                      Supplier price {fmt(Math.round(acAi.gross*100)/100)} including tax &divide; {(1+acAi.rate/100).toFixed(2)} = {fmt(Math.round(acAi.cost*100)/100)} excluding tax, which is what goes in the field.
+                      Supplier price {fmt2(Math.round(acAi.gross*100)/100)} including tax &divide; {(1+acAi.rate/100).toFixed(2)} = {fmt2(Math.round(acAi.cost*100)/100)} excluding tax, which is what goes in the field.
                     </div>
                   )}
                   {!!acAi.why&&<div style={{fontSize:13,color:"#29384A",lineHeight:1.6,marginTop:6}}>{acAi.why}</div>}
@@ -3597,7 +3651,7 @@ function App(){
                 {acIncl&&activeTaxRate()>0&&(
                   <div style={{marginBottom:4,color:"#5F7183"}}>{fmt(total)} including tax &divide; {(1+activeTaxRate()/100).toFixed(2)} = {fmt(Math.round(acNet))} excluding tax</div>
                 )}
-                {fmt(Math.round(acNet))} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:17}}>{fmt(Math.round(cost*100)/100)}</strong> per unit
+                {fmt(Math.round(acNet))} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:17}}>{fmt2(Math.round(cost*100)/100)}</strong> per unit
                 <div style={{marginTop:10}}>
                   <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
                     onClick={function(){
@@ -3648,12 +3702,12 @@ function App(){
               ?<div style={{fontSize:13,color:"#B14A38",lineHeight:1.55}}>{apAi.error}</div>
               :(<div>
                   <div style={{fontSize:13,color:"#1F5C5D",lineHeight:1.6}}>
-                    Suggested average price <strong style={{color:"#01236D",fontSize:15}}>{fmt(Math.round(apAi.price*100)/100)}</strong>
+                    Suggested average price <strong style={{color:"#01236D",fontSize:15}}>{fmt2(Math.round(apAi.price*100)/100)}</strong>
                     {apAi.unit?<span> per {apAi.unit.replace(/\.$/,"")}</span>:null}
                   </div>
                   {apAi.rate>0&&(
                     <div style={{fontSize:13,color:"#5F7183",marginTop:4,lineHeight:1.55}}>
-                      Market price {fmt(Math.round(apAi.gross*100)/100)} including tax &divide; {(1+apAi.rate/100).toFixed(2)} = {fmt(Math.round(apAi.price*100)/100)} excluding tax, which is what goes in the field.
+                      Market price {fmt2(Math.round(apAi.gross*100)/100)} including tax &divide; {(1+apAi.rate/100).toFixed(2)} = {fmt2(Math.round(apAi.price*100)/100)} excluding tax, which is what goes in the field.
                     </div>
                   )}
                   {!!apAi.why&&<div style={{fontSize:13,color:"#29384A",lineHeight:1.6,marginTop:6}}>{apAi.why}</div>}
@@ -3713,7 +3767,7 @@ function App(){
                 {apIncl&&activeTaxRate()>0&&(
                   <div style={{marginBottom:4,color:"#5F7183"}}>{fmt(total)} including tax &divide; {(1+activeTaxRate()/100).toFixed(2)} = {fmt(Math.round(apNet))} excluding tax</div>
                 )}
-                {fmt(Math.round(apNet))} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:17}}>{fmt(Math.round(price*100)/100)}</strong> per unit
+                {fmt(Math.round(apNet))} &divide; {Math.round(units).toLocaleString()} units = <strong style={{color:"#01236D",fontSize:17}}>{fmt2(Math.round(price*100)/100)}</strong> per unit
                 <div style={{marginTop:10}}>
                   <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
                     onClick={function(){
@@ -3783,7 +3837,7 @@ function App(){
               onChange={function(e){setConvAmt(e.target.value);}}/>
             {ok&&(
               <div style={{marginTop:10,fontSize:13,color:"#29384A",lineHeight:1.7}}>
-                {fmt(raw)} &divide; {(1+rate/100).toFixed(2)} = <strong style={{color:"#01236D",fontSize:17}}>{fmt(Math.round(excl*100)/100)}</strong> excluding tax
+                {fmt(raw)} &divide; {(1+rate/100).toFixed(2)} = <strong style={{color:"#01236D",fontSize:17}}>{fmt2(Math.round(excl*100)/100)}</strong> excluding tax
                 <div style={{fontSize:13,color:"#5F7183",marginTop:3}}>The tax portion is {fmt(Math.round((raw-excl)*100)/100)} at {rate}%.</div>
               </div>
             )}
@@ -4209,7 +4263,8 @@ function App(){
         var s5tabs=["Details","Cashflow","Graphs","What If"];
         var s5key=["details","cashflow","graphs","whatif"].indexOf(previewTab)>=0?previewTab:"details";
         return (<>
-          <div style={{display:"inline-flex",gap:4,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:12,padding:4,marginBottom:20,maxWidth:"100%",overflowX:"auto"}}>
+          <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",marginBottom:20}}>
+          <div style={{display:"inline-flex",gap:4,background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:12,padding:4,maxWidth:"100%",overflowX:"auto"}}>
             {s5tabs.map(function(t){
               var k=t.toLowerCase().replace(" ","");
               var active=s5key===k;
@@ -4221,6 +4276,13 @@ function App(){
                 boxShadow:active?"0 2px 6px rgba(1,35,109,0.25)":"none"
               }} onClick={function(){setPreviewTab(k);}}>{t}</button>;
             })}
+          </div>
+          <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 24px",borderRadius:10,
+            border:"none",background:"#01236D",color:"#fff",cursor:"pointer",flexShrink:0,
+            display:"inline-flex",alignItems:"center",gap:9}}
+            onClick={function(){setShowDirection(true);window.scrollTo(0,0);}}>
+            Review your plan <span style={{fontSize:18,lineHeight:1}}>&rarr;</span>
+          </button>
           </div>
           {s5key==="details"&&(<>
             {FinSummary()}
@@ -4318,20 +4380,20 @@ function App(){
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Average sale price ($)</div>
             {AvgPriceHelper()}
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgPrice" checked={!!gridChecks["avgPrice"]} onChange={function(){toggleGrid("avgPrice");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgPrice" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
-            {gridChecks["avgPrice"]?<div key={"avgPriceGrid"}><MonthGrid keyPrefix={"avgPriceM"} storeKey={"avgPrice"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input key={"avgPrice-"+avgSalesVer} style={inp} defaultValue={fdRef.current.avgPrice||""} placeholder="e.g. 49" onChange={function(e){fdRef.current.avgPrice=e.target.value;saveToStorage();refreshLive();}}/>}
+            {gridChecks["avgPrice"]?<div key={"avgPriceGrid-"+avgSalesVer}><MonthGrid keyPrefix={"avgPriceM"} storeKey={"avgPrice"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input key={"avgPrice-"+avgSalesVer} style={inp} defaultValue={fdRef.current.avgPrice||""} placeholder="e.g. 49" onChange={function(e){fdRef.current.avgPrice=e.target.value;saveToStorage();refreshLive();}}/>}
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Average cost per unit ($)</div>
             <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, your average cost per unit may be zero.</div>
             {AvgCostHelper()}
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgCost" checked={!!gridChecks["avgCost"]} onChange={function(){toggleGrid("avgCost");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgCost" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
-            {gridChecks["avgCost"]?<div key={"avgCostGrid"}><MonthGrid keyPrefix={"avgCostM"} storeKey={"avgCost"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input key={"avgCost-"+avgSalesVer} style={inp} defaultValue={fdRef.current.avgCost||""} placeholder="e.g. 12" onChange={function(e){fdRef.current.avgCost=e.target.value;saveToStorage();refreshLive();}}/>}
+            {gridChecks["avgCost"]?<div key={"avgCostGrid-"+avgSalesVer}><MonthGrid keyPrefix={"avgCostM"} storeKey={"avgCost"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input key={"avgCost-"+avgSalesVer} style={inp} defaultValue={fdRef.current.avgCost||""} placeholder="e.g. 12" onChange={function(e){fdRef.current.avgCost=e.target.value;saveToStorage();refreshLive();}}/>}
             <FinWarn show={lossMakingMonths().length>0}>
               Your cost per unit is the same as or higher than your sale price{lossMakingMonths().length<12?" in "+lossMakingMonths().length+" of the 12 months":""}, so each sale loses money before any expenses. Check the two figures above.
             </FinWarn>
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Other money coming in ($)</div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkOtherRev" checked={!!gridChecks["otherRevenue"]} onChange={function(){toggleGrid("otherRevenue");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkOtherRev" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
-            {gridChecks["otherRevenue"]?<div key={"otherRevGrid"}><MonthGrid keyPrefix={"otherRevM"} storeKey={"otherRevenue"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input style={inp} defaultValue={fdRef.current.otherRevenue||""} placeholder="e.g. 500 (grants, interest, rental income)" onChange={function(e){fdRef.current.otherRevenue=e.target.value;saveToStorage();refreshLive();}}/>}
+            {gridChecks["otherRevenue"]?<div key={"otherRevGrid-"+avgSalesVer}><MonthGrid keyPrefix={"otherRevM"} storeKey={"otherRevenue"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input key={"otherRev-"+avgSalesVer} style={inp} defaultValue={fdRef.current.otherRevenue||""} placeholder="e.g. 500 (grants, interest, rental income)" onChange={function(e){fdRef.current.otherRevenue=e.target.value;saveToStorage();refreshLive();}}/>}
             {AnnualTotal({value:sumLive(function(r){return r.revOther;})})}
             <div style={{marginBottom:14}}/>
             </FinSection>
@@ -4644,7 +4706,7 @@ function App(){
           {label:"Cashflow",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
           {label:"Graphs",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("graphs");},50);}},
           {label:"What If",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
-        ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, item.label==="Summary"?{background:"#01236D",color:"#fff",border:"1px solid #01236D"}:{background:"#fff",color:"#01236D",border:"1px solid #E7EAED"})}>{item.label}</button>;})}
+        ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, item.label==="Summary"?Object.assign({background:"#01236D",color:"#fff",border:"1px solid #01236D"},step===stepDefs.length-1?{boxShadow:"0 0 0 3px rgba(208,177,111,0.55)"}:{}):{background:"#fff",color:"#01236D",border:"1px solid #E7EAED"})}>{item.label}</button>;})}
       </div>
       <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
       <div style={cardStyle}>
@@ -4656,8 +4718,8 @@ function App(){
         <div style={{display:"flex",gap:10,alignItems:"center",marginTop:32,paddingTop:24,borderTop:"1px solid #E7EAED"}}>
           {step>0&&<button style={{fontFamily:"inherit",fontSize:15,fontWeight:600,padding:"13px 22px",borderRadius:10,border:"1px solid #E7EAED",background:"#fff",color:"#29384A",cursor:"pointer"}} onClick={function(){setStepAndSave(step-1);}}>&larr; Back</button>}
           <button style={{fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"14px 34px",borderRadius:10,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:10}}
-            onClick={function(){ step<stepDefs.length-1 ? setStepAndSave(step+1) : setShowDirection(true); }}>
-            Next <span style={{fontSize:18,lineHeight:1}}>&rarr;</span>
+            onClick={function(){ step<stepDefs.length-1 ? setStepAndSave(step+1) : (setShowDirection(true),window.scrollTo(0,0)); }}>
+            {step<stepDefs.length-1?"Next":"Review your plan"} <span style={{fontSize:18,lineHeight:1}}>&rarr;</span>
           </button>
         </div>
       </div>
