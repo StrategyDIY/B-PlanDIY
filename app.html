@@ -227,6 +227,30 @@ function parseGrowth(str){
   return Array(12).fill(isNaN(n)?0:n);
 }
 
+// Repairs plans saved before the monthly grids seeded themselves. A category
+// could be left with its grid ticked while the amount was still stored as a
+// single flat number - so the twelve boxes rendered blank while the forecast
+// carried on using the flat figure, showing a 12-month total with nothing
+// visibly entered. Runs on load and on import, and is a no-op once fixed.
+function repairMonthGrids(d){
+  if(!d||typeof d!=="object")return d;
+  var PREFIX={monthlyUnits:"monthlyUnitsM",avgPrice:"avgPriceM",avgCost:"avgCostM",otherRevenue:"otherRevM"};
+  var FLAT={monthlyUnits:"month1Units"};
+  Object.keys(d).forEach(function(k){
+    if(k.length<=8||k.slice(-8)!=="_monthly"||d[k]!=="1")return;
+    var key=k.slice(0,-8);
+    var pre=PREFIX[key]||(key+"M");
+    var flatK=FLAT[key]||key;
+    var stored=String(d[key]||"");
+    if(stored.indexOf("M")>=0)return;            // already per-month
+    var v=parseFloat(String(d[flatK]||"").replace(/[^0-9.-]/g,""));
+    if(isNaN(v))return;
+    for(var m=1;m<=12;m++)if(!d[pre+m])d[pre+m]=String(v);
+    d[key]=Array.from({length:12},function(_,i){return "M"+(i+1)+":"+(d[pre+(i+1)]||v);}).join(",");
+  });
+  return d;
+}
+
 function calcCashflow(f){
   const open=parseFloat(f.openingBalance)||0;
   const unitGrowth=parseGrowth(f.unitGrowth);
@@ -902,6 +926,7 @@ function App(){
       if(d&&typeof d==="object"&&d.taxRegistered===undefined){
         d.taxRegistered=((parseFloat(d.taxRate)||0)>0)?"1":"";
       }
+      repairMonthGrids(d);
       return d;
     }catch(e){return{};}
   });
@@ -1155,6 +1180,16 @@ function App(){
   var suggestBtnBusy=Object.assign({},suggestBtn,{background:"#01236D",cursor:"wait",fontWeight:700,boxShadow:"0 0 0 3px rgba(1,35,109,0.15)"});
   function busyLabel(t){return <span><span className="bpd-pulse" style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#D0B16F",marginRight:8,verticalAlign:"middle"}}/>{t}</span>;}
 
+  // Every AI request carries the signed access token. The endpoint verifies it
+  // server-side, so editing localStorage no longer buys anyone anything.
+  function aiHeaders(){
+    var t="";
+    try{ t=localStorage.getItem("bpd_access_token")||""; }catch(e){}
+    var h={"Content-Type":"application/json"};
+    if(t)h["Authorization"]="Bearer "+t;
+    return h;
+  }
+
   function saveToStorage(){
     try{localStorage.setItem(STORAGE_KEY,JSON.stringify(fdRef.current));}catch(e){}
   }
@@ -1261,7 +1296,7 @@ function App(){
         "Opportunities: "+(fdRef.current.swotO||"")+"\n"+
         "Threats: "+(fdRef.current.swotT||"");
       prompt+=revisionNote(mode,goals.filter(Boolean).join("\n"),note);
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       var lines=text.split("\n").filter(function(l){return l.trim();}).slice(0,5);
@@ -1278,7 +1313,7 @@ function App(){
     var prompt="Write a SWOT analysis for this business. Return ONLY the four sections in this exact format:\nStrengths: [3-4 points, comma separated]\nWeaknesses: [3-4 points, comma separated]\nOpportunities: [3-4 points, comma separated]\nThreats: [3-4 points, comma separated]\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nStage: "+(fdRef.current.stage||"")+"\nTeam: "+(fdRef.current.team||"")+"\nCompetitors: "+(fdRef.current.competitors||"")+"\nTarget market: "+(fdRef.current.targetCust||"")+"\nPosition statement: "+(fdRef.current.position||"not specified");
     prompt+=revisionNote(mode,["Strengths: "+(fdRef.current.swotS||""),"Weaknesses: "+(fdRef.current.swotW||""),"Opportunities: "+(fdRef.current.swotO||""),"Threats: "+(fdRef.current.swotT||"")].join("\n"),note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       var sMatch=text.match(/Strengths:\s*(.+)/i);
@@ -1434,7 +1469,7 @@ function App(){
       "Where the contribution per unit is zero or negative, say so plainly first, because no volume of sales will reach breakeven until that is fixed.\n"+
       "Be realistic for a small New Zealand business. No preamble, no closing summary, under 160 words.";
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       if(data.content)setBkText(data.content.map(function(x){return x.text||"";}).join("").trim());
     }catch(e){ setBkText("Could not get suggestions just now. Please try again."); }
@@ -1454,7 +1489,7 @@ function App(){
       "Reply with ONLY one line per goal in the form Goal N = units, digits only, no words, no commas.\n"+
       "Example:\nGoal 1 = 180\nGoal 2 = 0\nGoal 3 = 60\n\nThe goals are:\n"+list;
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:200,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:200,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       if(data.content){
         var text=data.content.map(function(x){return x.text||"";}).join("");
@@ -1488,7 +1523,7 @@ function App(){
       "Reply with ONLY one line per goal in the form Goal N = Category = amount. Digits only for the amount, no dollar sign, no commas.\n"+
       "Example:\nGoal 1 = Marketing = 6000\nGoal 2 = None = 0\nGoal 3 = Team = 12000\n\nThe goals are:\n"+list;
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:250,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:250,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       if(data.content){
         var text=data.content.map(function(x){return x.text||"";}).join("");
@@ -1521,7 +1556,7 @@ function App(){
       "Target customer: "+(fdRef.current.targetCust||"");
     prompt+=revisionNote(mode,fdRef.current.marketSize,note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.marketSize=text;
@@ -1551,7 +1586,7 @@ function App(){
       "- Realistic for a small New Zealand business. Plain prose, no bullet points, no headings, no preamble. Under 120 words.";
     prompt+=revisionNote(mode,fdRef.current.targetCust,note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.targetCust=text;
@@ -1587,7 +1622,7 @@ function App(){
       "- Realistic for a small New Zealand business. Plain prose, no bullet points, no headings, no preamble. Under 120 words.";
     prompt+=revisionNote(mode,fdRef.current.advantage,note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.advantage=text;
@@ -1621,7 +1656,7 @@ function App(){
       "- Plain prose, no bullet points, no headings, no preamble. Keep the whole answer under 180 words.";
     prompt+=revisionNote(mode,fdRef.current.competitors,note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:450,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:450,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.competitors=text;
@@ -1640,7 +1675,7 @@ function App(){
     var prompt="Based ONLY on the following competitors already identified, summarise their key strengths and weaknesses. Do not introduce any other competitors.\n\nCompetitors:\n"+comps+"\n\nFormat each as '[Competitor name]: Strengths - ... Weaknesses - ...' Keep it concise.";
     prompt+=revisionNote(mode,fdRef.current.compStrWeakness,note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.compStrWeakness=text;
@@ -1656,7 +1691,7 @@ function App(){
     var prompt="For this specific business goal, suggest:\n1. How to achieve it (2-3 concrete action steps, 1-2 sentences)\n2. Resources needed (people, tools, budget - 1-2 sentences)\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nPosition statement: "+(fdRef.current.position||"not specified")+"\nGoal: "+(goals[i]||"")+"\n\nReturn in this exact format:\nHow: [your suggestion]\nResources: [your suggestion]";
     prompt+=revisionNote(mode,["How: "+(fdRef.current["goalHow"+(i+1)]||""),"Resources: "+(fdRef.current["goalRes"+(i+1)]||"")].join("\n"),note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       var howMatch=text.match(/How:\s*([\s\S]+?)(?:\nResources:|$)/);
@@ -2425,13 +2460,14 @@ function App(){
       function requestPart(p){
         return fetch("https://b-plandiy.com/.netlify/functions/anthropic",{
           method:"POST",
-          headers:{"Content-Type":"application/json"},
+          headers:aiHeaders(),
           body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1200,messages:[{role:"user",content:p}]})
         }).then(function(res){
           return res.text().then(function(rawText){
             var data;
             try{ data=JSON.parse(rawText); }
             catch(pe){
+              if(res.status===402)throw new Error("your access has expired. Please renew to generate your plan - your information is safe.");
               if(res.status===404)throw new Error("the plan service could not be found (404). Check that netlify/functions/anthropic.js is present in GitHub and that Netlify has finished deploying.");
               if(res.status===504||/timeout/i.test(rawText))throw new Error("the request timed out. Please try again.");
               throw new Error("Response was not JSON. Status: "+res.status+". Body starts with: "+rawText.substring(0,200));
@@ -2546,6 +2582,7 @@ function App(){
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem("bpg_step");
       localStorage.removeItem("bpd_access_expiry");
+      localStorage.removeItem("bpd_access_token");
       localStorage.removeItem("bpd_seen_welcome");
       localStorage.removeItem("bpd_seen_finances");
       localStorage.removeItem("bpg_admin_msg");
@@ -2600,6 +2637,7 @@ function App(){
           if(data.taxRegistered===undefined){
             data.taxRegistered=((parseFloat(data.taxRate)||0)>0)?"1":"";
           }
+          repairMonthGrids(data);
           fdRef.current=data;
           saveToStorage();
           setLegalStatus(data.legalStatus||"");
@@ -3100,7 +3138,7 @@ function App(){
       "- Reply with the tidied text only. No preamble, no quotation marks.\n\n"+
       "THE TEXT:\n"+cur;
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:900,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:900,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       if(data.content){
         var out=data.content.map(function(x){return x.text||"";}).join("").trim();
@@ -3197,7 +3235,7 @@ function App(){
       "PEOPLE: [PERMANENT or CONTRACT] | [role] | [annual salary, digits only] | [start month 1-12] | [max 10 words why]\n"+
       "(one PEOPLE line per person, or the single line PEOPLE: none)";
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:900,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:900,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       var text=(data.content||[]).map(function(x){return x.text||"";}).join("");
       var cats=[],people=[];
@@ -3484,7 +3522,7 @@ function App(){
       "UNIT: [what one unit is, 2-5 words]\n"+
       "WHY: [one or two short sentences on what the figure covers and what it assumes]";
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
       var text=(data.content||[]).map(function(x){return x.text||"";}).join("");
       var cm=text.match(/COST:\s*\$?\s*([0-9][0-9,]*\.?[0-9]*)/i);

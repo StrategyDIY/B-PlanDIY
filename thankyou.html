@@ -281,10 +281,14 @@ document.getElementById('welcomeForm').addEventListener('submit', function(e) {
   .then(function(result) {
     var expiry = result.expiry || (Date.now() + (90 * 24 * 60 * 60 * 1000));
     localStorage.setItem('bpd_access_expiry', String(expiry));
+    // The token is what actually unlocks the AI features; only the server can
+    // mint one, so there is nothing to fall back to if it is missing.
+    if (result.token) localStorage.setItem('bpd_access_token', result.token);
     showSuccessState();
   })
   .catch(function() {
-    // If function fails, still grant access
+    // The payment went through, so the app still opens. Without a token the AI
+    // features will ask them to verify their email, which reissues one.
     var expiry = Date.now() + (90 * 24 * 60 * 60 * 1000);
     localStorage.setItem('bpd_access_expiry', String(expiry));
     showSuccessState();

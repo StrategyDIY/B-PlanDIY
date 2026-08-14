@@ -99,6 +99,7 @@ async function verifyAccess(){
 
     if(data.success){
       localStorage.setItem('bpd_access_expiry', String(data.expiry));
+      if(data.token)localStorage.setItem('bpd_access_token', data.token);
       showMsg('Access verified! Redirecting to the app...','success');
       setTimeout(function(){ window.location.href='/app.html'; }, 1500);
     } else {
