@@ -115,10 +115,11 @@ footer a{color:var(--navy);text-decoration:underline;}
 .sample-actions .ghost{background:#fff;color:var(--navy);border:1px solid var(--mist);}
 .sample-note{font-size:13px;color:var(--grey);margin-top:14px;}
 
-.doc-wrap{max-width:860px;margin:44px auto 0;padding:0 20px;}
+.doc-wrap{max-width:860px;margin:44px auto 56px;padding:0 20px;}
 .doc{background:#fff;border:1px solid var(--mist);border-radius:14px;
   box-shadow:0 4px 28px rgba(1,35,109,0.09);overflow:hidden;}
 .doc-head{text-align:center;padding:40px 28px 30px;border-bottom:2px solid var(--aqua);}
+.doc-logo{display:block;width:110px;height:110px;object-fit:contain;margin:0 auto 18px;border-radius:10px;}
 .doc-head .name{font-size:28px;font-weight:800;color:var(--navy);margin-bottom:8px;}
 .doc-head .kind{font-size:16px;font-weight:500;color:var(--gold);margin-bottom:6px;}
 .doc-head .date{font-size:13px;color:var(--grey);}
@@ -136,26 +137,30 @@ footer a{color:var(--navy);text-decoration:underline;}
 .fig .l{font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--grey);margin-bottom:5px;}
 .fig .v{font-size:20px;font-weight:800;color:var(--navy);font-variant-numeric:tabular-nums;}
 
+.charts{display:grid;gap:18px;margin-top:6px;}
+.chart{margin:0;border:1px solid var(--mist);border-radius:10px;padding:10px;background:#fff;}
+.chart img{display:block;width:100%;height:auto;}
+.cf-block{width:min(1280px,calc(100vw - 40px));margin-left:50%;transform:translateX(-50%);}
 .cf-scroll{overflow-x:auto;margin-top:8px;-webkit-overflow-scrolling:touch;}
-table.cf{width:100%;border-collapse:collapse;font-size:13px;min-width:760px;}
-table.cf th{background:var(--navy);color:#fff;font-weight:600;font-size:11px;padding:9px 8px;
+table.cf{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1020px;}
+table.cf th{background:var(--navy);color:#fff;font-weight:600;font-size:11px;padding:9px 7px;
   text-align:right;white-space:nowrap;}
+table.cf th:first-child,table.cf td:first-child{min-width:132px;}
 table.cf th:first-child{text-align:left;}
-table.cf td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--aqua);
+table.cf td{padding:6px 7px;text-align:right;border-bottom:1px solid var(--aqua);
   white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--slate);}
 table.cf td:first-child{text-align:left;color:var(--grey);}
 table.cf tr.band td{background:var(--aqua);color:var(--navy);font-weight:700;font-size:11px;
   text-transform:uppercase;letter-spacing:0.05em;}
 table.cf tr.tot td{font-weight:700;background:#FCFCFA;color:var(--slate);}
 table.cf tr.hl td{background:#1F7A7C;color:#fff;font-weight:700;}
-.cf-note{font-size:13px;color:var(--grey);margin-top:10px;}
+.cf-hint{display:none;font-size:12px;color:var(--grey);margin-top:8px;font-style:italic;}
+@media(max-width:1100px){.cf-hint{display:block;}}
 
-.sample-cta{max-width:860px;margin:48px auto 64px;padding:34px 28px;text-align:center;
-  background:var(--navy);border-radius:14px;}
-.sample-cta h2{font-size:clamp(20px,3vw,28px);font-weight:800;color:#fff;margin-bottom:10px;}
-.sample-cta p{font-size:15px;color:rgba(255,255,255,0.75);max-width:520px;margin:0 auto 20px;line-height:1.6;}
-.sample-cta a{display:inline-block;background:var(--gold);color:#fff;font-weight:700;font-size:16px;
-  padding:14px 32px;border-radius:10px;text-decoration:none;}
+
+
+
+
 @media(max-width:640px){.doc-body{padding:24px 20px 30px;}.doc-head{padding:30px 20px 24px;}}
 </style>
 </head>
@@ -183,18 +188,19 @@ table.cf tr.hl td{background:#1F7A7C;color:#fff;font-weight:700;}
 <section class="sample-intro">
   <div class="eyebrow">Sample output</div>
   <h1>A complete business plan and cashflow forecast</h1>
-  <p>This is the full output for Rolling Beans, the mobile coffee business built in our demo video &mdash; produced by B-PlanDIY from the answers to five steps. Nothing here has been tidied up by hand.</p>
+  <p>This is the full output for Rolling Beans, the mobile coffee business built in our demo video &mdash; produced by B-PlanDIY from the answers to five steps.</p>
   <div class="sample-actions">
     <a class="primary" href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00">Create your own &rarr;</a>
     <a class="ghost" href="downloads/rolling-beans-business-plan.docx" download>Download the Word document</a>
     <a class="ghost" href="index.html#demo">Watch it being built</a>
   </div>
-  <div class="sample-note">Rolling Beans is a fictional business used for illustration. The Word file is the real export, logo and all &mdash; 409&nbsp;KB.</div>
+  <div class="sample-note">Rolling Beans is a fictional business used for illustration. The Word file is the real export, logo and all &mdash; 409&nbsp;KB. You can add your own logo and brand colour to yours.</div>
 </section>
 
 <div class="doc-wrap">
   <div class="doc">
     <div class="doc-head">
+      <img class="doc-logo" src="img/rolling-beans-logo.png" alt="Rolling Beans logo" width="110" height="110"/>
       <div class="name">Rolling Beans</div>
       <div class="kind">Business Plan and Cashflow Forecast</div>
       <div class="date">14 August 2026</div>
@@ -252,6 +258,15 @@ table.cf tr.hl td{background:#1F7A7C;color:#fff;font-weight:700;}
       <p>The months most likely to tighten cash are the winter trading months of June and July 2027, when both foot traffic and willingness to stand outdoors for coffee typically soften in Northland. Holding the $5,000 opening balance in reserve through those months is a practical safeguard.</p>
       <p>After accounting for $2,400 in tax payments and a net $2,000 asset movement, the business is projected to close the 12-month period in a stronger position than it began, with improving equity and a cash balance that supports continued trading into the following year.</p>
 
+      <h2>Graphs</h2>
+      <div class="charts">
+        <figure class="chart"><img src="img/sample/units-sales.png" alt="Bar chart of units sold and monthly sales across the twelve months" width="680" height="296" loading="lazy"/></figure>
+        <figure class="chart"><img src="img/sample/expenses.png" alt="Pie chart breaking down the annual expenses by category" width="680" height="260" loading="lazy"/></figure>
+        <figure class="chart"><img src="img/sample/net-profit.png" alt="Line chart of monthly net profit across the twelve months" width="680" height="278" loading="lazy"/></figure>
+        <figure class="chart"><img src="img/sample/closing-balance.png" alt="Bar chart of the closing bank balance each month" width="680" height="278" loading="lazy"/></figure>
+      </div>
+
+      <div class="cf-block">
       <h2>12-Month Cashflow Forecast</h2>
       <div class="cf-scroll">
         <table class="cf">
@@ -290,16 +305,11 @@ table.cf tr.hl td{background:#1F7A7C;color:#fff;font-weight:700;}
           </tbody>
         </table>
       </div>
-      <div class="cf-note">The Word document also includes charts for units sold and monthly sales, expenses breakdown, net profit and closing bank balance.</div>
+      <div class="cf-hint">Scroll sideways to see all twelve months.</div>
+      </div>
 
     </div>
   </div>
-</div>
-
-<div class="sample-cta">
-  <h2>Your plan, in under an hour</h2>
-  <p>Answer five sets of questions and B-PlanDIY writes the plan and builds the forecast &mdash; yours to download as Word and Excel.</p>
-  <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00">Get started for $29</a>
 </div>
 
 <footer>
