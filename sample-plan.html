@@ -115,7 +115,7 @@ footer a{color:var(--navy);text-decoration:underline;}
 .sample-actions .ghost{background:#fff;color:var(--navy);border:1px solid var(--mist);}
 .sample-note{font-size:13px;color:var(--grey);margin-top:14px;}
 
-.doc-wrap{max-width:860px;margin:44px auto 56px;padding:0 20px;}
+.doc-wrap{max-width:860px;margin:44px auto 28px;padding:0 20px;}
 .doc{background:#fff;border:1px solid var(--mist);border-radius:14px;
   box-shadow:0 4px 28px rgba(1,35,109,0.09);overflow:hidden;}
 .doc-head{text-align:center;padding:40px 28px 30px;border-bottom:2px solid var(--aqua);}
@@ -140,7 +140,11 @@ footer a{color:var(--navy);text-decoration:underline;}
 .charts{display:grid;gap:18px;margin-top:6px;}
 .chart{margin:0;border:1px solid var(--mist);border-radius:10px;padding:10px;background:#fff;}
 .chart img{display:block;width:100%;height:auto;}
-.cf-block{width:min(1280px,calc(100vw - 40px));margin-left:50%;transform:translateX(-50%);}
+.cf-wrap{max-width:1280px;margin:0 auto 56px;padding:0 20px;}
+.cf-card{background:#fff;border:1px solid var(--mist);border-radius:14px;
+  box-shadow:0 4px 28px rgba(1,35,109,0.09);padding:26px 26px 22px;}
+.cf-card h2{font-size:19px;font-weight:700;color:var(--navy);margin:0 0 12px;
+  padding-bottom:6px;border-bottom:2px solid var(--aqua);}
 .cf-scroll{overflow-x:auto;margin-top:8px;-webkit-overflow-scrolling:touch;}
 table.cf{width:100%;border-collapse:collapse;font-size:12.5px;min-width:1020px;}
 table.cf th{background:var(--navy);color:#fff;font-weight:600;font-size:11px;padding:9px 7px;
@@ -194,7 +198,7 @@ table.cf tr.hl td{background:#1F7A7C;color:#fff;font-weight:700;}
     <a class="ghost" href="downloads/rolling-beans-business-plan.docx" download>Download the Word document</a>
     <a class="ghost" href="index.html#demo">Watch it being built</a>
   </div>
-  <div class="sample-note">Rolling Beans is a fictional business used for illustration. The Word file is the real export, logo and all &mdash; 409&nbsp;KB. You can add your own logo and brand colour to yours.</div>
+  <div class="sample-note">Rolling Beans is a fictional business used for illustration. The Word file is the real export, logo and all &mdash; 417&nbsp;KB. You can add your own logo and brand colour to yours.</div>
 </section>
 
 <div class="doc-wrap">
@@ -208,55 +212,56 @@ table.cf tr.hl td{background:#1F7A7C;color:#fff;font-weight:700;}
     <div class="doc-body">
 
       <h2>1. Business Details</h2>
-      <p>Rolling Beans is a mobile coffee cart business operating within the Whangarei region of Northland, New Zealand. The business specialises in barista-crafted espresso beverages served directly at markets, outdoor events, and similar community gatherings, bringing caf&eacute;-quality coffee to customers at the point of their activity rather than requiring them to seek it out. Rolling Beans is structured as a sole trader operation, run part-time by founder Paula Bean, and is scheduled to begin trading in August 2026.</p>
-      <p>The concept originated from a straightforward market observation. While attending the Whangarei Growers Market, Paula identified that no coffee vendor was present, leaving a clear and unmet demand among the regular foot traffic of shoppers and market-goers. This gap forms the foundation of the business model. Rolling Beans maintains an online presence through its website and across Facebook and Instagram, supporting brand awareness between trading days. The business meets all relevant legal obligations and operates from Whangarei as its primary base.</p>
+      <p>Rolling Beans is a mobile coffee cart business operating within the Whangarei region of Northland, New Zealand. The business specialises in barista-crafted espresso beverages served directly at markets and community events, bringing quality coffee to customers at the point of their activity rather than requiring them to seek it out. Rolling Beans is established as a sole trader, with trading commencing from August 2026, and operates an online presence through its website as well as Facebook and Instagram.</p>
+      <p>The business is owned and operated by Paula Bean, who identified the opportunity after attending the Whangarei Growers Market and observing that no coffee vendor was present to serve the regular flow of shoppers. That direct observation of an unmet need forms the foundation of the business concept. Paula operates the business on a part-time basis, managing all aspects of the operation from equipment setup and barista service through to marketing and customer engagement. Rolling Beans meets all relevant legal obligations applicable to a mobile food and beverage vendor in New Zealand.</p>
 
       <h2>2. Market &amp; Customers</h2>
-      <p>The realistic market for Rolling Beans is defined by the weekly foot traffic at Whangarei&rsquo;s established outdoor markets, particularly the Whangarei Growers Market, and the broader local demand for quality coffee at community events across the Northland region. Rather than drawing on national industry figures, the relevant opportunity is more immediate: a consistent stream of market-goers who are already present, already spending, and currently without access to a quality coffee option on site. At a conservative estimate of 150 to 250 cups per market day and an average price of $5.50 to $6.50, a single-cart operation could realistically generate $40,000 to $70,000 in annual revenue across regular markets and booked events. This is the segment Rolling Beans can genuinely capture at its current scale and staffing level.</p>
-      <p>The competitive landscape includes several meaningful alternatives that customers already use. Established CBD caf&eacute;s such as Caffeine Whangarei carry genuine strengths, including a loyal customer base, a comfortable environment, and a well-earned reputation for consistent quality that takes years to build. Food and beverage vendors at the Whangarei Night Markets bring real experience in outdoor trading and existing familiarity with repeat crowds, which is a meaningful advantage in relationship-driven market environments. Supermarket caf&eacute; kiosks benefit from habitual foot traffic and price-driven convenience, and many market-goers simply arrive with their own coffee, which costs nothing and requires no queuing.</p>
-      <p>Where Rolling Beans can compete is in the combination of location and craft. Fixed caf&eacute;s require customers to leave the market entirely, and supermarket kiosks rarely deliver a genuinely skilled barista experience. Rolling Beans removes the trade-off between quality and convenience by positioning directly within the market environment, serving customers where they already are, without interrupting their shopping or requiring a separate trip.</p>
+      <p>The addressable market for Rolling Beans is best understood at a local rather than national level. While New Zealand&rsquo;s broader coffee industry is substantial, Rolling Beans is a single-operator mobile cart, and its realistic market is the weekly foot traffic attending Whangarei&rsquo;s established markets, particularly the Whangarei Growers Market. Based on conservative estimates of 150 to 250 cups sold per market day at current specialty coffee price points, a consistent market presence across the year could realistically generate between $40,000 and $70,000 in annual revenue, with additional upside from private and corporate catering events. That is the scale this business can genuinely serve at its current stage and structure.</p>
+      <p>Rolling Beans operates in a competitive environment that includes several credible alternatives. Caffeine Whangarei is a well-regarded CBD caf&eacute; with an established customer base and a reputation for consistent espresso quality, and those are genuine strengths that reflect real loyalty built over time. Night market food and beverage vendors bring experience in outdoor trading and an existing rapport with recurring crowds, which is not easily replicated by a new entrant. Supermarket caf&eacute; kiosks benefit from high habitual foot traffic and price accessibility that appeal to a broad range of shoppers. Even the simple habit of arriving at the market with a travel mug from home represents a form of competition, as it requires no spending and no waiting.</p>
+      <p>Where Rolling Beans can realistically compete is in the specific gap none of those alternatives fill: delivering a freshly crafted barista coffee to someone already engaged in their market visit. Fixed-location caf&eacute;s require customers to leave. Supermarket kiosks rarely offer genuine craft quality. Home flasks cannot replicate a freshly pulled espresso. Rolling Beans positions itself precisely at that intersection of convenience and quality.</p>
 
       <h2>3. Vision &amp; Position</h2>
       <h3>Vision</h3>
-      <p>By 2027, Rolling Beans will be the most recognised and sought-after mobile coffee cart among Whangarei coffee lovers, known for bringing quality espresso directly to the people who want it most.</p>
+      <p>By 2027, Rolling Beans will be the most popular mobile coffee cart among Whangarei coffee lovers, recognised for bringing genuinely crafted espresso directly to the people who want it most.</p>
       <h3>Position Statement</h3>
-      <p>For people who need a great coffee while shopping, Rolling Beans is a superior barista experience that meets customers where they are, satisfying any caffeine fix without asking them to leave what they came to do.</p>
+      <p>For people who need a great coffee while shopping, Rolling Beans is a superior barista experience that will satisfy any caffeine fix &mdash; available right where customers already are, without requiring them to leave the market or compromise on quality.</p>
       <h3>Values</h3>
       <ul>
         <li>Quality and freshness in every cup served</li>
         <li>Value for money that respects the customer</li>
-        <li>Convenience that removes the friction from great coffee</li>
+        <li>Convenience that meets people where they are</li>
       </ul>
 
       <h2>4. Goals &amp; Achieving Them</h2>
       <h3>Goal 1: Secure exclusive vendor status with market organisers by end of Q2</h3>
-      <p>Rolling Beans will approach the Whangarei Growers Market organisers directly to request a formal meeting and present a compelling vendor proposal. The pitch will highlight the unique customer benefit of on-site specialty coffee, the professional setup Rolling Beans brings, and a fee or revenue-sharing structure that makes an exclusive arrangement attractive to organisers. A polished proposal document, prepared using tools such as Canva or Google Slides, will support the meeting, alongside a small budget of $200&ndash;$500 for branding materials and a trial market day to demonstrate operational readiness.</p>
+      <p>Paula will research and contact the Whangarei Growers Market organisers directly to request a formal meeting, presenting a compelling vendor proposal that highlights Rolling Beans&rsquo; unique value to shoppers and the benefit of an exclusive arrangement. A professional pitch using tools like Canva or Google Slides will showcase the brand, equipment setup, and a fee or revenue-sharing structure designed to make the agreement attractive to organisers. A small budget of $200&ndash;$500 for branding materials and a trial market day will support the pitch, and engaging a local business advisor experienced in vendor negotiations could strengthen the outcome considerably.</p>
       <h3>Goal 2: Launch a loyalty stamp card within 30 days targeting 40% repeat customer conversion</h3>
-      <p>A double-sided stamp card offering a free coffee after eight purchases will be designed, printed, and handed personally to every customer from the first market day of trading. Paula will briefly explain the reward at the point of sale and track redemptions weekly using a simple tally sheet or a free app such as Stamp Me. Printing costs are estimated at $50&ndash;$150 through a local Whangarei provider, with card design handled through Canva.</p>
-      <h3>Goal 3: Book six paid catering events annually to reduce weather-dependent revenue risk</h3>
-      <p>Paula will build a simple corporate catering pitch package including a pricing menu, setup photographs, and a one-page capabilities sheet, then personally reach out to 10&ndash;15 local businesses, event planners, and market contacts who regularly host staff or client functions. A limited-time introductory offer will help secure the first bookings, and satisfied market customers will be encouraged to refer Rolling Beans to their workplaces. A budget of $200&ndash;$400 covers printed materials and a basic digital portfolio, with 3&ndash;5 hours per week dedicated to outreach and engagement with networks such as the Whangarei Chamber of Commerce.</p>
+      <p>A simple double-sided stamp card offering a free coffee after eight purchases will be designed, printed, and handed personally to every customer at the next market day, with a brief explanation of the reward. Redemptions will be tracked weekly to measure progress and allow adjustments if uptake is slower than expected. A budget of approximately $50&ndash;$150 for printing through a local provider and a free tracking app such as Stamp Me will keep this goal low-cost and easy to manage alongside regular trading.</p>
+      <h3>Goal 3: Book six paid catering events annually to reduce weather-dependent cash flow risk</h3>
+      <p>Paula will develop a simple catering pitch package &mdash; including a pricing menu, setup photos, and a one-page capabilities sheet &mdash; and reach out personally to 10&ndash;15 local Whangarei businesses, event planners, and community organisers. A limited-time introductory offer will help secure first bookings, and satisfied market customers will be encouraged to refer Rolling Beans to their workplaces. A budget of $200&ndash;$400 for printed materials and a digital portfolio will support outreach, alongside 3&ndash;5 hours per week dedicated to relationship-building through networks such as the Whangarei Chamber of Commerce.</p>
       <h3>Goal 4: Recruit and train one relief barista by month three</h3>
-      <p>Paula will identify and bring on a part-time relief barista to eliminate the single-operator coverage risk. The approach and specific resources for this goal still need to be decided.</p>
+      <p>This goal still needs its approach and resource requirements decided more precisely before execution can begin.</p>
       <h3>Goal 5: Expand to two additional Northland markets by year end</h3>
-      <p>Paula will research and apply to suitable Northland markets, targeting options such as Kerikeri and Dargaville, assessing foot traffic, fees, and scheduling viability before committing.</p>
+      <p>This goal still needs its specific steps and resource requirements confirmed before outreach to additional market organisers begins.</p>
       <h3>Team &amp; Resources</h3>
-      <p>Rolling Beans currently operates as a part-time sole trader with Paula Bean as the only team member. The goals outlined above are expected to generate approximately 2,002 additional sales units with no additional expenses projected beyond those already accounted for.</p>
+      <p>Rolling Beans currently operates as a part-time sole trader with Paula Bean as the only team member. No additional hires or formal marketing support have been confirmed at this stage. The goals collectively are projected to generate approximately 2,002 extra sales units, with no additional expenses currently estimated beyond those already planned.</p>
 
       <h2>5. Financial Position</h2>
       <div class="figs">
-        <div class="fig"><div class="l">12-month revenue</div><div class="v">$41,616</div></div>
-        <div class="fig"><div class="l">Net profit</div><div class="v">$24,000</div></div>
+        <div class="fig"><div class="l">12-month revenue</div><div class="v">$41,613</div></div>
+        <div class="fig"><div class="l">Net profit</div><div class="v">$23,997</div></div>
         <div class="fig"><div class="l">Gross margin</div><div class="v">75.0%</div></div>
-        <div class="fig"><div class="l">Closing balance</div><div class="v">$28,600</div></div>
+        <div class="fig"><div class="l">Closing balance</div><div class="v">$29,063</div></div>
       </div>
       <h3>Opening Position</h3>
-      <p>Rolling Beans begins trading in August 2026 with a $5,000 opening bank balance, $20,000 in assets, no debt, and total equity of $25,000. This conservative but workable foundation reflects the low-overhead nature of a mobile cart operation and gives Paula a modest buffer as the business finds its feet in those first market weeks.</p>
-      <h3>Shape of the 12-Month Forecast</h3>
-      <p>Revenue builds gradually through the first quarter as customer awareness grows, then stabilises across the middle months as market attendance becomes routine. The business targets roughly 150&ndash;250 cups per market day at an average price of $5.50&ndash;$6.50, pointing toward annual revenue in the $40,000&ndash;$70,000 range depending on weather, event bookings, and how quickly the loyal customer base develops. The six catering events targeted across the year provide a meaningful second income stream that helps smooth the weather-dependent dips inevitable in outdoor trading.</p>
-      <p>Total annual operating expenses sit at approximately $7,212, with vehicle costs ($3,000) and communications and insurance ($1,200 each) forming the three largest ongoing cost lines. Marketing spend of $1,056 annually is modest but sufficient to support the loyalty card programme and basic digital presence. Legal costs of $600 reflect sensible early-stage compliance activity.</p>
-      <h3>Cash Flow Pressures and Closing Position</h3>
-      <p>The months most likely to tighten cash are the winter trading months of June and July 2027, when both foot traffic and willingness to stand outdoors for coffee typically soften in Northland. Holding the $5,000 opening balance in reserve through those months is a practical safeguard.</p>
-      <p>After accounting for $2,400 in tax payments and a net $2,000 asset movement, the business is projected to close the 12-month period in a stronger position than it began, with improving equity and a cash balance that supports continued trading into the following year.</p>
+      <p>Rolling Beans begins trading in August 2026 with an opening bank balance of $5,000, total assets of $20,000, no debt, and equity of $25,000. This is a sound starting position for a sole trader mobile operation, with no loan repayments placing pressure on early cash flow.</p>
+      <h3>Forecast Overview</h3>
+      <p>The 12-month forecast runs from August 2026 and projects annual revenue in the range of $40,000&ndash;$70,000, based on 150&ndash;250 cups per market day at an average of $5.50&ndash;$6.50. Revenue will build gradually across the first two to three months as Paula establishes her market presence and repeat customer base, with more consistent income expected from October onward as trading rhythm settles and catering bookings begin to contribute.</p>
+      <p>Total forecast operating expenses sit at approximately $7,212 for the year. The main cost drivers are vehicle-related costs at $3,000, communications at $1,200, and insurance at $1,200, reflecting the mobile nature of the business. Marketing spend of $1,056 is modest and appropriate for the stage of the business. Legal costs of $600 are sensibly budgeted given the vendor agreements and supplier contracts that will need reviewing during the year.</p>
+      <h3>Cash Flow Pressures</h3>
+      <p>The months most likely to see tighter cash are the opening two months before trading volume builds, and any weeks affected by poor weather limiting market attendance. A tax provision of $1,934 is included in the forecast, which is important to hold aside rather than treat as available operating cash.</p>
+      <h3>Closing Position</h3>
+      <p>With low fixed costs, no debt, and a clear path to growing revenue through additional markets and catering events, Rolling Beans is well-positioned to close its first 12 months in a positive cash position and with strengthened equity heading into 2027.</p>
 
       <h2>Graphs</h2>
       <div class="charts">
@@ -266,7 +271,12 @@ table.cf tr.hl td{background:#1F7A7C;color:#fff;font-weight:700;}
         <figure class="chart"><img src="img/sample/closing-balance.png" alt="Bar chart of the closing bank balance each month" width="680" height="278" loading="lazy"/></figure>
       </div>
 
-      <div class="cf-block">
+    </div>
+  </div>
+</div>
+
+<div class="cf-wrap">
+  <div class="cf-card">
       <h2>12-Month Cashflow Forecast</h2>
       <div class="cf-scroll">
         <table class="cf">
@@ -275,16 +285,16 @@ table.cf tr.hl td{background:#1F7A7C;color:#fff;font-weight:700;}
           </thead>
           <tbody>
             <tr class="band"><td colspan="14">Key drivers</td></tr>
-            <tr><td>Units sold</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>667</td><td>8,004</td></tr>
+            <tr><td>Units sold</td><td>447</td><td>475</td><td>506</td><td>540</td><td>577</td><td>618</td><td>663</td><td>713</td><td>767</td><td>827</td><td>893</td><td>978</td><td>8,004</td></tr>
             <tr><td>Avg price</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td>$5.20</td><td></td></tr>
             <tr><td>Avg cost</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td>$1.30</td><td></td></tr>
             <tr class="band"><td colspan="14">Revenue</td></tr>
-            <tr><td>Products/services</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$41,616</td></tr>
+            <tr><td>Products/services</td><td>$2,324</td><td>$2,469</td><td>$2,630</td><td>$2,807</td><td>$3,000</td><td>$3,213</td><td>$3,447</td><td>$3,707</td><td>$3,988</td><td>$4,300</td><td>$4,643</td><td>$5,085</td><td>$41,613</td></tr>
             <tr><td>Other revenue</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-            <tr class="tot"><td>Total revenue</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$3,468</td><td>$41,616</td></tr>
+            <tr class="tot"><td>Total revenue</td><td>$2,324</td><td>$2,469</td><td>$2,630</td><td>$2,807</td><td>$3,000</td><td>$3,213</td><td>$3,447</td><td>$3,707</td><td>$3,988</td><td>$4,300</td><td>$4,643</td><td>$5,085</td><td>$41,613</td></tr>
             <tr class="band"><td colspan="14">Cost of sales</td></tr>
-            <tr><td>Cost of sales</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$867</td><td>$10,404</td></tr>
-            <tr class="hl"><td>Gross profit</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$2,601</td><td>$31,212</td></tr>
+            <tr><td>Cost of sales</td><td>$581</td><td>$617</td><td>$658</td><td>$702</td><td>$750</td><td>$803</td><td>$862</td><td>$927</td><td>$997</td><td>$1,075</td><td>$1,161</td><td>$1,271</td><td>$10,404</td></tr>
+            <tr class="hl"><td>Gross profit</td><td>$1,743</td><td>$1,852</td><td>$1,972</td><td>$2,105</td><td>$2,250</td><td>$2,410</td><td>$2,585</td><td>$2,780</td><td>$2,991</td><td>$3,225</td><td>$3,482</td><td>$3,814</td><td>$31,209</td></tr>
             <tr><td>Gross profit %</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td><td>75.0%</td></tr>
             <tr class="band"><td colspan="14">Expenses</td></tr>
             <tr><td>Communications</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$100</td><td>$1,200</td></tr>
@@ -294,21 +304,18 @@ table.cf tr.hl td{background:#1F7A7C;color:#fff;font-weight:700;}
             <tr><td>Vehicle</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$250</td><td>$3,000</td></tr>
             <tr><td>Other expenses</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$13</td><td>$156</td></tr>
             <tr class="tot"><td>Total expenses</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$601</td><td>$7,212</td></tr>
-            <tr class="hl"><td>Net profit/(loss)</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$24,000</td></tr>
+            <tr class="hl"><td>Net profit/(loss)</td><td>$1,142</td><td>$1,251</td><td>$1,371</td><td>$1,504</td><td>$1,649</td><td>$1,809</td><td>$1,984</td><td>$2,179</td><td>$2,390</td><td>$2,624</td><td>$2,881</td><td>$3,213</td><td>$23,997</td></tr>
             <tr class="band"><td colspan="14">Other transactions</td></tr>
             <tr><td>Asset transactions</td><td>$2,000</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>$2,000</td></tr>
-            <tr><td>Tax payments</td><td></td><td></td><td>-$600</td><td></td><td></td><td></td><td></td><td></td><td>-$1,800</td><td></td><td></td><td></td><td>-$2,400</td></tr>
-            <tr class="tot"><td>Total other transactions</td><td>$2,000</td><td></td><td>-$600</td><td></td><td></td><td></td><td></td><td></td><td>-$1,800</td><td></td><td></td><td></td><td>-$400</td></tr>
+            <tr><td>Tax payments</td><td></td><td></td><td>-$359</td><td></td><td></td><td></td><td></td><td></td><td>-$1,575</td><td></td><td></td><td></td><td>-$1,934</td></tr>
+            <tr class="tot"><td>Total other transactions</td><td>$2,000</td><td></td><td>-$359</td><td></td><td></td><td></td><td></td><td></td><td>-$1,575</td><td></td><td></td><td></td><td>$66</td></tr>
             <tr class="band"><td colspan="14">Cashflow</td></tr>
-            <tr class="tot"><td>Net cashflow</td><td>$4,000</td><td>$2,000</td><td>$1,400</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$200</td><td>$2,000</td><td>$2,000</td><td>$2,000</td><td>$23,600</td></tr>
-            <tr class="hl"><td>Closing balance</td><td>$9,000</td><td>$11,000</td><td>$12,400</td><td>$14,400</td><td>$16,400</td><td>$18,400</td><td>$20,400</td><td>$22,400</td><td>$22,600</td><td>$24,600</td><td>$26,600</td><td>$28,600</td><td></td></tr>
+            <tr class="tot"><td>Net cashflow</td><td>$3,142</td><td>$1,251</td><td>$1,012</td><td>$1,504</td><td>$1,649</td><td>$1,809</td><td>$1,984</td><td>$2,179</td><td>$815</td><td>$2,624</td><td>$2,881</td><td>$3,213</td><td>$24,063</td></tr>
+            <tr class="hl"><td>Closing balance</td><td>$8,142</td><td>$9,393</td><td>$10,405</td><td>$11,909</td><td>$13,558</td><td>$15,367</td><td>$17,351</td><td>$19,530</td><td>$20,345</td><td>$22,969</td><td>$25,850</td><td>$29,063</td><td></td></tr>
           </tbody>
         </table>
       </div>
       <div class="cf-hint">Scroll sideways to see all twelve months.</div>
-      </div>
-
-    </div>
   </div>
 </div>
 
