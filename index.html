@@ -8,6 +8,9 @@
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
   gtag('config', 'AW-18115223677');
+  // GA4, so funnel events have somewhere to be reported. The Ads tag above
+  // only records defined conversions and has no reporting view for events.
+  gtag('config', 'G-367W5EDDEB');
 </script>
 
 <meta charset="UTF-8"/>
@@ -518,6 +521,88 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
     el.innerHTML='<strong>'+n.toLocaleString()+'</strong> aspiring businesses have used B-PlanDIY';
     el.style.display='block';
   }).catch(function(){});
+})();
+</script>
+<script>
+/* --- Funnel tracking -----------------------------------------------------
+   The site carried only the Google Ads conversion tag, so a visit that did
+   not end in a purchase left no trace at all - which made "30 visits, no
+   signups" impossible to diagnose. These events separate the three cases
+   that need completely different fixes: nobody is persuaded, people are
+   persuaded but abandon at checkout, or the traffic was never relevant.
+
+   Nothing here identifies anyone. It records which parts of the page were
+   reached, not who reached them. ------------------------------------------ */
+(function(){
+  if (typeof gtag !== 'function') return;
+  var sent = {};
+  function track(name, params){
+    if (sent[name]) return;          // once per page view, so counts mean people
+    sent[name] = true;
+    try { gtag('event', name, params || {}); } catch (e) {}
+  }
+
+  /* Which CTA people actually press. The label matters: the hero button and
+     the pricing button attract different levels of intent. */
+  document.querySelectorAll('a[href*="buy.stripe.com"]').forEach(function(a){
+    a.addEventListener('click', function(){
+      var where = a.closest('section');
+      // Allowed to fire more than once - a second click is a real signal.
+      try {
+        gtag('event', 'checkout_click', {
+          location: a.className || 'link',
+          section: where ? (where.className || 'unknown') : 'nav'
+        });
+      } catch (e) {}
+    });
+  });
+
+  /* Did the video earn its place above How it Works? */
+  var play = document.getElementById('demoPlay');
+  if (play) play.addEventListener('click', function(){ track('video_play'); });
+  var vid = document.getElementById('demoVideo');
+  if (vid) {
+    vid.addEventListener('timeupdate', function(){
+      if (vid.duration && vid.currentTime / vid.duration >= 0.5) track('video_half');
+    });
+    vid.addEventListener('ended', function(){ track('video_complete'); });
+  }
+
+  /* The sceptics who want to read a whole plan before paying. */
+  document.querySelectorAll('a[href*="sample-plan"]').forEach(function(a){
+    a.addEventListener('click', function(){ track('sample_plan_click'); });
+  });
+  document.querySelectorAll('a[href*="verify.html"]').forEach(function(a){
+    a.addEventListener('click', function(){ track('verify_click'); });
+  });
+
+  /* How far down the page people get. A visitor who never reaches pricing
+     did not decide against the price - they never saw it. */
+  var marks = [
+    ['reached_demo', 'demo'],
+    ['reached_steps', 'steps'],
+    ['reached_pricing', 'pricing']
+  ];
+  function onScroll(){
+    marks.forEach(function(m){
+      if (sent[m[0]]) return;
+      var el = document.getElementById(m[1]) || document.querySelector('.' + m[1]);
+      if (!el) return;
+      var top = el.getBoundingClientRect().top;
+      if (top < window.innerHeight * 0.8) track(m[0]);
+    });
+    if (sent.reached_pricing) window.removeEventListener('scroll', onScroll);
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  /* Separates "the ad was irrelevant" from "the page did not convince". */
+  var landed = Date.now();
+  setTimeout(function(){ track('stayed_15s'); }, 15000);
+  window.addEventListener('pagehide', function(){
+    var secs = Math.round((Date.now() - landed) / 1000);
+    try { gtag('event', 'time_on_page', { seconds: secs, bucket: secs < 10 ? 'bounce' : secs < 60 ? 'short' : 'engaged' }); } catch (e) {}
+  });
 })();
 </script>
 </body>

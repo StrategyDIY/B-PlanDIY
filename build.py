@@ -68,6 +68,8 @@ html = """<!DOCTYPE html>
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
   gtag('config', 'AW-18115223677');
+  // GA4, so funnel events have somewhere to be reported.
+  gtag('config', 'G-367W5EDDEB');
 </script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>

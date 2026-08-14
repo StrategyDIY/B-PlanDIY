@@ -8,6 +8,9 @@
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
   gtag('config', 'AW-18115223677');
+  // GA4, so funnel events have somewhere to be reported. The Ads tag above
+  // only records defined conversions and has no reporting view for events.
+  gtag('config', 'G-367W5EDDEB');
 </script>
 
 <meta charset="UTF-8"/>
@@ -42,7 +45,7 @@ footer{text-align:center;padding:24px;font-size:13px;color:#5F7183;}
 
 <div class="container">
   <h1>Privacy Policy</h1>
-  <div class="date">Last updated: July 2025</div>
+  <div class="date">Last updated: August 2026</div>
 
   <p>We keep things simple at B-PlanDIY. This policy explains what information we collect, how we use it, and how we keep it safe. We comply with the New Zealand Privacy Act 2020.</p>
 
@@ -87,7 +90,11 @@ footer{text-align:center;padding:24px;font-size:13px;color:#5F7183;}
 
   <p>We also use <strong>Google Ads conversion tracking</strong> on this website. If you arrive here from one of our Google adverts, Google may set cookies so that a resulting purchase can be attributed back to that advert. This tells us which adverts are working; it does not tell us who you are. This is an advertising cookie, and it is set by Google rather than by us — Google's use of the information it collects is governed by their own <a href="https://policies.google.com/technologies/partner-sites">privacy terms</a>.</p>
 
-  <p>You can block or delete these cookies through your browser settings, or opt out of personalised Google advertising through <a href="https://adssettings.google.com">Google Ad Settings</a>. Doing so will not affect your ability to use B-PlanDIY.</p>
+  <p>We also use <strong>Google Analytics</strong> to understand how the website is used. This records which pages are viewed, how far down a page people scroll, whether the demo video is played, and which buttons are pressed &mdash; for example whether someone clicks through to the payment page. It tells us where people lose interest so we can improve the site. It does not tell us who you are: we do not send your name, email address or any information you enter into the app to Google Analytics, and we cannot use it to identify an individual visitor. Google may set cookies to recognise a repeat visit. Google's use of the information it collects is governed by their own <a href="https://policies.google.com/technologies/partner-sites">privacy terms</a>.</p>
+
+  <p><strong>Nothing from inside the app is tracked in this way.</strong> Your business plan, your financial figures and everything else you enter remain on your own device as described in section 4.</p>
+
+  <p>You can block or delete these cookies through your browser settings, or opt out of personalised Google advertising through <a href="https://adssettings.google.com">Google Ad Settings</a>. Many browsers now block this kind of tracking by default. You can also opt out of Google Analytics entirely using Google's <a href="https://tools.google.com/dlpage/gaoptout">opt-out browser add-on</a>. Doing any of this will not affect your ability to use B-PlanDIY.</p>
 
   <h2>6. Third parties</h2>
   <p>We use a small number of trusted third-party services:</p>
@@ -96,6 +103,7 @@ footer{text-align:center;padding:24px;font-size:13px;color:#5F7183;}
     <li><strong>Anthropic</strong> — our AI provider, which generates the business plan text and AI suggestions (see section 4)</li>
     <li><strong>Google or Apple</strong> — only if you use the optional voice input button, to convert your speech to text (see section 4)</li>
     <li><strong>Google Ads</strong> — to measure whether our advertising leads to sign-ups (see section 5)</li>
+    <li><strong>Google Analytics</strong> — to see how the website is used, so we can improve it (see section 5)</li>
     <li><strong>Airtable</strong> — our customer database, holding the account details listed in section 2</li>
     <li><strong>Resend</strong> — to send your receipt, welcome email and renewal reminders</li>
     <li><strong>Netlify</strong> — hosts the website and the secure functions that sit between the app and the services above</li>
