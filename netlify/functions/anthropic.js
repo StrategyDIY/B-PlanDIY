@@ -10,6 +10,8 @@
 // Netlify's synchronous limit is 26s, so a single request must finish inside
 // that. The client splits plan generation into three smaller calls.
 
+const { verifyToken } = require('./access-token');
+
 const ALLOWED_HOSTS = [
   'b-plandiy.com',
   'www.b-plandiy.com'
@@ -58,7 +60,7 @@ function corsFor(headers) {
   return {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': allowed ? origin : 'https://b-plandiy.com',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Cache-Control': 'no-store'
   };
@@ -78,6 +80,20 @@ exports.handler = async (event) => {
 
   if (!isAllowed(headers)) {
     return { statusCode: 403, headers: cors, body: JSON.stringify({ error: { message: 'Not permitted from this origin.' } }) };
+  }
+
+  // Paid access, checked here rather than in the browser. The Origin check
+  // above only proves the request came from our page - it says nothing about
+  // whether the person behind it has paid, and the page is public.
+  const auth = String(headers.authorization || headers.Authorization || '');
+  const token = auth.replace(/^Bearer\s+/i, '').trim();
+  const access = verifyToken(token);
+  if (!access.ok) {
+    return {
+      statusCode: 402,
+      headers: cors,
+      body: JSON.stringify({ error: { message: 'Your access has expired or was not found.', reason: access.reason } })
+    };
   }
 
   const ip = headers['x-nf-client-connection-ip'] || headers['client-ip'] ||

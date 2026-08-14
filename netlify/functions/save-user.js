@@ -1,3 +1,5 @@
+const { issueToken } = require('./access-token');
+
 const TABLE = 'Users';
 
 // A paying customer is never blocked because our database is unavailable -
@@ -196,6 +198,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         success: true,
         expiry: expiryTimestamp,
+        token: issueToken(data.email, expiryTimestamp),
         saved: !airtableFailed,
         airtableStatus: airtableRes.status,
         airtableError: airtableData.error || null
@@ -215,7 +218,8 @@ exports.handler = async (event) => {
     return {
       statusCode: 200,
       headers: { 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ success: true, saved: false, expiry: Date.now() + (90 * 24 * 60 * 60 * 1000), debugError: err.message })
+      body: JSON.stringify({ success: true, saved: false, expiry: Date.now() + (90 * 24 * 60 * 60 * 1000),
+        token: issueToken(data.email, Date.now() + (90 * 24 * 60 * 60 * 1000)), debugError: err.message })
     };
   }
 };

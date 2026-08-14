@@ -1,3 +1,5 @@
+const { issueToken } = require('./access-token');
+
 const TABLE = 'Users';
 
 exports.handler = async (event) => {
@@ -41,7 +43,7 @@ exports.handler = async (event) => {
       return {
         statusCode: 200,
         headers: { 'Access-Control-Allow-Origin': '*' },
-        body: JSON.stringify({ success: true, expiry: expiry })
+        body: JSON.stringify({ success: true, expiry: expiry, token: issueToken(email, expiry) })
       };
     }
 
