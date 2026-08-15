@@ -243,7 +243,13 @@ footer a{color:var(--navy);text-decoration:underline;}
 
 <style>
 .res-wrap{max-width:1040px;margin:0 auto;padding:0 24px;}
+.country-pick{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin:0 auto 28px;}
+.country-pick button{font-family:inherit;font-size:14px;font-weight:600;padding:9px 16px;border-radius:999px;
+  border:1px solid var(--mist);background:#fff;color:var(--navy);cursor:pointer;transition:background .15s,border-color .15s;}
+.country-pick button:hover{border-color:var(--gold);}
+.country-pick button.on{background:var(--navy);color:#fff;border-color:var(--navy);}
 .res-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;}
+.res-grid[hidden]{display:none;}
 .res-card{display:block;border:1px solid var(--mist);border-radius:12px;padding:20px;text-decoration:none;background:#fff;transition:border-color .15s,box-shadow .15s,transform .15s;}
 .res-card:hover{border-color:var(--teal);box-shadow:0 6px 20px rgba(41,56,74,0.08);transform:translateY(-2px);}
 .res-title{display:block;font-size:17px;font-weight:700;color:var(--navy);margin-bottom:6px;}
@@ -290,18 +296,26 @@ footer a{color:var(--navy);text-decoration:underline;}
       <div class="eyebrow" style="font-size:clamp(26px,3.6vw,38px);letter-spacing:0.04em;margin-bottom:12px;">Where To Get Help</div>
       <h2 class="section-title">Organisations worth knowing about</h2>
     </div>
-    <div class="res-grid">
+    <div class="country-pick" role="group" aria-label="Choose your country">
+      <button type="button" data-country="nz" class="on">New Zealand</button>
+      <button type="button" data-country="au">Australia</button>
+      <button type="button" data-country="uk">United Kingdom</button>
+      <button type="button" data-country="ie">Ireland</button>
+      <button type="button" data-country="ca">Canada</button>
+      <button type="button" data-country="us">United States</button>
+    </div>
+    <div class="res-grid" data-set="nz">
       <a class="res-card" href="https://www.business.govt.nz/" target="_blank" rel="noopener">
         <span class="res-title">business.govt.nz</span>
         <span class="res-desc">Government guidance on starting, running and growing a business, including templates and compliance checklists.</span>
       </a>
       <a class="res-card" href="https://www.ird.govt.nz/" target="_blank" rel="noopener">
         <span class="res-title">Inland Revenue</span>
-        <span class="res-desc">GST, provisional tax, PAYE and record-keeping requirements. Worth reading before you set your tax rates.</span>
+        <span class="res-desc">GST, provisional tax, PAYE and record-keeping. Worth reading before you set your tax rates.</span>
       </a>
       <a class="res-card" href="https://companies-register.companiesoffice.govt.nz/" target="_blank" rel="noopener">
         <span class="res-title">Companies Office</span>
-        <span class="res-desc">Register a company, reserve a name, file annual returns and search existing companies.</span>
+        <span class="res-desc">Register a company, reserve a name, and file your annual return.</span>
       </a>
       <a class="res-card" href="https://www.businessmentors.org.nz/" target="_blank" rel="noopener">
         <span class="res-title">Business Mentors New Zealand</span>
@@ -317,9 +331,140 @@ footer a{color:var(--navy);text-decoration:underline;}
       </a>
       <a class="res-card" href="https://www.consumerprotection.govt.nz/" target="_blank" rel="noopener">
         <span class="res-title">Consumer Protection</span>
-        <span class="res-desc">What the Fair Trading Act and Consumer Guarantees Act require of your business.</span>
+        <span class="res-desc">Your obligations to customers under the Consumer Guarantees and Fair Trading Acts.</span>
       </a>
     </div>
+    <div class="res-grid" data-set="au" hidden>
+      <a class="res-card" href="https://business.gov.au/" target="_blank" rel="noopener">
+        <span class="res-title">business.gov.au</span>
+        <span class="res-desc">Whole-of-government guidance on starting and running a business, with free planning tools.</span>
+      </a>
+      <a class="res-card" href="https://www.ato.gov.au/" target="_blank" rel="noopener">
+        <span class="res-title">Australian Taxation Office</span>
+        <span class="res-desc">GST, BAS, PAYG and superannuation. Read this before setting your tax rate and payment months.</span>
+      </a>
+      <a class="res-card" href="https://asic.gov.au/" target="_blank" rel="noopener">
+        <span class="res-title">ASIC</span>
+        <span class="res-desc">Register a business name or company, and keep your details current.</span>
+      </a>
+      <a class="res-card" href="https://www.fairwork.gov.au/" target="_blank" rel="noopener">
+        <span class="res-title">Fair Work Ombudsman</span>
+        <span class="res-desc">Awards, minimum pay rates, and your obligations if you take someone on.</span>
+      </a>
+      <a class="res-card" href="https://www.asbfeo.gov.au/" target="_blank" rel="noopener">
+        <span class="res-title">Small Business Ombudsman</span>
+        <span class="res-desc">Dispute resolution, mediation and low-cost legal help for small businesses.</span>
+      </a>
+      <a class="res-card" href="https://business.gov.au/grants-and-programs" target="_blank" rel="noopener">
+        <span class="res-title">Grants and Programs Finder</span>
+        <span class="res-desc">A guided search across federal, state and territory funding you may be eligible for.</span>
+      </a>
+    </div>
+    <div class="res-grid" data-set="uk" hidden>
+      <a class="res-card" href="https://www.gov.uk/browse/business" target="_blank" rel="noopener">
+        <span class="res-title">GOV.UK Business</span>
+        <span class="res-desc">Official guidance on setting up, running and growing a business.</span>
+      </a>
+      <a class="res-card" href="https://www.gov.uk/government/organisations/hm-revenue-customs" target="_blank" rel="noopener">
+        <span class="res-title">HMRC</span>
+        <span class="res-desc">VAT registration and returns, PAYE and Self Assessment. Read before setting your VAT rate.</span>
+      </a>
+      <a class="res-card" href="https://www.gov.uk/government/organisations/companies-house" target="_blank" rel="noopener">
+        <span class="res-title">Companies House</span>
+        <span class="res-desc">Incorporate a company, file accounts and confirmation statements.</span>
+      </a>
+      <a class="res-card" href="https://www.british-business-bank.co.uk/" target="_blank" rel="noopener">
+        <span class="res-title">British Business Bank</span>
+        <span class="res-desc">Start Up Loans and finance options for smaller businesses.</span>
+      </a>
+      <a class="res-card" href="https://www.acas.org.uk/" target="_blank" rel="noopener">
+        <span class="res-title">Acas</span>
+        <span class="res-desc">Free, impartial advice on employment rights, contracts and workplace problems.</span>
+      </a>
+      <a class="res-card" href="https://www.gov.uk/get-business-support" target="_blank" rel="noopener">
+        <span class="res-title">Business Support Helpline</span>
+        <span class="res-desc">Free advice by phone or email, with separate helplines for Wales, Scotland and Northern Ireland.</span>
+      </a>
+    </div>
+    <div class="res-grid" data-set="ie" hidden>
+      <a class="res-card" href="https://www.localenterprise.ie/" target="_blank" rel="noopener">
+        <span class="res-title">Local Enterprise Office</span>
+        <span class="res-desc">Mentoring, training and grants for small businesses, delivered locally.</span>
+      </a>
+      <a class="res-card" href="https://www.revenue.ie/" target="_blank" rel="noopener">
+        <span class="res-title">Revenue</span>
+        <span class="res-desc">VAT, PAYE and preliminary tax. Worth reading before you set your VAT rate.</span>
+      </a>
+      <a class="res-card" href="https://www.cro.ie/" target="_blank" rel="noopener">
+        <span class="res-title">Companies Registration Office</span>
+        <span class="res-desc">Register a business name or company, and file your annual return.</span>
+      </a>
+      <a class="res-card" href="https://www.enterprise-ireland.com/" target="_blank" rel="noopener">
+        <span class="res-title">Enterprise Ireland</span>
+        <span class="res-desc">Funding and support for businesses with growth or export ambitions.</span>
+      </a>
+      <a class="res-card" href="https://www.workplacerelations.ie/" target="_blank" rel="noopener">
+        <span class="res-title">Workplace Relations Commission</span>
+        <span class="res-desc">Employment rights, minimum wage and your obligations as an employer.</span>
+      </a>
+      <a class="res-card" href="https://www.ccpc.ie/business/" target="_blank" rel="noopener">
+        <span class="res-title">CCPC for Business</span>
+        <span class="res-desc">Your obligations to consumers, and competition law in plain terms.</span>
+      </a>
+    </div>
+    <div class="res-grid" data-set="ca" hidden>
+      <a class="res-card" href="https://www.canada.ca/en/services/business.html" target="_blank" rel="noopener">
+        <span class="res-title">Canada Business</span>
+        <span class="res-desc">Federal guidance on starting, financing and running a business.</span>
+      </a>
+      <a class="res-card" href="https://www.canada.ca/en/revenue-agency.html" target="_blank" rel="noopener">
+        <span class="res-title">Canada Revenue Agency</span>
+        <span class="res-desc">GST/HST, payroll deductions and filing obligations.</span>
+      </a>
+      <a class="res-card" href="https://ised-isde.canada.ca/site/corporations-canada/en" target="_blank" rel="noopener">
+        <span class="res-title">Corporations Canada</span>
+        <span class="res-desc">Incorporate federally, and keep your corporate records up to date.</span>
+      </a>
+      <a class="res-card" href="https://www.bdc.ca/" target="_blank" rel="noopener">
+        <span class="res-title">BDC</span>
+        <span class="res-desc">Financing and advisory services aimed specifically at small business.</span>
+      </a>
+      <a class="res-card" href="https://futurpreneur.ca/" target="_blank" rel="noopener">
+        <span class="res-title">Futurpreneur</span>
+        <span class="res-desc">Loans and mentoring for younger entrepreneurs starting out.</span>
+      </a>
+      <a class="res-card" href="https://www.canada.ca/en/services/jobs/workplace.html" target="_blank" rel="noopener">
+        <span class="res-title">Workplace Standards</span>
+        <span class="res-desc">Employment standards, pay and your obligations when hiring.</span>
+      </a>
+    </div>
+    <div class="res-grid" data-set="us" hidden>
+      <a class="res-card" href="https://www.sba.gov/" target="_blank" rel="noopener">
+        <span class="res-title">Small Business Administration</span>
+        <span class="res-desc">Guidance, loan programmes and local assistance for small businesses.</span>
+      </a>
+      <a class="res-card" href="https://www.irs.gov/businesses/small-businesses-self-employed" target="_blank" rel="noopener">
+        <span class="res-title">IRS Small Business</span>
+        <span class="res-desc">Federal tax obligations. Note that sales tax is set by your state, not the IRS.</span>
+      </a>
+      <a class="res-card" href="https://www.score.org/" target="_blank" rel="noopener">
+        <span class="res-title">SCORE</span>
+        <span class="res-desc">Free mentoring from experienced business people, in person or online.</span>
+      </a>
+      <a class="res-card" href="https://americassbdc.org/" target="_blank" rel="noopener">
+        <span class="res-title">Small Business Development Centers</span>
+        <span class="res-desc">Free local advising and low-cost training, hosted through universities.</span>
+      </a>
+      <a class="res-card" href="https://www.dol.gov/general/topic/wages" target="_blank" rel="noopener">
+        <span class="res-title">Department of Labor</span>
+        <span class="res-desc">Federal wage and hour rules. Your state may set higher minimums.</span>
+      </a>
+      <a class="res-card" href="https://www.ftc.gov/business-guidance" target="_blank" rel="noopener">
+        <span class="res-title">FTC Business Guidance</span>
+        <span class="res-desc">Advertising, privacy and your obligations to customers.</span>
+      </a>
+    </div>
+
     <p style="font-size:13px;color:var(--grey);text-align:center;margin-top:26px;">
       These are independent organisations, listed because they are useful. B-PlanDIY has no commercial relationship with any of them.
     </p>
@@ -376,5 +521,25 @@ footer a{color:var(--navy);text-decoration:underline;}
 <footer>
   <p>&copy; 2025 B-PlanDIY &bull; <a href="mailto:support@b-plandiy.com">support@b-plandiy.com</a> &bull; <a href="./privacy-policy.html">Privacy Policy</a> &bull; <a href="./terms.html">Terms</a></p>
 </footer>
+<script>
+(function(){
+  // Organisations differ by country, so the page asks once and remembers.
+  // New Zealand is rendered visible in the markup, so the page still works
+  // with JavaScript disabled.
+  var picks=document.querySelectorAll('.country-pick button');
+  var grids=document.querySelectorAll('[data-set]');
+  function show(code){
+    grids.forEach(function(g){ g.hidden = g.getAttribute('data-set')!==code; });
+    picks.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-country')===code); });
+    try{ localStorage.setItem('bpd_country', code); }catch(e){}
+  }
+  picks.forEach(function(b){
+    b.addEventListener('click', function(){ show(b.getAttribute('data-country')); });
+  });
+  var saved=null;
+  try{ saved=localStorage.getItem('bpd_country'); }catch(e){}
+  if(saved && document.querySelector('[data-set="'+saved+'"]')) show(saved);
+})();
+</script>
 </body>
 </html>

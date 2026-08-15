@@ -171,14 +171,32 @@ function shortMonth(m){
 
 const STORAGE_KEY="bpg_fd";
 
+// Currency symbol used by every figure on screen and in both exports. Held at
+// module level because fmt() and friends are pure helpers called from dozens of
+// places; threading a parameter through all of them would be far more invasive
+// than a single value set once when the plan loads.
+var CUR="$";
+function setCurrency(sym){ CUR=(sym&&String(sym).trim())||"$"; }
+const CURRENCIES=[
+  {code:"NZD",sym:"$",label:"New Zealand dollar (NZ$)"},
+  {code:"AUD",sym:"$",label:"Australian dollar (A$)"},
+  {code:"GBP",sym:"\u00A3",label:"British pound (\u00A3)"},
+  {code:"EUR",sym:"\u20AC",label:"Euro (\u20AC)"},
+  {code:"USD",sym:"$",label:"US dollar (US$)"},
+  {code:"CAD",sym:"$",label:"Canadian dollar (C$)"},
+  {code:"ZAR",sym:"R",label:"South African rand (R)"},
+  {code:"SGD",sym:"$",label:"Singapore dollar (S$)"},
+  {code:"INR",sym:"\u20B9",label:"Indian rupee (\u20B9)"}
+];
+
 function fmtDate(v){if(!v)return"Not specified";var parts=v.split("-");var months=["January","February","March","April","May","June","July","August","September","October","November","December"];return parseInt(parts[2])+" "+months[parseInt(parts[1])-1]+" "+parts[0];}
-function fmt(n){const v=Math.round(Number(n));return(v<0?"-$":"$")+Math.abs(v).toLocaleString();}
+function fmt(n){const v=Math.round(Number(n));return(v<0?"-"+CUR:CUR)+Math.abs(v).toLocaleString();}
 // Per-unit figures need the cents. fmt() rounds to whole dollars, so a $5.20
 // coffee showed as $5 and a $1.30 cost as $1 - and anything already worked out
 // to two places was being rounded away at the point of display.
 function fmt2(n){
   const v=Number(n)||0;
-  return (v<0?"-$":"$")+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  return (v<0?"-"+CUR:CUR)+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 // Gross profit as a percentage of sales. Blank when there are no sales, since
 // dividing by zero would otherwise show a meaningless or infinite figure.
@@ -191,7 +209,7 @@ function gpPct(gp,rev){
 // month. Keeps the sign, which Math.abs() alone would discard.
 function axisFmt(v){
   const a=Math.abs(Number(v)||0);
-  const sign=v<0?"-$":"$";
+  const sign=v<0?"-"+CUR:CUR;
   if(a>=1000000)return sign+(a/1000000).toFixed(1).replace(/\.0$/,"")+"m";
   if(a>=10000)return sign+Math.round(a/1000)+"k";
   if(a>=1000)return sign+(a/1000).toFixed(1).replace(/\.0$/,"")+"k";
@@ -287,6 +305,7 @@ function calcCashflow(f){
     ? (parseFloat(f.taxRate)||0)>0
     : f.taxRegistered==="1";
   const taxRate=taxRegistered?(parseFloat(f.taxRate)||0):0;
+  const salesTaxMode=String(f.taxName||"")==="Sales tax";
   let accTax=0;
 
   // Extra sales and costs implied by the Step 4 goals. Opt-in, because a user
@@ -376,10 +395,28 @@ function calcCashflow(f){
 
     const netProfit=grossProfit-totalExpenses;
 
-    // Tax = (Net Profit + Team & contractors expense) * taxRate
-    const teamExp=(expDetail["xTeam"]||0)+(expDetail["xCon"]||0);
+    // Two tax systems, which behave differently enough to need different sums.
+    //
+    // VAT-style (GST, VAT, HST) is charged on the value the business adds, and
+    // tax paid on inputs is reclaimed. Approximated as net profit plus wages,
+    // since wages carry no input credit.
+    //
+    // US sales tax is charged on the sale itself. There are no input credits,
+    // and the money is collected on the state's behalf rather than ever being
+    // the business's own. So it is a straight percentage of sales, and applying
+    // the margin-based formula would understate it heavily.
+    //
+    // Only sales of products and services are counted - grants, interest and
+    // rental income in "other revenue" are not taxable sales.
+    // Only wages are added back. Employees do not charge tax on their labour,
+    // so there is nothing to reclaim on it. Contractors normally are registered
+    // and do charge it, so that tax is reclaimable and their cost is already
+    // accounted for in net profit - adding it back would tax it twice.
+    const teamExp=(expDetail["xTeam"]||0);
     const taxableBase=netProfit+teamExp;
-    const monthTax=Math.round(taxableBase*taxRate/100);
+    const monthTax=salesTaxMode
+      ? Math.round(revProducts*taxRate/100)
+      : Math.round(taxableBase*taxRate/100);
     const isTaxPayMonth=!!f["taxPayM"+(i+1)]||!Array.from({length:12},function(_,n){return f["taxPayM"+(n+1)];}).some(Boolean);
     const calcTax=isTaxPayMonth?accTax:0;
     if(isTaxPayMonth)accTax=0;
@@ -552,7 +589,7 @@ function CfCharts({rows,expCatsData}){
             <Recharts.Pie data={expPieData} dataKey="value" cx="50%" cy="50%" outerRadius={80} label={false}>
               {expPieData.map(function(e,i){return <Cell key={i} fill={e.color}/>;}) }
             </Recharts.Pie>
-            <Tooltip formatter={function(v,n){return["$"+Math.round(v).toLocaleString(),n];}}/>
+            <Tooltip formatter={function(v,n){return[CUR+Math.round(v).toLocaleString(),n];}}/>
           </Recharts.PieChart>
         </ResponsiveContainer>
         <div style={{flex:1,fontSize:11,color:"#29384A"}}>
@@ -929,6 +966,9 @@ function App(){
         d.taxRegistered=((parseFloat(d.taxRate)||0)>0)?"1":"";
       }
       repairMonthGrids(d);
+      // Set before the first render, so no figure is ever drawn with the wrong
+      // symbol and then corrected.
+      setCurrency(d.currencySym);
       return d;
     }catch(e){return{};}
   });
@@ -942,6 +982,12 @@ function App(){
   var cfStartState=useState(fdRef.current.cfStartDate||"");var cfStart=cfStartState[0];var setCfStart=cfStartState[1];
   // Held in state, not just in fdRef, because ticking it reveals a note about
   // how amounts should be entered - that needs a re-render to appear.
+  var curState=useState(fdRef.current.currencySym||"$");var curSym=curState[0];var setCurSym=curState[1];
+  // What this business calls its products/services tax. GST in NZ, Australia,
+  // Singapore and India; VAT in the UK, Ireland and Europe; HST or GST/PST in
+  // Canada. Naming it properly matters because it appears throughout the app
+  // and in the AI prompts.
+  var taxNameState=useState(fdRef.current.taxName||"GST");var taxName=taxNameState[0];var setTaxName=taxNameState[1];
   var taxRegState=useState(fdRef.current.taxRegistered==="1");var taxReg=taxRegState[0];var setTaxReg=taxRegState[1];
   // Date established needs state for the same reason the cashflow start date
   // does. These are controlled selects, and React restores a controlled
@@ -1384,6 +1430,15 @@ function App(){
     );
   }
 
+  // Cost, price and salary suggestions should reflect where the business
+  // actually trades, not a country baked into the prompt. Step 1 already asks
+  // for this. Falls back to New Zealand, which is who the app is aimed at, when
+  // the field is blank.
+  function bizLocation(){
+    var l=String(fdRef.current.locations||"").trim();
+    return l||"New Zealand";
+  }
+
   function revisionNote(mode,current,note){
     if(!mode||!current||!String(current).trim())return "";
     var cur="\n\nTHE CURRENT ANSWER IS:\n"+String(current).trim()+"\n\n";
@@ -1469,7 +1524,7 @@ function App(){
       "Largest expense lines: "+top+"\n\n"+
       "Give 3 or 4 specific options, each on its own line starting with a dash. Every option must contain a real number worked out from the figures above - for example how many more units, what price rise, or which cost to cut and by how much.\n"+
       "Where the contribution per unit is zero or negative, say so plainly first, because no volume of sales will reach breakeven until that is fixed.\n"+
-      "Be realistic for a small New Zealand business. No preamble, no closing summary, under 160 words.";
+      "Be realistic for a small business in "+bizLocation()+". No preamble, no closing summary, under 160 words.";
     try{
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
       var data=await res.json();
@@ -1520,7 +1575,7 @@ function App(){
       "Planned marketing: "+(fdRef.current.execMkt||"none stated")+"\n\n"+
       "GOALS, HOW THEY WILL BE ACHIEVED, AND RESOURCES NEEDED:\n"+goalsContextForEstimate()+"\n\n"+
       "Choose only from these categories: "+catList+"\n"+
-      "Base the amount on the RESOURCES NEEDED for that goal. Use realistic New Zealand costs and be conservative for a small business.\n"+
+      "Base the amount on the RESOURCES NEEDED for that goal. Use realistic costs for "+bizLocation()+" and be conservative for a small business.\n"+
       "If a goal adds no cost, use None = 0.\n"+
       "Reply with ONLY one line per goal in the form Goal N = Category = amount. Digits only for the amount, no dollar sign, no commas.\n"+
       "Example:\nGoal 1 = Marketing = 6000\nGoal 2 = None = 0\nGoal 3 = Team = 12000\n\nThe goals are:\n"+list;
@@ -1585,7 +1640,7 @@ function App(){
       "- Say what they need or what problem they are trying to solve, and why this business suits them.\n"+
       "- Where the position statement names a customer, build on that rather than contradicting it.\n"+
       "- Narrow it to a market this business can realistically reach at its stage. Do not describe everyone who could conceivably buy.\n"+
-      "- Realistic for a small New Zealand business. Plain prose, no bullet points, no headings, no preamble. Under 120 words.";
+      "- Realistic for a small business in "+bizLocation()+". Plain prose, no bullet points, no headings, no preamble. Under 120 words.";
     prompt+=revisionNote(mode,fdRef.current.targetCust,note);
     try{
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
@@ -1621,7 +1676,7 @@ function App(){
       "- Be concrete. Avoid empty claims like \"great service\", \"passionate team\" or \"customer focused\" unless there is something specific behind them.\n"+
       "- Where there is real intellectual property, a genuine cost or access advantage, or specific expertise, lead with it.\n"+
       "- Do not claim an advantage the information above does not support. If the honest answer is that the business competes on a narrower focus or on serving a segment the larger players ignore, say that instead.\n"+
-      "- Realistic for a small New Zealand business. Plain prose, no bullet points, no headings, no preamble. Under 120 words.";
+      "- Realistic for a small business in "+bizLocation()+". Plain prose, no bullet points, no headings, no preamble. Under 120 words.";
     prompt+=revisionNote(mode,fdRef.current.advantage,note);
     try{
       var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
@@ -1854,7 +1909,7 @@ function App(){
       alert("The business plan has not been generated yet. Please press Generate Business Plan first.");
       return;
     }
-    function fmtN(n){var v=Math.round(Number(n));return(v<0?"-$":"$")+Math.abs(v).toLocaleString();}
+    function fmtN(n){var v=Math.round(Number(n));return(v<0?"-"+CUR:CUR)+Math.abs(v).toLocaleString();}
     var f=fdRef.current;
     var cfRows=liveRows;
     var today=new Date();
@@ -1964,7 +2019,7 @@ function App(){
       // read identically in the app and the Word document.
       function axisLabel(v){
         var a=Math.abs(v);
-        var sign=v<0?"-$":"$";
+        var sign=v<0?"-"+CUR:CUR;
         if(a>=1000000)return sign+(a/1000000).toFixed(1).replace(/\.0$/,"")+"m";
         if(a>=10000)return sign+Math.round(a/1000)+"k";
         if(a>=1000)return sign+(a/1000).toFixed(1).replace(/\.0$/,"")+"k";
@@ -2227,7 +2282,7 @@ function App(){
         function mr(lbl,vals,bold,opts){
           opts=opts||{};
           // dp2 keeps the cents on per-unit rows, matching the on-screen table.
-          var fmtN2=function(n){var v=Number(n)||0;return(v<0?"-$":"$")+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});};
+          var fmtN2=function(n){var v=Number(n)||0;return(v<0?"-"+CUR:CUR)+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});};
           var f=opts.plain?function(v){return Math.round(v).toLocaleString();}:(opts.dp2?fmtN2:fmtN);
           var tot=vals.reduce(function(s,v){return s+v;},0);
           var s=bold?bBg:undefined;
@@ -2336,7 +2391,7 @@ function App(){
     // noise in a business plan and eats the word budget.
     var cfr=liveRows||[];
     function catTotal(detailKey,id){return cfr.reduce(function(s,r){return s+((r[detailKey]&&r[detailKey][id])||0);},0);}
-    function moneyStr(n){var v=Math.round(n);return (v<0?"-$":"$")+Math.abs(v).toLocaleString();}
+    function moneyStr(n){var v=Math.round(n);return (v<0?"-"+CUR:CUR)+Math.abs(v).toLocaleString();}
     var expText=expCats.map(function(c){
       var tot=catTotal("expDetail",c.id);
       return tot?c.l+": "+moneyStr(tot):null;
@@ -2572,7 +2627,7 @@ function App(){
     fdRef.current={};
     try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem("bpg_step");}catch(e){}
     setStep(0);setShowOutput(false);setPlanHtml("");setLiveRows([]);
-    setLegalStatus("");setGoals(Array(6).fill(""));setTaxReg(false);setBizDate("");setBrandLogo("");setBrandColour("");setUseOwnStyles(false);
+    setLegalStatus("");setGoals(Array(6).fill(""));setTaxReg(false);setBizDate("");setCurrency("$");setCurSym("$");setTaxName("GST");setBrandLogo("");setBrandColour("");setUseOwnStyles(false);
     window.scrollTo(0,0);
   }
 
@@ -2645,6 +2700,7 @@ function App(){
           setLegalStatus(data.legalStatus||"");
           setTaxReg(data.taxRegistered==="1");
           setBizDate(data.bizDate||"");
+          setCurrency(data.currencySym);setCurSym(data.currencySym||"$");setTaxName(data.taxName||"GST");
           setBrandLogo(data.brandLogo||"");setBrandColour(data.brandColour||"");setUseOwnStyles(data.brandOwnStyles==="1");
           setGoals(Array.from({length:6},function(_,i){return data["goal"+(i+1)]||"";}));
           setLiveRows(calcCashflow(data));
@@ -3103,7 +3159,17 @@ function App(){
     if(!SR)return;
     stopRecording();
     var r=new SR();
-    r.lang="en-NZ";
+    // Follow the browser rather than assuming a New Zealand speaker - an accent
+    // model matched to the wrong country transcribes noticeably worse. Falls
+    // back to en-NZ, and to plain English if the browser reports a non-English
+    // locale, since the prompts and the app are English throughout.
+    var lang="en-NZ";
+    try{
+      var nav=navigator.language||"";
+      if(/^en/i.test(nav))lang=nav;
+      else if(nav)lang="en";
+    }catch(e){}
+    r.lang=lang;
     r.continuous=true;
     r.interimResults=false;
     r.onresult=function(ev){
@@ -3225,12 +3291,12 @@ function App(){
         (goalOn?"":" (currently switched off, but still do not duplicate them)")+":\n"+goalText+"\n"+
       "Suggest only the ordinary running costs the business would carry anyway, on top of those.\n\n"+
       "Categories to use, and no others: "+catList+"\n"+
-      "Give a MONTHLY figure in New Zealand dollars for each category that genuinely applies. Omit a category entirely rather than guessing a token amount.\n"+
+      "Give a MONTHLY figure in the local currency of "+bizLocation()+" for each category that genuinely applies. Omit a category entirely rather than guessing a token amount.\n"+
       (rate>0
-        ? "The business is registered for GST, so give every figure EXCLUDING tax.\n"
-        : "The business is not registered for GST, so give the amounts actually paid.\n")+
+        ? "The business is registered for "+taxName+", so give every figure EXCLUDING that tax.\n"
+        : "The business is not registered for "+taxName+", so give the amounts actually paid.\n")+
       "Be realistic and conservative for a small business at this stage. A sole trader working from home has very few of these.\n\n"+
-      "Then, separately, suggest the people needed. For each one give a role, an annual salary in New Zealand dollars, and the month of the 12 they start (1 if from the beginning). Use PERMANENT for employees and CONTRACT for contractors. If none are needed, write PEOPLE: none.\n\n"+
+      "Then, separately, suggest the people needed. For each one give a role, an annual salary in the local currency of "+bizLocation()+", and the month of the 12 they start (1 if from the beginning). Use PERMANENT for employees and CONTRACT for contractors. If none are needed, write PEOPLE: none.\n\n"+
       "Reply in EXACTLY this format and nothing else:\n"+
       "EXPENSE: [category name] | [monthly amount, digits only] | [max 12 words on what it covers]\n"+
       "(one EXPENSE line per category)\n"+
@@ -3308,7 +3374,7 @@ function App(){
       <div style={{background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"13px 15px",marginBottom:14}}>
         <div style={{fontSize:13,color:"#1F5C5D",lineHeight:1.55,marginBottom:4}}>
           Suggested running costs. Nothing is added until you press <strong style={{color:"#01236D"}}>Add ticked items</strong>. Categories you have already filled in start unticked.
-          {activeTaxRate()>0?" Figures exclude product/services tax.":""}
+          {activeTaxRate()>0?(" Figures exclude "+taxName+"."):""}
         </div>
         {(expAi.cats||[]).map(function(c){
           var filled=!!fdRef.current[c.id];
@@ -3500,6 +3566,65 @@ function App(){
 
   // Cost of sales only - what it takes to deliver one unit. Overheads belong in
   // the expense categories, and counting them here would double up.
+  // The calculator divides a total the user already knows. This is for the
+  // other case - they have no idea what to charge and want a starting point.
+  //
+  // Lost in an earlier rewrite of the price panel: the button survived but the
+  // function did not, so pressing Suggest with AI on the sale price threw.
+  async function suggestAvgPrice(){
+    setApAiLoad(true);
+    setApAi(null);
+    var rate=activeTaxRate();
+    var prompt="Suggest a realistic average sale price per unit for this business.\n\n"+
+      "Business: "+(fdRef.current.bizName||"this business")+"\n"+
+      "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
+      "Location(s): "+bizLocation()+"\n"+
+      "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n"+
+      "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
+      "Competitors: "+(fdRef.current.competitors||"not specified")+"\n"+
+      "Stage: "+(fdRef.current.stage||"not specified")+"\n"+
+      "Average cost per unit, if entered: "+(fdRef.current.avgCost||"not entered")+"\n\n"+
+      "A \"unit\" is one sale - for a service business that may be an hour, a job or a monthly subscription.\n"+
+      // Where prices are advertised tax-inclusive, asking for a tax-exclusive
+      // figure fights the model's instinct and it returns the shelf price
+      // anyway. Better to ask for the advertised price and take the tax off in
+      // code. Where prices are advertised tax-exclusive, as in the US, the
+      // advertised price is already the figure the forecast needs.
+      (rate>0&&!salesTaxMode()
+        ? "Give the everyday market price INCLUDING "+taxName+", exactly as a customer would see it advertised in "+bizLocation()+". Do not deduct the tax yourself.\n"
+        : rate>0
+          ? "Give the advertised price, which excludes "+taxName+" as is normal where sales tax is added at the till.\n"
+          : "Give the price the business would actually charge. This business is not registered for "+taxName+".\n")+
+      "If a unit cost is given above, the price must sit comfortably above it or the business cannot trade.\n\n"+
+      "Reply in EXACTLY this format and nothing else:\n"+
+      "PRICE: [number only, no currency sign, no commas]\n"+
+      "UNIT: [what one unit is, 2-5 words]\n"+
+      "WHY: [one or two short sentences on how you arrived at it, and what it assumes]";
+    try{
+      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
+      var data=await res.json();
+      var text=(data.content||[]).map(function(x){return x.text||"";}).join("");
+      var pm=text.match(/PRICE:\s*[^\d-]*([0-9][0-9,]*\.?[0-9]*)/i);
+      var um=text.match(/UNIT:\s*(.+)/i);
+      var wm=text.match(/WHY:\s*([\s\S]+)/i);
+      if(pm){
+        var gross=parseFloat(pm[1].replace(/,/g,""));
+        setApAi({
+          gross:gross,
+          // Only convert where the quoted price includes the tax.
+          price:salesTaxMode()?gross:exclOfTax(gross),
+          rate:salesTaxMode()?0:activeTaxRate(),
+          unit:um?um[1].trim():"",
+          why:wm?wm[1].trim():""
+        });
+      } else {
+        setApAi({error:"Could not work out a figure just now. Please try again."});
+      }
+    }catch(e){ setApAi({error:"Could not get a suggestion just now. Please try again."}); }
+    setApAiLoad(false);
+  }
+
   async function suggestAvgCost(){
     setAcAiLoad(true);
     setAcAi(null);
@@ -3516,8 +3641,8 @@ function App(){
       "Do NOT include rent, salaries of permanent staff, insurance, marketing, accounting or any other overhead - those are entered separately as expenses, and counting them here would double up.\n"+
       "Many service businesses have little or no direct unit cost. If that is the case here, say 0 rather than inventing one.\n"+
       (activeTaxRate()>0
-        ? "Give the price INCLUDING GST, as a supplier would quote it in New Zealand. Do not deduct GST yourself.\n"
-        : "Give the amount actually paid. This business is not registered for GST.\n")+
+        ? "Give the price INCLUDING "+taxName+", as a supplier would quote it in "+bizLocation()+". Do not deduct the tax yourself.\n"
+        : "Give the amount actually paid. This business is not registered for "+taxName+".\n")+
       "If a sale price is given above, the cost must sit below it.\n\n"+
       "Reply in EXACTLY this format and nothing else:\n"+
       "COST: [number only, no dollar sign, no commas]\n"+
@@ -3669,11 +3794,11 @@ function App(){
             <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Total cost of making those sales ($)</div>
             <input style={Object.assign({},inp,{fontSize:15,maxWidth:260})} placeholder="e.g. 48000" value={acTotal}
               onChange={function(e){setAcTotal(e.target.value);}}/>
-            {activeTaxRate()>0&&(
+            {activeTaxRate()>0&&!salesTaxMode()&&(
               <div style={{display:"flex",alignItems:"center",gap:8,marginTop:7}}>
                 <input type="checkbox" id="acIncl" checked={acIncl} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
                   onChange={function(e){setAcIncl(e.target.checked);}}/>
-                <label htmlFor="acIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes product/services tax</label>
+                <label htmlFor="acIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes {taxName}</label>
               </div>
             )}
             <div style={{fontSize:13,color:"#29384A",margin:"12px 0 4px"}}>Units sold over the same period</div>
@@ -3785,11 +3910,11 @@ function App(){
             <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Total sales ($)</div>
             <input style={Object.assign({},inp,{fontSize:15,maxWidth:260})} placeholder="e.g. 120000" value={apTotal}
               onChange={function(e){setApTotal(e.target.value);}}/>
-            {activeTaxRate()>0&&(
+            {activeTaxRate()>0&&!salesTaxMode()&&(
               <div style={{display:"flex",alignItems:"center",gap:8,marginTop:7}}>
                 <input type="checkbox" id="apIncl" checked={apIncl} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
                   onChange={function(e){setApIncl(e.target.checked);}}/>
-                <label htmlFor="apIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes product/services tax</label>
+                <label htmlFor="apIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes {taxName}</label>
               </div>
             )}
             <div style={{fontSize:13,color:"#29384A",margin:"12px 0 4px"}}>Units sold over the same period</div>
@@ -3830,6 +3955,11 @@ function App(){
   }
 
   // Only meaningful when the business is registered AND a rate has been set.
+  // US prices are advertised tax-exclusive and the tax is added at the till, so
+  // the "take the tax off" converter and the "includes tax" toggles - both
+  // built for the New Zealand habit of quoting inclusive prices - do not apply.
+  function salesTaxMode(){ return taxName==="Sales tax"; }
+
   function activeTaxRate(){
     if(!taxReg)return 0;
     var r=parseFloat(fdRef.current.taxRate)||0;
@@ -3846,6 +3976,49 @@ function App(){
   // Nothing is converted automatically: silently altering a typed number is
   // worse than making someone do the sum, because they cannot tell whether it
   // has been applied.
+  // The forecast approximates tax. Approximations are fine in a forecast, but
+  // the user has to know it is one - and be told where to correct it - or they
+  // will present a figure to a bank or an accountant believing it is exact.
+  function TaxMethodNote(){
+    if(!taxReg)return null;
+    var rate=activeTaxRate();
+    var sales=salesTaxMode();
+    var rows=(liveRows||[]);
+    var totRev=rows.reduce(function(a,r){return a+(r.revProducts||0);},0);
+    var totNp=rows.reduce(function(a,r){return a+(r.netProfit||0);},0);
+    var totTeam=rows.reduce(function(a,r){return a+((r.expDetail&&r.expDetail.xTeam)||0);},0);
+    var totTax=rows.reduce(function(a,r){return a+((r.txDetail&&r.txDetail.txTax)||0);},0);
+    return (
+      <div style={{background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"13px 15px",marginTop:14}}>
+        <div style={{fontSize:11,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>
+          How your {taxName} is worked out
+        </div>
+        {rate>0?(
+          <div style={{fontSize:13,color:"#29384A",lineHeight:1.7}}>
+            {sales?(
+              <span><strong>Sales of products and services &times; {rate}%</strong>, each month. No credit is taken for tax paid on what you buy, and other income such as grants or interest is not included.</span>
+            ):(
+              <span><strong>(Net profit + Team) &times; {rate}%</strong>, each month. Wages are added back because employees do not charge {taxName} on their labour, so there is none to reclaim. Contractors are not added back, on the basis that they are registered and charge {taxName} you can reclaim &mdash; if yours are not registered, that will need adjusting.</span>
+            )}
+            {rows.length>0&&(
+              <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid #BFE3E1"}}>
+                {sales
+                  ? <span>Over 12 months: {fmt(totRev)} of sales &times; {rate}% </span>
+                  : <span>Over 12 months: ({fmt(totNp)} + {fmt(totTeam)}) &times; {rate}% </span>}
+                = <strong style={{color:"#01236D"}}>{fmt(Math.abs(totTax))}</strong>, paid in the months you ticked above.
+              </div>
+            )}
+          </div>
+        ):(
+          <div style={{fontSize:13,color:"#B14A38",lineHeight:1.6}}>No rate entered yet, so no {taxName} is being calculated.</div>
+        )}
+        <div style={{fontSize:13,color:"#29384A",lineHeight:1.6,marginTop:10,paddingTop:10,borderTop:"1px solid #BFE3E1"}}>
+          <strong style={{color:"#01236D"}}>Please check this against your own situation.</strong> This is an estimate for forecasting, not a tax calculation. Rules on what is taxable, what can be reclaimed and when payment is due vary, and your accountant or tax authority is the authority on yours. If the figure is wrong, correct it using <strong>Tax payments other</strong> in section 5, Other transactions &mdash; enter the difference there as a positive number for a refund or a negative one for a payment.
+        </div>
+      </div>
+    );
+  }
+
   function TaxExclNote(sectionKey,subject){
     if(!taxReg)return null;
     var rate=activeTaxRate();
@@ -3857,27 +4030,27 @@ function App(){
       <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"3px solid #D0B16F",borderRadius:6,padding:"8px 11px",marginBottom:12,lineHeight:1.5}}>
         <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap"}}>
           <span style={{flex:"1 1 240px",minWidth:0}}>
-            {subject||"Amounts"} in this section should <strong style={{color:"#01236D"}}>exclude</strong> product/services tax.
+            {subject||"Amounts"} in this section should <strong style={{color:"#01236D"}}>exclude</strong> {taxName}.
           </span>
-          {rate>0&&(
+          {rate>0&&!salesTaxMode()&&(
             <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,flexShrink:0,marginLeft:"auto",
               padding:"6px 12px",borderRadius:6,cursor:"pointer",
               border:"1px solid "+(open?"#01236D":"#D0B16F"),
               background:open?"#01236D":"#fff",color:open?"#fff":"#01236D"}}
               onClick={function(){setConvOpen(open?"":sectionKey);setConvAmt("");}}>
-              {open?"Close":"Take the tax off an amount"}
+              {open?"Close":"Take the "+taxName+" off an amount"}
             </button>
           )}
         </div>
         {open&&(
           <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #BFE3E1"}}>
-            <div style={{marginBottom:6}}>If you know a figure with tax included, put it in here and use the amount that comes out.</div>
-            <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Amount including tax ($)</div>
+            <div style={{marginBottom:6}}>If you know a figure with {taxName} included, put it in here and use the amount that comes out.</div>
+            <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Amount including {taxName}</div>
             <input style={Object.assign({},inp,{fontSize:15,maxWidth:220})} placeholder="e.g. 115" value={convAmt}
               onChange={function(e){setConvAmt(e.target.value);}}/>
             {ok&&(
               <div style={{marginTop:10,fontSize:13,color:"#29384A",lineHeight:1.7}}>
-                {fmt(raw)} &divide; {(1+rate/100).toFixed(2)} = <strong style={{color:"#01236D",fontSize:17}}>{fmt2(Math.round(excl*100)/100)}</strong> excluding tax
+                {fmt(raw)} &divide; {(1+rate/100).toFixed(2)} = <strong style={{color:"#01236D",fontSize:17}}>{fmt2(Math.round(excl*100)/100)}</strong> excluding {taxName}
                 <div style={{fontSize:13,color:"#5F7183",marginTop:3}}>The tax portion is {fmt(Math.round((raw-excl)*100)/100)} at {rate}%.</div>
               </div>
             )}
@@ -3904,7 +4077,7 @@ function App(){
         {neg&&<div style={{fontSize:11,color:"#B14A38",flex:"1 1 200px",lineHeight:1.45}}>Cash goes negative in {low.month}. You may need funding, or to reduce costs, before then.</div>}
         {taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)&&(
           <div style={{fontSize:11,color:"#B14A38",fontWeight:700,flex:"1 1 200px",lineHeight:1.45}}>
-            No tax rate entered in section 3, so no tax is included. These figures overstate your cash.
+            No {taxName} rate entered in section 3, so none is included. These figures overstate your cash.
           </div>
         )}
       </div>
@@ -4137,7 +4310,7 @@ function App(){
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What is the target market opportunity (estimated)?</div>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={msLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestMarketSize();}} disabled={msLoading}>{msLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"ms",has:!!(fdRef.current.marketSize||"").trim(),loading:msLoading,run:suggestMarketSize})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"ms-"+msVersion} style={{marginTop:8}}>
-            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.marketSize||""} placeholder="e.g. NZ SME accounting software market ~$120M..." onChange={function(e){fdRef.current.marketSize=e.target.value;saveToStorage();}}/>
+            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.marketSize||""} placeholder="e.g. SME accounting software, roughly $120M a year in our region..." onChange={function(e){fdRef.current.marketSize=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Who are the main competitors to your business and how does your business differ from them?</div>
@@ -4175,7 +4348,7 @@ function App(){
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Vision</div>
           <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>By (year) be the (ambition) for (who)</span>
-          {RT("vision","e.g. By 2027, to be the go-to invoicing tool for 10,000 NZ sole traders...",3)}
+          {RT("vision","e.g. By 2027, to be the go-to invoicing tool for 10,000 sole traders...",3)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Position Statement</div>
           <div style={{fontSize:13,color:"#5F7183",marginBottom:5}}>Entered in Step 1. To change it, go back to <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={function(){setStepAndSave(0);window.scrollTo(0,0);}}>Step 1 - Business Details</button>.</div>
@@ -4328,6 +4501,20 @@ function App(){
             {FinSummary()}
             <FinSection open={finOpen.start} onToggle={function(){toggleFin("start");}} title="1. Starting position" hint="where you are today">
             <div style={{marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Currency</div>
+              <select style={Object.assign({},sel,{maxWidth:320})} value={curSym}
+                onChange={function(e){
+                  var v=e.target.value;
+                  setCurrency(v);setCurSym(v);
+                  fdRef.current.currencySym=v;
+                  saveToStorage();refreshLive();
+                }}>
+                {CURRENCIES.map(function(c){return <option key={c.code} value={c.sym}>{c.label}</option>;})}
+              </select>
+              <div style={{fontSize:13,color:"#5F7183",marginTop:5,lineHeight:1.5}}>Used for every figure in your forecast, and in the Word and Excel exports.</div>
+            </div>
+
+            <div style={{marginBottom:14}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Cashflow start date (Month 1)</div>
               <div style={{display:"flex",gap:8}}>
                 <select style={{...sel,flex:1}} value={(cfStart||"").split("-")[1]||""} onChange={function(e){var parts=(cfStart||"----").split("-");parts[1]=e.target.value;var newVal=(parts[0]||String(new Date().getFullYear()))+"-"+parts[1];fdRef.current.cfStartDate=newVal;setCfStart(newVal);saveToStorage();refreshLive();}}>
@@ -4373,15 +4560,17 @@ function App(){
                   // is shut would leave the rate unasked for and unnoticed.
                   if(v)setFinOpen(function(p){var n=Object.assign({},p);n.tax=true;return n;});
                 }}/>
-              <label htmlFor="chkTaxReg" style={{fontSize:15,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>Are you registered for products/services tax?</label>
+              <label htmlFor="chkTaxReg" style={{fontSize:15,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>Are you registered for {taxName}?</label>
             </div>
             {taxReg
               ?(<div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"11px 13px",marginTop:8}}>
                   <span style={{fontSize:14,color:"#1F5C5D",lineHeight:1.55}}>
-                    <strong style={{color:"#01236D"}}>All $ amounts entered should exclude product/services tax.</strong> Enter your sales, costs and expenses at their tax-exclusive value. The tax itself is worked out separately from the rate and payment months you set in section 3.
+                    <strong style={{color:"#01236D"}}>All amounts entered should exclude {taxName}.</strong> Enter your sales, costs and expenses at their {taxName}-exclusive value. The tax itself is worked out separately from the rate and payment months you set in section 3.
                   </span>
                 </div>)
-              :(<div style={{fontSize:13,color:"#5F7183",marginTop:6,lineHeight:1.5}}>In New Zealand this is GST. If you are registered tick the box above.</div>)}
+              :(<div style={{fontSize:13,color:"#5F7183",marginTop:6,lineHeight:1.5}}>
+                  Tax on the products or services you sell &mdash; GST in New Zealand and Australia, VAT in the UK and Ireland, HST or GST in Canada. If you are registered, tick the box above.
+                </div>)}
             <div style={{marginBottom:14}}/>
 
             </FinSection>
@@ -4443,23 +4632,33 @@ function App(){
             {taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)&&(
               <div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#FDEEEB",border:"1px solid #F2CFC7",borderLeft:"4px solid #B14A38",borderRadius:6,padding:"11px 13px",marginBottom:12}}>
                 <span style={{fontSize:14,color:"#B14A38",lineHeight:1.55}}>
-                  <strong>You still need to enter your tax rate.</strong> You have said the business is registered, but without a rate no tax is being calculated and your forecast will overstate the cash you have. In New Zealand GST is 15%.
+                  <strong>You still need to enter your {taxName} rate.</strong> You have said the business is registered, but without a rate no tax is being calculated and your forecast will overstate the cash you have. GST is 15% in New Zealand, 10% in Australia; VAT is 20% in the UK.
                 </span>
               </div>
             )}
             {!taxReg&&(
               <div style={{fontSize:13,color:"#5F7183",background:"#FCFCFA",border:"1px solid #E7EAED",borderLeft:"3px solid #D0B16F",borderRadius:6,padding:"9px 12px",marginBottom:12,lineHeight:1.55}}>
-                You have said you are not registered for products/services tax, so nothing here applies and no tax is included in your forecast. Tick <strong style={{color:"#01236D"}}>Are you registered for products/services tax?</strong> in section 1 to use it.
+                You have said you are not registered for {taxName}, so nothing here applies and no tax is included in your forecast. Tick <strong style={{color:"#01236D"}}>Are you registered for {taxName}?</strong> in section 1 to use it.
               </div>
             )}
             <div style={Object.assign({display:"flex",gap:16,alignItems:"flex-start",flexWrap:"wrap"},taxReg?{}:{opacity:0.45})}>
               <div style={{flex:"0 0 auto"}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Tax rate on products/services (%)</div>
-                <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>e.g. GST 15% — used to calculate tax in Other Transactions</span>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What is your tax called?</div>
+                <select style={Object.assign({},sel,{width:170,marginBottom:14},taxReg?{}:{background:"#FCFCFA",cursor:"not-allowed"})} disabled={!taxReg} value={taxName}
+                  onChange={function(e){setTaxName(e.target.value);fdRef.current.taxName=e.target.value;saveToStorage();}}>
+                  {["GST","VAT","HST","Sales tax","Tax"].map(function(t){return <option key={t} value={t}>{t}</option>;})}
+                </select>
+                <div style={{fontSize:13,color:"#5F7183",marginTop:-8,marginBottom:14,lineHeight:1.5,maxWidth:420}}>
+                  {taxName==="Sales tax"
+                    ? "US sales tax is charged on your sales, with no credit for tax paid on what you buy. Prices are entered as advertised, before tax is added."
+                    : "GST, VAT and HST are charged on the value you add, with credit for tax paid on what you buy. Prices are entered without the tax."}
+                </div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>{taxName} rate (%)</div>
+                <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>e.g. 15 for New Zealand, 10 for Australia, 20 for the UK</span>
                 <input style={Object.assign({},inp,{width:120},taxReg?{}:{background:"#FCFCFA",cursor:"not-allowed"})} disabled={!taxReg} defaultValue={fdRef.current.taxRate||""} placeholder="e.g. 15" onChange={function(e){fdRef.current.taxRate=e.target.value;saveToStorage();refreshLive();}}/>
               </div>
               <div style={{flex:1,minWidth:200}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What months do you pay your tax?</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What months do you pay your {taxName}?</div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,marginTop:4}}>
                   {Array.from({length:12},function(_,m){
                     var key="taxPayM"+(m+1);
@@ -4474,6 +4673,7 @@ function App(){
                 </div>
               </div>
             </div>
+            {TaxMethodNote()}
             </FinSection>
             <FinSection open={finOpen.other} onToggle={function(){toggleFin("other");}} title="4. Money out" hint="your expenses">
             {TaxExclNote("other")}
