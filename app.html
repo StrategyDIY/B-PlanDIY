@@ -987,7 +987,9 @@ function App(){
   // Singapore and India; VAT in the UK, Ireland and Europe; HST or GST/PST in
   // Canada. Naming it properly matters because it appears throughout the app
   // and in the AI prompts.
-  var taxNameState=useState(fdRef.current.taxName||"GST");var taxName=taxNameState[0];var setTaxName=taxNameState[1];
+  var taxNameState=useState(fdRef.current.taxName||"");var taxName=taxNameState[0];var setTaxName=taxNameState[1];
+  // Falls back to the neutral term until the user names their own tax.
+  function taxLabel(){ return taxName||"products/services tax"; }
   var taxRegState=useState(fdRef.current.taxRegistered==="1");var taxReg=taxRegState[0];var setTaxReg=taxRegState[1];
   // Date established needs state for the same reason the cashflow start date
   // does. These are controlled selects, and React restores a controlled
@@ -2627,7 +2629,7 @@ function App(){
     fdRef.current={};
     try{localStorage.removeItem(STORAGE_KEY);localStorage.removeItem("bpg_step");}catch(e){}
     setStep(0);setShowOutput(false);setPlanHtml("");setLiveRows([]);
-    setLegalStatus("");setGoals(Array(6).fill(""));setTaxReg(false);setBizDate("");setCurrency("$");setCurSym("$");setTaxName("GST");setBrandLogo("");setBrandColour("");setUseOwnStyles(false);
+    setLegalStatus("");setGoals(Array(6).fill(""));setTaxReg(false);setBizDate("");setCurrency("$");setCurSym("$");setTaxName("");setBrandLogo("");setBrandColour("");setUseOwnStyles(false);
     window.scrollTo(0,0);
   }
 
@@ -2700,7 +2702,7 @@ function App(){
           setLegalStatus(data.legalStatus||"");
           setTaxReg(data.taxRegistered==="1");
           setBizDate(data.bizDate||"");
-          setCurrency(data.currencySym);setCurSym(data.currencySym||"$");setTaxName(data.taxName||"GST");
+          setCurrency(data.currencySym);setCurSym(data.currencySym||"$");setTaxName(data.taxName||"");
           setBrandLogo(data.brandLogo||"");setBrandColour(data.brandColour||"");setUseOwnStyles(data.brandOwnStyles==="1");
           setGoals(Array.from({length:6},function(_,i){return data["goal"+(i+1)]||"";}));
           setLiveRows(calcCashflow(data));
@@ -3293,8 +3295,8 @@ function App(){
       "Categories to use, and no others: "+catList+"\n"+
       "Give a MONTHLY figure in the local currency of "+bizLocation()+" for each category that genuinely applies. Omit a category entirely rather than guessing a token amount.\n"+
       (rate>0
-        ? "The business is registered for "+taxName+", so give every figure EXCLUDING that tax.\n"
-        : "The business is not registered for "+taxName+", so give the amounts actually paid.\n")+
+        ? "The business is registered for "+taxLabel()+", so give every figure EXCLUDING that tax.\n"
+        : "The business is not registered for "+taxLabel()+", so give the amounts actually paid.\n")+
       "Be realistic and conservative for a small business at this stage. A sole trader working from home has very few of these.\n\n"+
       "Then, separately, suggest the people needed. For each one give a role, an annual salary in the local currency of "+bizLocation()+", and the month of the 12 they start (1 if from the beginning). Use PERMANENT for employees and CONTRACT for contractors. If none are needed, write PEOPLE: none.\n\n"+
       "Reply in EXACTLY this format and nothing else:\n"+
@@ -3374,7 +3376,7 @@ function App(){
       <div style={{background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"13px 15px",marginBottom:14}}>
         <div style={{fontSize:13,color:"#1F5C5D",lineHeight:1.55,marginBottom:4}}>
           Suggested running costs. Nothing is added until you press <strong style={{color:"#01236D"}}>Add ticked items</strong>. Categories you have already filled in start unticked.
-          {activeTaxRate()>0?(" Figures exclude "+taxName+"."):""}
+          {activeTaxRate()>0?(" Figures exclude "+taxLabel()+"."):""}
         </div>
         {(expAi.cats||[]).map(function(c){
           var filled=!!fdRef.current[c.id];
@@ -3592,10 +3594,10 @@ function App(){
       // code. Where prices are advertised tax-exclusive, as in the US, the
       // advertised price is already the figure the forecast needs.
       (rate>0&&!salesTaxMode()
-        ? "Give the everyday market price INCLUDING "+taxName+", exactly as a customer would see it advertised in "+bizLocation()+". Do not deduct the tax yourself.\n"
+        ? "Give the everyday market price INCLUDING "+taxLabel()+", exactly as a customer would see it advertised in "+bizLocation()+". Do not deduct the tax yourself.\n"
         : rate>0
-          ? "Give the advertised price, which excludes "+taxName+" as is normal where sales tax is added at the till.\n"
-          : "Give the price the business would actually charge. This business is not registered for "+taxName+".\n")+
+          ? "Give the advertised price, which excludes "+taxLabel()+" as is normal where sales tax is added at the till.\n"
+          : "Give the price the business would actually charge. This business is not registered for "+taxLabel()+".\n")+
       "If a unit cost is given above, the price must sit comfortably above it or the business cannot trade.\n\n"+
       "Reply in EXACTLY this format and nothing else:\n"+
       "PRICE: [number only, no currency sign, no commas]\n"+
@@ -3641,8 +3643,8 @@ function App(){
       "Do NOT include rent, salaries of permanent staff, insurance, marketing, accounting or any other overhead - those are entered separately as expenses, and counting them here would double up.\n"+
       "Many service businesses have little or no direct unit cost. If that is the case here, say 0 rather than inventing one.\n"+
       (activeTaxRate()>0
-        ? "Give the price INCLUDING "+taxName+", as a supplier would quote it in "+bizLocation()+". Do not deduct the tax yourself.\n"
-        : "Give the amount actually paid. This business is not registered for "+taxName+".\n")+
+        ? "Give the price INCLUDING "+taxLabel()+", as a supplier would quote it in "+bizLocation()+". Do not deduct the tax yourself.\n"
+        : "Give the amount actually paid. This business is not registered for "+taxLabel()+".\n")+
       "If a sale price is given above, the cost must sit below it.\n\n"+
       "Reply in EXACTLY this format and nothing else:\n"+
       "COST: [number only, no dollar sign, no commas]\n"+
@@ -3798,7 +3800,7 @@ function App(){
               <div style={{display:"flex",alignItems:"center",gap:8,marginTop:7}}>
                 <input type="checkbox" id="acIncl" checked={acIncl} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
                   onChange={function(e){setAcIncl(e.target.checked);}}/>
-                <label htmlFor="acIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes {taxName}</label>
+                <label htmlFor="acIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes {taxLabel()}</label>
               </div>
             )}
             <div style={{fontSize:13,color:"#29384A",margin:"12px 0 4px"}}>Units sold over the same period</div>
@@ -3914,7 +3916,7 @@ function App(){
               <div style={{display:"flex",alignItems:"center",gap:8,marginTop:7}}>
                 <input type="checkbox" id="apIncl" checked={apIncl} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
                   onChange={function(e){setApIncl(e.target.checked);}}/>
-                <label htmlFor="apIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes {taxName}</label>
+                <label htmlFor="apIncl" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>That figure includes {taxLabel()}</label>
               </div>
             )}
             <div style={{fontSize:13,color:"#29384A",margin:"12px 0 4px"}}>Units sold over the same period</div>
@@ -3991,14 +3993,14 @@ function App(){
     return (
       <div style={{background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"13px 15px",marginTop:14}}>
         <div style={{fontSize:11,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>
-          How your {taxName} is worked out
+          How your {taxLabel()} is worked out
         </div>
         {rate>0?(
           <div style={{fontSize:13,color:"#29384A",lineHeight:1.7}}>
             {sales?(
               <span><strong>Sales of products and services &times; {rate}%</strong>, each month. No credit is taken for tax paid on what you buy, and other income such as grants or interest is not included.</span>
             ):(
-              <span><strong>(Net profit + Team) &times; {rate}%</strong>, each month. Wages are added back because employees do not charge {taxName} on their labour, so there is none to reclaim. Contractors are not added back, on the basis that they are registered and charge {taxName} you can reclaim &mdash; if yours are not registered, that will need adjusting.</span>
+              <span><strong>(Net profit + Team) &times; {rate}%</strong>, each month. Wages are added back because employees do not charge {taxLabel()} on their labour, so there is none to reclaim. Contractors are not added back, on the basis that they are registered and charge {taxLabel()} you can reclaim &mdash; if yours are not registered, that will need adjusting.</span>
             )}
             {rows.length>0&&(
               <div style={{marginTop:8,paddingTop:8,borderTop:"1px solid #BFE3E1"}}>
@@ -4010,7 +4012,7 @@ function App(){
             )}
           </div>
         ):(
-          <div style={{fontSize:13,color:"#B14A38",lineHeight:1.6}}>No rate entered yet, so no {taxName} is being calculated.</div>
+          <div style={{fontSize:13,color:"#B14A38",lineHeight:1.6}}>No rate entered yet, so no {taxLabel()} is being calculated.</div>
         )}
         <div style={{fontSize:13,color:"#29384A",lineHeight:1.6,marginTop:10,paddingTop:10,borderTop:"1px solid #BFE3E1"}}>
           <strong style={{color:"#01236D"}}>Please check this against your own situation.</strong> This is an estimate for forecasting, not a tax calculation. Rules on what is taxable, what can be reclaimed and when payment is due vary, and your accountant or tax authority is the authority on yours. If the figure is wrong, correct it using <strong>Tax payments other</strong> in section 5, Other transactions &mdash; enter the difference there as a positive number for a refund or a negative one for a payment.
@@ -4030,7 +4032,7 @@ function App(){
       <div style={{fontSize:13,color:"#1F5C5D",background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"3px solid #D0B16F",borderRadius:6,padding:"8px 11px",marginBottom:12,lineHeight:1.5}}>
         <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap"}}>
           <span style={{flex:"1 1 240px",minWidth:0}}>
-            {subject||"Amounts"} in this section should <strong style={{color:"#01236D"}}>exclude</strong> {taxName}.
+            {subject||"Amounts"} in this section should <strong style={{color:"#01236D"}}>exclude</strong> {taxLabel()}.
           </span>
           {rate>0&&!salesTaxMode()&&(
             <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,flexShrink:0,marginLeft:"auto",
@@ -4038,19 +4040,19 @@ function App(){
               border:"1px solid "+(open?"#01236D":"#D0B16F"),
               background:open?"#01236D":"#fff",color:open?"#fff":"#01236D"}}
               onClick={function(){setConvOpen(open?"":sectionKey);setConvAmt("");}}>
-              {open?"Close":"Take the "+taxName+" off an amount"}
+              {open?"Close":"Take the "+taxLabel()+" off an amount"}
             </button>
           )}
         </div>
         {open&&(
           <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #BFE3E1"}}>
-            <div style={{marginBottom:6}}>If you know a figure with {taxName} included, put it in here and use the amount that comes out.</div>
-            <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Amount including {taxName}</div>
+            <div style={{marginBottom:6}}>If you know a figure with {taxLabel()} included, put it in here and use the amount that comes out.</div>
+            <div style={{fontSize:13,color:"#29384A",marginBottom:4}}>Amount including {taxLabel()}</div>
             <input style={Object.assign({},inp,{fontSize:15,maxWidth:220})} placeholder="e.g. 115" value={convAmt}
               onChange={function(e){setConvAmt(e.target.value);}}/>
             {ok&&(
               <div style={{marginTop:10,fontSize:13,color:"#29384A",lineHeight:1.7}}>
-                {fmt(raw)} &divide; {(1+rate/100).toFixed(2)} = <strong style={{color:"#01236D",fontSize:17}}>{fmt2(Math.round(excl*100)/100)}</strong> excluding {taxName}
+                {fmt(raw)} &divide; {(1+rate/100).toFixed(2)} = <strong style={{color:"#01236D",fontSize:17}}>{fmt2(Math.round(excl*100)/100)}</strong> excluding {taxLabel()}
                 <div style={{fontSize:13,color:"#5F7183",marginTop:3}}>The tax portion is {fmt(Math.round((raw-excl)*100)/100)} at {rate}%.</div>
               </div>
             )}
@@ -4077,7 +4079,7 @@ function App(){
         {neg&&<div style={{fontSize:11,color:"#B14A38",flex:"1 1 200px",lineHeight:1.45}}>Cash goes negative in {low.month}. You may need funding, or to reduce costs, before then.</div>}
         {taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)&&(
           <div style={{fontSize:11,color:"#B14A38",fontWeight:700,flex:"1 1 200px",lineHeight:1.45}}>
-            No {taxName} rate entered in section 3, so none is included. These figures overstate your cash.
+            No {taxLabel()} rate entered in section 3, so none is included. These figures overstate your cash.
           </div>
         )}
       </div>
@@ -4560,12 +4562,12 @@ function App(){
                   // is shut would leave the rate unasked for and unnoticed.
                   if(v)setFinOpen(function(p){var n=Object.assign({},p);n.tax=true;return n;});
                 }}/>
-              <label htmlFor="chkTaxReg" style={{fontSize:15,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>Are you registered for {taxName}?</label>
+              <label htmlFor="chkTaxReg" style={{fontSize:15,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>Are you registered for {taxLabel()}?</label>
             </div>
             {taxReg
               ?(<div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"11px 13px",marginTop:8}}>
                   <span style={{fontSize:14,color:"#1F5C5D",lineHeight:1.55}}>
-                    <strong style={{color:"#01236D"}}>All amounts entered should exclude {taxName}.</strong> Enter your sales, costs and expenses at their {taxName}-exclusive value. The tax itself is worked out separately from the rate and payment months you set in section 3.
+                    <strong style={{color:"#01236D"}}>All amounts entered should exclude {taxLabel()}.</strong> Enter your sales, costs and expenses at their tax-exclusive value. The tax itself is worked out separately from the rate and payment months you set in section 3.
                   </span>
                 </div>)
               :(<div style={{fontSize:13,color:"#5F7183",marginTop:6,lineHeight:1.5}}>
@@ -4632,33 +4634,34 @@ function App(){
             {taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)&&(
               <div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#FDEEEB",border:"1px solid #F2CFC7",borderLeft:"4px solid #B14A38",borderRadius:6,padding:"11px 13px",marginBottom:12}}>
                 <span style={{fontSize:14,color:"#B14A38",lineHeight:1.55}}>
-                  <strong>You still need to enter your {taxName} rate.</strong> You have said the business is registered, but without a rate no tax is being calculated and your forecast will overstate the cash you have. GST is 15% in New Zealand, 10% in Australia; VAT is 20% in the UK.
+                  <strong>You still need to enter your {taxLabel()} rate.</strong> You have said the business is registered, but without a rate no tax is being calculated and your forecast will overstate the cash you have. GST is 15% in New Zealand, 10% in Australia; VAT is 20% in the UK.
                 </span>
               </div>
             )}
             {!taxReg&&(
               <div style={{fontSize:13,color:"#5F7183",background:"#FCFCFA",border:"1px solid #E7EAED",borderLeft:"3px solid #D0B16F",borderRadius:6,padding:"9px 12px",marginBottom:12,lineHeight:1.55}}>
-                You have said you are not registered for {taxName}, so nothing here applies and no tax is included in your forecast. Tick <strong style={{color:"#01236D"}}>Are you registered for {taxName}?</strong> in section 1 to use it.
+                You have said you are not registered for {taxLabel()}, so nothing here applies and no tax is included in your forecast. Tick <strong style={{color:"#01236D"}}>Are you registered for {taxLabel()}?</strong> in section 1 to use it.
               </div>
             )}
             <div style={Object.assign({display:"flex",gap:16,alignItems:"flex-start",flexWrap:"wrap"},taxReg?{}:{opacity:0.45})}>
               <div style={{flex:"0 0 auto"}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What is your tax called?</div>
-                <select style={Object.assign({},sel,{width:170,marginBottom:14},taxReg?{}:{background:"#FCFCFA",cursor:"not-allowed"})} disabled={!taxReg} value={taxName}
+                <select style={Object.assign({},sel,{width:170,marginBottom:14},taxReg?{}:{background:"#FCFCFA",cursor:"not-allowed"})} disabled={!taxReg} value={taxLabel()}
                   onChange={function(e){setTaxName(e.target.value);fdRef.current.taxName=e.target.value;saveToStorage();}}>
+                  <option value="">Not sure / other</option>
                   {["GST","VAT","HST","Sales tax","Tax"].map(function(t){return <option key={t} value={t}>{t}</option>;})}
                 </select>
                 <div style={{fontSize:13,color:"#5F7183",marginTop:-8,marginBottom:14,lineHeight:1.5,maxWidth:420}}>
                   {taxName==="Sales tax"
                     ? "US sales tax is charged on your sales, with no credit for tax paid on what you buy. Prices are entered as advertised, before tax is added."
-                    : "GST, VAT and HST are charged on the value you add, with credit for tax paid on what you buy. Prices are entered without the tax."}
+                    : "GST, VAT and HST are charged on the value you add, with credit for tax paid on what you buy. Prices are entered without the tax. Naming yours here makes the rest of the app use the right word."}
                 </div>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>{taxName} rate (%)</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>{taxLabel()} rate (%)</div>
                 <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>e.g. 15 for New Zealand, 10 for Australia, 20 for the UK</span>
                 <input style={Object.assign({},inp,{width:120},taxReg?{}:{background:"#FCFCFA",cursor:"not-allowed"})} disabled={!taxReg} defaultValue={fdRef.current.taxRate||""} placeholder="e.g. 15" onChange={function(e){fdRef.current.taxRate=e.target.value;saveToStorage();refreshLive();}}/>
               </div>
               <div style={{flex:1,minWidth:200}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What months do you pay your {taxName}?</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What months do you pay your {taxLabel()}?</div>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,marginTop:4}}>
                   {Array.from({length:12},function(_,m){
                     var key="taxPayM"+(m+1);
