@@ -3990,6 +3990,14 @@ function App(){
     var totNp=rows.reduce(function(a,r){return a+(r.netProfit||0);},0);
     var totTeam=rows.reduce(function(a,r){return a+((r.expDetail&&r.expDetail.xTeam)||0);},0);
     var totTax=rows.reduce(function(a,r){return a+((r.txDetail&&r.txDetail.txTax)||0);},0);
+    // Tax accrued over the year, which is what the formula produces. It differs
+    // from the amount actually paid within the twelve months, because tax
+    // earned near the end of the year falls due after the forecast ends.
+    // Showing only the paid figure made the sum on screen look wrong.
+    var accrued=rows.reduce(function(a,r){
+      var base=sales?(r.revProducts||0):((r.netProfit||0)+((r.expDetail&&r.expDetail.xTeam)||0));
+      return a+Math.round(base*rate/100);
+    },0);
     return (
       <div style={{background:"#E7F5F4",border:"1px solid #BFE3E1",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"13px 15px",marginTop:14}}>
         <div style={{fontSize:11,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>
@@ -4007,7 +4015,10 @@ function App(){
                 {sales
                   ? <span>Over 12 months: {fmt(totRev)} of sales &times; {rate}% </span>
                   : <span>Over 12 months: ({fmt(totNp)} + {fmt(totTeam)}) &times; {rate}% </span>}
-                = <strong style={{color:"#01236D"}}>{fmt(Math.abs(totTax))}</strong>, paid in the months you ticked above.
+                = <strong style={{color:"#01236D"}}>{fmt(accrued)}</strong> of {taxLabel()}.
+                {Math.abs(Math.abs(totTax)-accrued)>1
+                  ? <span> Of that, <strong style={{color:"#01236D"}}>{fmt(Math.abs(totTax))}</strong> falls due in the months you ticked above and appears in your cashflow. The rest is earned late in the year and paid after the forecast ends, so hold it aside rather than treating it as spare cash.</span>
+                  : <span> All of it falls due in the months you ticked above.</span>}
               </div>
             )}
           </div>
