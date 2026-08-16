@@ -46,7 +46,7 @@ a.nav-logo:hover span{color:var(--azure);}
 @media(max-width:600px){.nav-links{display:none;}}
 
 /* HERO */
-.hero{background:var(--ice);color:var(--navy);padding:20px 24px 52px;text-align:center;position:relative;overflow:hidden;border-bottom:1px solid var(--line);}
+.hero{background:var(--ice);color:var(--navy);padding:48px 24px 52px;text-align:center;position:relative;overflow:hidden;border-bottom:1px solid var(--line);}
 .hero::after{content:"";position:absolute;bottom:-2px;left:0;right:0;height:60px;background:transparent;clip-path:ellipse(55% 100% at 50% 100%);}
 .hero-eyebrow{display:inline-block;background:rgba(208,177,111,0.2);color:var(--gold);font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:22px;}
 .hero h1{font-size:clamp(14px,1.6vw,18px);font-weight:600;line-height:1.3;letter-spacing:-0.01em;margin-bottom:20px;max-width:600px;margin-left:auto;margin-right:auto;}
@@ -64,7 +64,8 @@ a.nav-logo:hover span{color:var(--azure);}
    Grid 1fr 1fr guarantees two equal columns - no flex basis, no per-cell
    max-width, and no inline-block shrink-to-fit to work around. */
 .hero-block{max-width:1120px;margin:0 auto;}
-.hero-headline{color:var(--navy);font-size:clamp(22px,3vw,34px);font-weight:800;line-height:1.25;letter-spacing:-0.01em;margin:14px 0 0;text-align:center;}
+.hero-lede{font-size:16.5px;color:var(--grey);line-height:1.65;max-width:640px;margin:14px auto 0;}
+.hero-headline{font-size:clamp(23px,2.9vw,32px);font-weight:800;color:var(--navy);letter-spacing:-0.02em;line-height:1.25;margin:14px 0 0;text-align:center;}
 .hero-cols{display:block;text-align:center;margin-bottom:46px;}
 /* Points run across the full width in one row, with the image below */
 /* Points listed one under another, in a box centred under the headline */
@@ -280,7 +281,7 @@ footer a{color:var(--navy);text-decoration:underline;}
   </div>
 </nav>
 
-<section class="hero" style="padding:34px 24px 46px;">
+<section class="hero">
   <div class="hero-block" style="max-width:720px;">
     <a class="back-link" href="./index.html" style="color:var(--grey);">&larr; All articles</a>
     <div class="hero-headline">POST TITLE</div>
