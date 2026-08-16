@@ -23,15 +23,15 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
-:root{--navy:#01236D;--gold:#D0B16F;--teal:#2A9D9F;--aqua:#E7F5F4;--sand:#E7F5F4;--white:#FCFCFA;--slate:#29384A;--mist:#E7EAED;--coral:#E97868;--gold-light:#E7F5F4;--off-white:#E7F5F4;--grey:#5F7183;--dark:#29384A;--pure-white:#ffffff}
+:root{--navy:#01236D;--azure:#1B4FA8;--steel:#7A93B8;--gold:#D0B16F;--ice:#EAF0F9;--line:#E3E8F0;--slate:#29384A;--white:#FCFCFA;--grey:#5A6C7E;--dark:#29384A;--pure-white:#ffffff;--pos:#1F7A7C;--neg:#B14A38}
 body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--dark);background:var(--white);line-height:1.6;}
 a{color:inherit;text-decoration:none;}
 
 /* NAV */
-nav{background:var(--white);border-bottom:1px solid #E7EAED;padding:0 24px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;height:84px;}
+nav{background:var(--white);border-bottom:1px solid #E3E8F0;padding:0 24px;position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;height:84px;}
 .nav-logo{display:flex;align-items:center;gap:10px;}
 a.nav-logo{text-decoration:none;color:inherit;cursor:pointer;}
-a.nav-logo:hover span{color:var(--teal);}
+a.nav-logo:hover span{color:var(--azure);}
 .nav-logo img{width:72px;height:72px;object-fit:contain;}
 .nav-logo span{font-size:17px;font-weight:700;color:var(--navy);letter-spacing:-0.02em;}
 .nav-links{display:flex;gap:28px;font-size:15px;color:var(--navy);font-weight:700;}
@@ -46,7 +46,7 @@ a.nav-logo:hover span{color:var(--teal);}
 @media(max-width:600px){.nav-links{display:none;}}
 
 /* HERO */
-.hero{background:var(--white);color:var(--navy);padding:20px 24px 76px;text-align:center;position:relative;overflow:hidden;}
+.hero{background:var(--ice);color:var(--navy);padding:20px 24px 52px;text-align:center;position:relative;overflow:hidden;border-bottom:1px solid var(--line);}
 .hero::after{content:"";position:absolute;bottom:-2px;left:0;right:0;height:60px;background:transparent;clip-path:ellipse(55% 100% at 50% 100%);}
 .hero-eyebrow{display:inline-block;background:rgba(208,177,111,0.2);color:var(--gold);font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:22px;}
 .hero h1{font-size:clamp(14px,1.6vw,18px);font-weight:600;line-height:1.3;letter-spacing:-0.01em;margin-bottom:20px;max-width:600px;margin-left:auto;margin-right:auto;}
@@ -66,7 +66,7 @@ a.nav-logo:hover span{color:var(--teal);}
    Grid 1fr 1fr guarantees two equal columns - no flex basis, no per-cell
    max-width, and no inline-block shrink-to-fit to work around. */
 .hero-block{max-width:1120px;margin:0 auto;}
-.hero-headline{background:var(--aqua);color:var(--navy);font-size:clamp(16px,2.6vw,30px);font-weight:700;line-height:1.4;padding:14px 8px;border-radius:12px;margin:0 0 38px;text-align:center;}
+.hero-headline{color:var(--navy);font-size:clamp(22px,3vw,34px);font-weight:800;line-height:1.25;letter-spacing:-0.01em;margin:14px 0 0;text-align:center;}
 .hero-cols{display:block;text-align:center;margin-bottom:46px;}
 /* Points run across the full width in one row, with the image below */
 /* Points listed one under another, in a box centred under the headline */
@@ -119,16 +119,13 @@ a.nav-logo:hover span{color:var(--teal);}
 .step-number{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;background:var(--gold);color:var(--white);font-size:15px;font-weight:800;border-radius:50%;margin-bottom:14px;}
 .step-title{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:10px;}
 .step-desc{font-size:15px;color:var(--grey);line-height:1.7;margin-bottom:16px;}
-.step-bullets{list-style:none;}
-.step-bullets li{font-size:14px;color:#29384A;padding:5px 0;display:flex;gap:8px;align-items:flex-start;}
-.step-bullets li::before{content:"✓";color:var(--gold);font-weight:700;flex-shrink:0;margin-top:1px;}
 
 /* MOCK SCREENS */
-.mock{background:var(--off-white);border-radius:14px;border:1px solid #E7EAED;overflow:hidden;box-shadow:0 4px 20px rgba(1,35,109,0.08);}
+.mock{background:var(--ice);border-radius:14px;border:1px solid #E3E8F0;overflow:hidden;box-shadow:0 4px 20px rgba(1,35,109,0.08);}
 .mock-bar{background:var(--navy);padding:10px 14px;display:flex;gap:6px;align-items:center;}
 .mock-dot{width:10px;height:10px;border-radius:50%;}
 .mock-steps{display:flex;gap:4px;padding:12px 16px 0;}
-.ms{flex:1;height:3px;border-radius:2px;background:#E7EAED;}
+.ms{flex:1;height:3px;border-radius:2px;background:#E3E8F0;}
 .ms.done{background:var(--gold);}
 .ms.active{background:var(--navy);}
 .mock-body{padding:20px;}
@@ -137,10 +134,10 @@ a.nav-logo:hover span{color:var(--teal);}
 .mock-sub{font-size:12px;color:var(--grey);margin-bottom:14px;}
 .mock-field{margin-bottom:10px;}
 .mock-label{font-size:11px;font-weight:600;color:var(--navy);margin-bottom:3px;}
-.mock-input{width:100%;border:1px solid #E7EAED;border-radius:5px;padding:7px 9px;font-size:12px;color:#29384A;background:white;}
+.mock-input{width:100%;border:1px solid #E3E8F0;border-radius:5px;padding:7px 9px;font-size:12px;color:#29384A;background:white;}
 .mock-input.filled{color:var(--navy);border-color:#d0b16f;}
 .mock-ai{background:var(--gold);color:white;border:none;border-radius:4px;padding:4px 10px;font-size:11px;font-weight:600;margin-bottom:5px;display:inline-block;}
-.mock-textarea{width:100%;border:1px solid #E7EAED;border-radius:5px;padding:7px 9px;font-size:12px;color:#29384A;background:white;min-height:52px;}
+.mock-textarea{width:100%;border:1px solid #E3E8F0;border-radius:5px;padding:7px 9px;font-size:12px;color:#29384A;background:white;min-height:52px;}
 .mock-textarea.filled{color:var(--navy);border-color:#d0b16f;}
 .mock-row{display:flex;gap:8px;}
 .mock-row .mock-field{flex:1;}
@@ -148,7 +145,7 @@ a.nav-logo:hover span{color:var(--teal);}
 .mock-next{background:var(--gold);color:white;border:none;border-radius:5px;padding:7px 16px;font-size:12px;font-weight:600;}
 
 /* PLAN SAMPLE */
-.plan-sample{background:var(--off-white);padding:80px 24px;}
+.plan-sample{background:var(--ice);padding:80px 24px;}
 .plan-doc{max-width:720px;margin:0 auto;background:white;border-radius:14px;box-shadow:0 4px 24px rgba(1,35,109,0.1);overflow:hidden;}
 .plan-doc-header{background:var(--navy);padding:32px;text-align:center;}
 .plan-doc-title{font-size:24px;font-weight:800;color:white;margin-bottom:4px;}
@@ -157,7 +154,7 @@ a.nav-logo:hover span{color:var(--teal);}
 .plan-doc-body{padding:28px 32px;}
 .plan-section{margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid #FCFCFA;}
 .plan-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
-.plan-section h3{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:8px;padding-bottom:5px;border-bottom:2px solid var(--gold-light);}
+.plan-section h3{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:8px;padding-bottom:5px;border-bottom:2px solid var(--ice);}
 .plan-section p{font-size:13px;color:#29384A;line-height:1.7;margin-bottom:6px;}
 .plan-section ul{list-style:none;margin-top:6px;}
 .plan-section ul li{font-size:13px;color:#29384A;padding:3px 0;display:flex;gap:6px;}
@@ -171,20 +168,20 @@ a.nav-logo:hover span{color:var(--teal);}
 .cf-header{background:var(--navy);padding:14px 20px;}
 .cf-header h4{font-size:13px;font-weight:700;color:white;}
 .cf-table{width:100%;border-collapse:collapse;font-size:12px;overflow-x:auto;display:block;}
-.cf-table th{background:#E7F5F4;color:var(--navy);font-weight:600;padding:8px 10px;text-align:right;white-space:nowrap;}
+.cf-table th{background:#EAF0F9;color:var(--navy);font-weight:600;padding:8px 10px;text-align:right;white-space:nowrap;}
 .cf-table th:first-child{text-align:left;}
 .cf-table td{padding:7px 10px;text-align:right;border-bottom:1px solid #FCFCFA;white-space:nowrap;}
 .cf-table td:first-child{text-align:left;color:var(--grey);}
 .cf-table tr.bold td{font-weight:700;background:#FCFCFA;}
 .cf-table tr.highlight td{background:var(--navy);color:white;font-weight:700;}
-.cf-table tr.hdr td{background:#E7F5F4;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--navy);}
+.cf-table tr.hdr td{background:#EAF0F9;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:var(--navy);}
 .pos{color:#1F7A7C;}
 .neg{color:#B14A38;}
 
 /* FEATURES GRID */
-.features{padding:80px 24px;background:var(--off-white);}
+.features{padding:80px 24px;background:var(--ice);}
 .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;max-width:960px;margin:0 auto;}
-.feature-card{background:white;border-radius:12px;padding:24px;border:1px solid #E7EAED;transition:border-color 0.2s,box-shadow 0.2s;}
+.feature-card{background:white;border-radius:12px;padding:24px;border:1px solid #E3E8F0;transition:border-color 0.2s,box-shadow 0.2s;}
 .feature-card:hover{border-color:var(--gold);box-shadow:0 4px 16px rgba(208,177,111,0.15);}
 .feature-icon{font-size:24px;margin-bottom:12px;}
 .feature-title{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:5px;}
@@ -193,7 +190,7 @@ a.nav-logo:hover span{color:var(--teal);}
 /* TESTIMONIALS */
 .testimonials{padding:80px 24px;}
 .t-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;max-width:960px;margin:0 auto;}
-.t-card{background:var(--off-white);border-radius:12px;padding:28px;border-left:3px solid var(--gold);}
+.t-card{background:var(--ice);border-radius:12px;padding:28px;border-left:3px solid var(--gold);}
 .t-text{font-size:14px;color:#29384A;line-height:1.7;margin-bottom:18px;font-style:italic;}
 .t-author{display:flex;align-items:center;gap:10px;}
 .t-avatar{width:36px;height:36px;border-radius:50%;background:var(--navy);color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -201,7 +198,7 @@ a.nav-logo:hover span{color:var(--teal);}
 .t-role{font-size:12px;color:var(--grey);}
 
 /* PRICING */
-.pricing{padding:80px 24px;background:var(--off-white);}
+.pricing{padding:80px 24px;background:var(--ice);}
 .pricing-card{max-width:440px;margin:0 auto;background:white;border-radius:16px;box-shadow:0 8px 40px rgba(1,35,109,0.12);overflow:hidden;}
 .p-header{background:var(--navy);padding:36px;text-align:center;}
 .p-badge{display:inline-block;background:var(--gold);color:white;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:4px 12px;border-radius:20px;margin-bottom:16px;}
@@ -230,22 +227,22 @@ a.nav-logo:hover span{color:var(--teal);}
 .community-desc{{font-size:14px;color:rgba(255,255,255,0.72);line-height:1.8;}}
 .community-badge{{display:inline-block;background:var(--gold);color:white;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-top:18px;}}
 /* FINAL CTA */
-.final{background:var(--aqua);padding:72px 24px;text-align:center;color:var(--navy);}
+.final{background:var(--ice);padding:72px 24px;text-align:center;color:var(--navy);}
 .final h2{font-size:clamp(24px,4vw,36px);font-weight:800;margin-bottom:12px;letter-spacing:-0.02em;}
 .final p{font-size:16px;color:var(--slate);margin-bottom:32px;}
 
-footer{background:var(--white);border-top:1px solid var(--mist);color:var(--grey);padding:28px 24px;text-align:center;font-size:13px;}
+footer{background:var(--white);border-top:1px solid var(--line);color:var(--grey);padding:28px 24px;text-align:center;font-size:13px;}
 footer a{color:var(--navy);text-decoration:underline;}
 </style>
 
 <style>
 .post-list{max-width:760px;margin:0 auto;padding:0 24px;}
-.post-card{border-bottom:1px solid #E7EAED;padding:28px 0;}
+.post-card{border-bottom:1px solid #E3E8F0;padding:28px 0;}
 .post-card:last-child{border-bottom:none;}
 .post-card h2{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:8px;line-height:1.35;}
 .post-card h2 a{color:inherit;text-decoration:none;}
 .post-card h2 a:hover{color:var(--gold);}
-.post-meta{font-size:13px;color:#8A98A6;margin-bottom:10px;}
+.post-meta{font-size:13px;color:#7A93B8;margin-bottom:10px;}
 .post-card p{font-size:15px;line-height:1.7;color:var(--grey);margin-bottom:10px;}
 .post-more{font-size:14px;font-weight:600;color:var(--navy);text-decoration:underline;}
 .post-more:hover{color:var(--gold);}
@@ -259,7 +256,7 @@ footer a{color:var(--navy);text-decoration:underline;}
 .article blockquote{border-left:4px solid var(--gold);margin:22px 0;padding:6px 0 6px 18px;font-size:17px;line-height:1.8;color:var(--grey);}
 .article a:not(.btn-primary){color:var(--navy);text-decoration:underline;}
 .article a.btn-primary{color:#fff;text-decoration:none;}
-.article-cta{background:var(--aqua);border-radius:12px;padding:26px;margin-top:40px;text-align:center;}
+.article-cta{background:var(--ice);border-radius:12px;padding:26px;margin-top:40px;text-align:center;}
 .article-cta p{font-size:16px;margin-bottom:16px;}
 .back-link{display:inline-block;font-size:14px;color:var(--grey);text-decoration:none;margin-bottom:8px;}
 .back-link:hover{color:var(--navy);}
@@ -288,12 +285,12 @@ footer a{color:var(--navy);text-decoration:underline;}
 <section class="hero" style="padding:34px 24px 46px;">
   <div class="hero-block" style="max-width:720px;">
     <a class="back-link" href="./index.html" style="color:var(--grey);">&larr; All articles</a>
-    <div class="hero-headline" style="font-size:clamp(20px,2.6vw,30px);">What a New Zealand bank wants to see in a business plan</div>
+    <div class="hero-headline">What a New Zealand bank wants to see in a business plan</div>
     <p style="margin-top:14px;font-size:14px;color:var(--grey);">15 August 2026</p>
   </div>
 </section>
 
-<section style="background:#fff;padding:44px 0 0;">
+<section style="background:var(--white);padding:44px 0 0;">
   <div class="article">
 
     <p>If you are going to a bank for lending, the plan you write is not read the way you might expect. The prose gets skimmed. The forecast gets studied. Most business plan advice online is American and written around SBA loans, which is not the process you are going through &mdash; so here is what tends to happen when a New Zealand lender picks up your plan, and what to do about it.</p>
@@ -363,7 +360,7 @@ footer a{color:var(--navy);text-decoration:underline;}
 
     <p>If you can, you are in good shape. If you cannot, that is the work to do before you book the meeting &mdash; not more polish on the executive summary.</p>
 
-    <p style="font-size:14px;color:#5F7183;border-top:1px solid #E7EAED;padding-top:16px;margin-top:28px;">This article is general information, not financial advice. Lending criteria differ between banks and change over time &mdash; talk to your accountant or business banker about your own situation.</p>
+    <p style="font-size:14px;color:#5A6C7E;border-top:1px solid #E3E8F0;padding-top:16px;margin-top:28px;">This article is general information, not financial advice. Lending criteria differ between banks and change over time &mdash; talk to your accountant or business banker about your own situation.</p>
 
     <div class="article-cta">
       <p><strong>Ready to write yours?</strong> B-PlanDIY takes you through five steps to a business plan and a 12-month cashflow forecast &mdash; GST handled properly, and a What If tool for testing that 20% question.</p>
