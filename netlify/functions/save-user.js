@@ -104,7 +104,7 @@ exports.handler = async (event) => {
               <div style="background:#f8f9fc;border-radius:8px;padding:20px;margin:20px 0;">
                 <table style="width:100%;border-collapse:collapse;">
                   <tr><td style="font-size:14px;color:#6b7280;padding:6px 0;">Product</td><td style="font-size:14px;color:#374151;font-weight:600;text-align:right;">B-PlanDIY — 3 Month Access</td></tr>
-                  <tr><td style="font-size:14px;color:#6b7280;padding:6px 0;">Amount</td><td style="font-size:14px;color:#374151;font-weight:600;text-align:right;">NZD $29.00 incl. GST</td></tr>
+                  <tr><td style="font-size:14px;color:#6b7280;padding:6px 0;">Amount</td><td style="font-size:14px;color:#374151;font-weight:600;text-align:right;">NZD $29.00</td></tr>
                   <tr><td style="font-size:14px;color:#6b7280;padding:6px 0;">Date</td><td style="font-size:14px;color:#374151;font-weight:600;text-align:right;">${paymentDateFormatted}</td></tr>
                   <tr><td style="font-size:14px;color:#6b7280;padding:6px 0;">Access expires</td><td style="font-size:14px;color:#374151;font-weight:600;text-align:right;">${expiryDate}</td></tr>
                 </table>
