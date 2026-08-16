@@ -94,10 +94,10 @@ input:not([type=checkbox]):not([type=radio]), select, textarea{
   transition:border-color .15s ease, box-shadow .15s ease, background-color .15s ease;
 }
 input:not([type=checkbox]):not([type=radio]):hover, select:hover, textarea:hover{
-  border-color:#8A98A6 !important;
+  border-color:#7A93B8 !important;
 }
 input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus{
-  border-color:#2A9D9F !important;
+  border-color:#1B4FA8 !important;
   box-shadow:0 0 0 3px rgba(42,157,159,0.20) !important;
   outline:none !important;
 }
@@ -107,7 +107,7 @@ button{transition:transform .12s ease, box-shadow .15s ease, filter .15s ease, b
 button:not(:disabled):hover{transform:translateY(-1px);filter:brightness(1.04);box-shadow:0 3px 10px rgba(1,35,109,0.13);}
 button:not(:disabled):active{transform:translateY(0);box-shadow:0 1px 3px rgba(1,35,109,0.12);}
 button:disabled{opacity:.55;cursor:not-allowed !important;}
-button:focus-visible{outline:2px solid #2A9D9F;outline-offset:2px;}
+button:focus-visible{outline:2px solid #1B4FA8;outline-offset:2px;}
 
 /* Checkboxes get a pointer and a little feedback */
 input[type=checkbox]{transition:transform .12s ease;}
@@ -147,7 +147,7 @@ html{scrollbar-color:#01236D transparent;scrollbar-width:thin;}
 /* Consistent 26px rhythm between form rows */
 .bpd-field{margin-bottom:26px;}
 input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus{
-  border-color:#2A9D9F !important;
+  border-color:#1B4FA8 !important;
   box-shadow:0 0 0 3px rgba(42,157,159,0.18) !important;
 }
 select{border-radius:10px !important;padding:13px 12px !important;}
