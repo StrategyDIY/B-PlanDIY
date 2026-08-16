@@ -35,11 +35,11 @@ a.nav-logo:hover span{color:var(--azure);}
 .nav-logo img{width:72px;height:72px;object-fit:contain;}
 .nav-logo span{font-size:17px;font-weight:700;color:var(--navy);letter-spacing:-0.02em;}
 .nav-links{display:flex;gap:28px;font-size:15px;color:var(--navy);font-weight:700;}
-.nav-links a:hover{color:var(--gold);}
+.nav-links a:hover{color:var(--azure);}
 .nav-right{display:flex;align-items:center;gap:18px;}
 .nav-paid{font-size:14px;color:var(--grey);white-space:nowrap;}
 .nav-paid a{color:var(--navy);font-weight:600;text-decoration:underline;}
-.nav-paid a:hover{color:var(--gold);}@media(max-width:860px){.nav-paid{display:none;}}
+.nav-paid a:hover{color:var(--azure);}@media(max-width:860px){.nav-paid{display:none;}}
 .nav-cta{background:var(--navy);color:#fff;padding:9px 22px;border-radius:6px;font-size:14px;font-weight:600;transition:opacity 0.15s;}
 .nav-cta:hover{opacity:0.88;}@media(max-width:600px){.nav-links{display:none;}}
 
@@ -93,9 +93,6 @@ a.nav-logo:hover span{color:var(--azure);}
 /* A navy button vanishes on a navy background. On dark sections the primary
    button becomes gold with navy lettering - 6.97:1 against the section and
    6.97:1 for its own text. */
-section[style*="--navy"] .btn-primary{
-  background:var(--gold);color:var(--navy);
-}
 .final .btn-primary{background:var(--navy);color:#fff;}
 .hero .btn-primary{background:var(--navy);color:#fff;}
 .btn-primary:hover{opacity:0.88;}
@@ -113,7 +110,7 @@ section[style*="--navy"] .btn-primary{
 /* STEP WALKTHROUGH */
 .walkthrough{padding:80px 24px;background:var(--white);}
 .section-header{text-align:center;margin-bottom:56px;}
-.eyebrow{font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--grey);margin-bottom:10px;}
 .section-title{font-size:clamp(28px,4vw,42px);font-weight:800;color:var(--navy);letter-spacing:-0.02em;line-height:1.2;}
 .section-sub{font-size:15px;color:var(--grey);margin-top:10px;}
 
@@ -124,8 +121,8 @@ section[style*="--navy"] .btn-primary{
    unknown $29 product than another feature list. --------------------------- */
 .about{padding:76px 24px;background:var(--ice);border-top:1px solid var(--line);}
 .about-wrap{max-width:940px;margin:0 auto;display:grid;grid-template-columns:300px 1fr;
-  gap:40px;align-items:center;}
-.about-photo{width:100%;border-radius:14px;display:block;box-shadow:0 6px 28px rgba(1,35,109,0.14);}
+  gap:44px;align-items:stretch;}
+.about-photo{width:100%;height:100%;min-height:340px;object-fit:cover;object-position:center 22%;border-radius:14px;display:block;box-shadow:0 6px 28px rgba(1,35,109,0.14);}
 .about-copy .eyebrow{font-size:12px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;
   color:var(--grey);margin-bottom:10px;}
 .about-copy h2{font-size:clamp(24px,3vw,34px);font-weight:800;color:var(--navy);
@@ -137,7 +134,7 @@ section[style*="--navy"] .btn-primary{
 @media(max-width:760px){
   .about{padding:56px 20px;}
   .about-wrap{grid-template-columns:1fr;gap:26px;justify-items:center;text-align:center;}
-  .about-photo{max-width:280px;}
+  .about-photo{max-width:260px;height:auto;min-height:0;}
   .about-sign{text-align:left;}
 }
 .community{padding:76px 24px 72px;background:linear-gradient(135deg,#01236d 0%,#02306F 100%);color:white;text-align:center;}
@@ -151,12 +148,13 @@ section[style*="--navy"] .btn-primary{
 .community-desc{font-size:14px;color:var(--grey);line-height:1.65;max-width:330px;margin:0 auto;}
 .community-badge{display:inline-block;background:var(--gold);color:#01236D;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-top:16px;}
 .user-count{display:none;margin-bottom:10px;font-size:15px;color:var(--navy);font-weight:600;}
-.user-count strong{font-size:19px;font-weight:800;color:var(--gold);}
-.plan-figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:20px;}
-.plan-fig{background:var(--ice);border:1px solid #E3E8F0;border-radius:10px;padding:12px 14px;text-align:center;}
+.user-count strong{font-size:19px;font-weight:800;color:var(--navy);}
+.plan-figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;max-width:820px;margin:0 auto;}
+.plan-fig{background:var(--white);border:1px solid var(--line);border-radius:12px;padding:18px 16px;text-align:center;box-shadow:0 1px 3px rgba(41,56,74,0.06);}
 .plan-fig span{display:block;font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--grey);margin-bottom:4px;}
-.plan-fig strong{font-size:18px;font-weight:800;color:var(--navy);}
-.plan-more{text-align:center;margin-top:26px;}
+.plan-fig strong{font-size:24px;font-weight:800;color:var(--navy);}
+.plan-more{text-align:center;margin-top:30px;}
+.plan-more-note{font-size:14px;color:var(--grey);margin-top:14px;}
 .plan-more-link{display:inline-block;background:var(--navy);color:#fff;font-size:16px;font-weight:700;
   padding:14px 30px;border-radius:10px;text-decoration:none;}
 /* --- Demo video ---------------------------------------------------------
@@ -199,19 +197,19 @@ section[style*="--navy"] .btn-primary{
 .demo-play svg{margin-left:5px;}
 .demo-meta{text-align:center;margin-top:16px;font-size:14px;color:var(--grey);}@media(max-width:640px){.demo{padding:56px 18px;}.demo-play span{width:60px;height:60px;}}
 .plan-sample{background:var(--ice);padding:80px 24px;}
-.plan-doc{max-width:720px;margin:0 auto;background:white;border-radius:14px;box-shadow:0 4px 24px rgba(1,35,109,0.1);overflow:hidden;}
-.plan-doc-header{background:var(--navy);padding:32px;text-align:center;}
-.plan-doc-title{font-size:24px;font-weight:800;color:white;margin-bottom:4px;}
-.plan-doc-sub{font-size:13px;color:var(--gold);font-weight:500;margin-bottom:4px;}
-.plan-doc-date{font-size:12px;color:rgba(255,255,255,0.4);}
-.plan-doc-body{padding:28px 32px;}
-.plan-section{margin-bottom:24px;padding-bottom:24px;border-bottom:1px solid #FCFCFA;}
-.plan-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
-.plan-section h3{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:8px;padding-bottom:5px;border-bottom:2px solid var(--ice);}
-.plan-section p{font-size:13px;color:#29384A;line-height:1.7;margin-bottom:6px;}
-.plan-section ul{list-style:none;margin-top:6px;}
-.plan-section ul li{font-size:13px;color:#29384A;padding:3px 0;display:flex;gap:6px;}
-.plan-section ul li::before{content:"•";color:var(--gold);}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -252,20 +250,28 @@ section[style*="--navy"] .btn-primary{
 
 /* PRICING */
 .pricing{padding:80px 24px;background:var(--white);}
-.pricing-card{max-width:440px;margin:0 auto;background:white;border-radius:16px;box-shadow:0 8px 40px rgba(1,35,109,0.12);overflow:hidden;}
-.p-header{background:var(--navy);padding:36px;text-align:center;}
-.p-badge{display:inline-block;background:var(--gold);color:white;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:4px 12px;border-radius:20px;margin-bottom:16px;}
+.p-body-title{font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
+  color:var(--grey);margin-bottom:10px;}
+.pricing-card{max-width:960px;margin:0 auto;background:var(--white);border-radius:18px;box-shadow:0 8px 40px rgba(1,35,109,0.12);overflow:hidden;display:grid;grid-template-columns:340px 1fr;}
+.p-header{background:var(--navy);padding:40px 30px;text-align:center;display:flex;flex-direction:column;justify-content:center;}
+.p-badge{display:inline-block;background:var(--gold);color:var(--navy);font-size:11px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:16px;}
 .p-price{font-size:56px;font-weight:800;color:white;line-height:1;}
 .p-price sup{font-size:24px;vertical-align:top;margin-top:10px;display:inline-block;}
-.p-period{font-size:13px;color:rgba(255,255,255,0.55);margin-top:6px;}
-.p-body{padding:32px;}
-.p-list{list-style:none;margin-bottom:28px;}
-.p-list li{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:#29384A;padding:8px 0;border-bottom:1px solid #FCFCFA;}
+.p-period{font-size:13.5px;color:rgba(255,255,255,0.82);margin-top:8px;line-height:1.5;}
+.p-body{padding:36px 40px;display:flex;flex-direction:column;justify-content:center;}
+.p-list{list-style:none;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:2px 28px;}
+.p-list li{display:flex;align-items:flex-start;gap:10px;font-size:14.5px;color:var(--slate);padding:9px 0;border-bottom:1px solid var(--line);line-height:1.5;}
 .p-list li:last-child{border-bottom:none;}
 .p-check{color:var(--gold);font-weight:700;flex-shrink:0;}
-.p-cta{display:block;text-align:center;background:var(--navy);color:#fff;padding:15px;border-radius:8px;font-size:16px;font-weight:700;border:none;cursor:pointer;width:100%;transition:opacity 0.15s;}
+.p-cta{display:block;text-align:center;background:#fff;color:var(--navy);padding:15px;border-radius:10px;font-size:16px;font-weight:800;text-decoration:none;margin-top:22px;transition:filter .15s,transform .12s;}
+.p-cta:hover{filter:brightness(1.05);transform:translateY(-1px);}
+@media(max-width:820px){
+  .pricing-card{grid-template-columns:1fr;max-width:520px;}
+  .p-body{padding:28px 26px;}
+  .p-list{grid-template-columns:1fr;}
+}
 .p-cta:hover{opacity:0.88;}
-.p-note{text-align:center;font-size:12px;color:var(--grey);margin-top:14px;}
+.p-note{text-align:center;font-size:12.5px;color:rgba(255,255,255,0.78);margin-top:14px;}
 /* FINAL CTA */
 .final{background:var(--ice);padding:72px 24px;text-align:center;color:var(--navy);}
 .final h2{font-size:clamp(24px,4vw,36px);font-weight:800;margin-bottom:12px;letter-spacing:-0.02em;}
@@ -283,8 +289,8 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
   </a>
   <div class="nav-links">
     <a href="index.html#steps">How it works</a>
-    <a href="sample-plan.html">Sample output</a>
     <a href="index.html#pricing">Pricing</a>
+    <a href="sample-plan.html">Sample output</a>
     <a href="partners.html">Partners</a>
     <a href="resources.html">Resources</a>
     <a href="blog/index.html">Blog</a>
@@ -350,7 +356,7 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
 
 <section class="walkthrough" id="steps">
   <div class="section-header">
-    <div class="eyebrow" style="font-size:clamp(28px,4vw,42px);letter-spacing:0.04em;margin-bottom:14px;">How It Works</div>
+    <div class="eyebrow" style="font-size:clamp(15px,1.8vw,19px);font-weight:700;letter-spacing:0.12em;margin-bottom:12px;color:var(--navy);opacity:0.55;">How It Works</div>
     <h2 class="section-title" style="font-size:clamp(22px,3.5vw,40px);">Five simple steps - with the help of AI</h2>
   </div>
   <div class="steps-grid">
@@ -388,40 +394,27 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
 
 <section class="plan-sample" id="plan-sample">
   <div class="section-header">
-    <div class="eyebrow" style="font-size:clamp(28px,4vw,42px);letter-spacing:0.04em;margin-bottom:14px;">Sample Output</div>
+    <div class="eyebrow" style="font-size:clamp(15px,1.8vw,19px);font-weight:700;letter-spacing:0.12em;margin-bottom:12px;color:var(--navy);opacity:0.55;">Sample Output</div>
     <h2 class="section-title">Here's what you get</h2>
-    <p class="section-sub">A business plan - ready to share with banks, investors or your team.</p>
+    <p class="section-sub">A business plan and a 12-month cashflow forecast, ready to share with banks, investors or your team.</p>
   </div>
 
-  <div class="plan-doc">
-    <div class="plan-doc-header">
-      <div class="plan-doc-title">Rolling Beans</div>
-      <div class="plan-doc-sub">Business Plan and Cashflow Forecast</div>
-      <div class="plan-doc-date">August 2026</div>
-    </div>
-    <div class="plan-doc-body">
-      <div class="plan-section">
-        <h3>2. Market &amp; Customers</h3>
-        <p>The addressable market for Rolling Beans is best understood at a local rather than national level. Based on conservative estimates of 150 to 250 cups sold per market day, a consistent market presence across the year could realistically generate between $40,000 and $70,000 in annual revenue, with additional upside from private and corporate catering events.</p>
-        <p>Rolling Beans operates in a competitive environment that includes several credible alternatives. Caffeine Whangarei is a well-regarded CBD caf&eacute; with an established customer base and a reputation for consistent espresso quality, and those are genuine strengths that reflect real loyalty built over time&hellip;</p>
-      </div>
-      <div class="plan-figs">
-        <div class="plan-fig"><span>12-month revenue</span><strong>$41,613</strong></div>
-        <div class="plan-fig"><span>Net profit</span><strong>$23,997</strong></div>
-        <div class="plan-fig"><span>Gross margin</span><strong>75.0%</strong></div>
-        <div class="plan-fig"><span>Closing balance</span><strong>$29,063</strong></div>
-      </div>
-    </div>
+  <div class="plan-figs">
+    <div class="plan-fig"><span>12-month revenue</span><strong>$41,613</strong></div>
+    <div class="plan-fig"><span>Net profit</span><strong>$23,997</strong></div>
+    <div class="plan-fig"><span>Gross margin</span><strong>75.0%</strong></div>
+    <div class="plan-fig"><span>Closing balance</span><strong>$29,063</strong></div>
   </div>
 
   <div class="plan-more">
     <a href="sample-plan.html" class="plan-more-link">Sample Output - Full Plan &rarr;</a>
+    <div class="plan-more-note">Five sections, a 12-month cashflow and four charts &mdash; the real output for a mobile coffee business.</div>
   </div>
 </section>
 
 <section class="features" id="features">
   <div class="section-header">
-    <div class="eyebrow" style="font-size:clamp(28px,4vw,42px);letter-spacing:0.04em;margin-bottom:14px;">Everything Included</div>
+    <div class="eyebrow" style="font-size:clamp(15px,1.8vw,19px);font-weight:700;letter-spacing:0.12em;margin-bottom:12px;color:var(--navy);opacity:0.55;">Everything Included</div>
     <h2 class="section-title">All the tools you need</h2>
   </div>
   <div class="features-grid">
@@ -437,7 +430,7 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
 <!-- TESTIMONIALS -->
 <section class="testimonials">
   <div class="section-header">
-    <div class="eyebrow" style="font-size:clamp(28px,4vw,42px);letter-spacing:0.04em;margin-bottom:14px;">What Business Owners Say</div>
+    <div class="eyebrow" style="font-size:clamp(15px,1.8vw,19px);font-weight:700;letter-spacing:0.12em;margin-bottom:12px;color:var(--navy);opacity:0.55;">What Business Owners Say</div>
     <h2 class="section-title">Real businesses, real results</h2>
   </div>
   <div class="t-grid">
@@ -450,29 +443,30 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
 <!-- PRICING -->
 <section class="pricing" id="pricing">
   <div class="section-header">
-    <div class="eyebrow" style="font-size:clamp(28px,4vw,42px);letter-spacing:0.04em;margin-bottom:14px;">Simple Pricing</div>
+    <div class="eyebrow" style="font-size:clamp(15px,1.8vw,19px);font-weight:700;letter-spacing:0.12em;margin-bottom:12px;color:var(--navy);opacity:0.55;">Simple Pricing</div>
     <h2 class="section-title" style="font-size:clamp(20px,3vw,36px);">One price - no subscription - no hidden upgrade costs</h2>
   </div>
   <div class="pricing-card">
     <div class="p-header">
-      <div class="p-badge">Full Access — 3 Months</div>
+      <div class="p-badge">Full Access &mdash; 3 Months</div>
       <div class="p-price"><sup>$</sup>29</div>
-      <div class="p-period" style="font-size:15px;color:rgba(255,255,255,0.75);margin-top:8px;">One-time payment &bull; NZD &bull; less than $10 a month</div>
+      <div class="p-period">One-time payment &bull; NZD &bull; less than $10 a month</div>
+      <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="p-cta">Get Started</a>
+      <p class="p-note">Secure payment &bull; Instant access</p>
     </div>
     <div class="p-body">
+      <div class="p-body-title">Everything is included</div>
       <ul class="p-list">
-        <li><span class="p-check">✓</span> Simple 5-step business plan wizard</li>
-                <li><span class="p-check">✓</span> 12-month profit statement and cashflow forecast</li>
-        <li><span class="p-check">✓</span> Graphs and What If analysis</li>
-        <li><span class="p-check">✓</span> Download as Word document (.docx)</li>
-        <li><span class="p-check">✓</span> Save and return anytime for 3 months</li>
-        <li><span class="p-check">✓</span> Your information saves on your own device, not our servers</li>
-        <li><span class="p-check">✓</span> Export and import your data</li>
-        <li><span class="p-check">✓</span> Private WhatsApp community group</li>
-        <li><span class="p-check">✓</span> Free business planning seminars</li>
+        <li><span class="p-check">&#10003;</span> Simple 5-step business plan wizard</li>
+        <li><span class="p-check">&#10003;</span> 12-month profit statement and cashflow forecast</li>
+        <li><span class="p-check">&#10003;</span> Graphs and What If analysis</li>
+        <li><span class="p-check">&#10003;</span> Download as Word document (.docx)</li>
+        <li><span class="p-check">&#10003;</span> Save and return anytime for 3 months</li>
+        <li><span class="p-check">&#10003;</span> Your information saves on your own device, not our servers</li>
+        <li><span class="p-check">&#10003;</span> Export and import your data</li>
+        <li><span class="p-check">&#10003;</span> Private WhatsApp community group</li>
+        <li><span class="p-check">&#10003;</span> Free business planning seminars</li>
       </ul>
-      <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="p-cta">Get Started</a>
-      <p class="p-note">Secure payment &bull; Instant access after payment</p>
     </div>
   </div>
 </section>
@@ -480,7 +474,7 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
 <!-- COMMUNITY -->
 <section class="about" id="about">
   <div class="about-wrap">
-    <img class="about-photo" src="img/paula.jpg" alt="Paula Savage, founder of B-PlanDIY" width="468" height="995" loading="lazy"/>
+    <img class="about-photo" src="img/paula.jpg" alt="Paula Savage, founder of B-PlanDIY" width="600" height="800" loading="lazy"/>
     <div class="about-copy">
       <div class="eyebrow">Created by</div>
       <h2>Hi, I&rsquo;m Paula</h2>

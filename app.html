@@ -2552,7 +2552,7 @@ function App(){
       var dateStr=today.getDate()+" "+["January","February","March","April","May","June","July","August","September","October","November","December"][today.getMonth()]+" "+today.getFullYear();
       var html="<div style='text-align:center;padding:24px 0 32px;border-bottom:2px solid #EAF0F9;margin-bottom:28px'>";
       html+="<div style='font-size:26px;font-weight:800;color:#01236D;margin-bottom:8px'>"+(fdRef.current.bizName||"Business Plan")+"</div>";
-      html+="<div style='font-size:16px;font-weight:500;color:#D0B16F;margin-bottom:6px'>Business Plan and Cashflow Forecast</div>";
+      html+="<div style='font-size:16px;font-weight:500;color:#5A6C7E;margin-bottom:6px'>Business Plan and Cashflow Forecast</div>";
       html+="<div style='font-size:13px;color:#5A6C7E'>"+dateStr+"</div>";
       html+="</div>";
       var inList=false;var inOList=false;
@@ -2760,7 +2760,7 @@ function App(){
             Your backup has been saved to your <strong>Downloads</strong> folder as:
             <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:6,padding:"8px 10px",margin:"8px 0",fontSize:13,wordBreak:"break-all",color:"#01236D"}}>{backupName}</div>
           </div>
-          <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"12px 14px",marginBottom:16}}>
+          <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"12px 14px",marginBottom:16}}>
             <div style={{fontSize:15,fontWeight:700,color:"#01236D",marginBottom:6}}>Please don't try to open this file</div>
             <div style={{fontSize:13,color:"#29384A",lineHeight:1.6}}>
               It isn't a document, so there is nothing to read in it. If you double-click it your computer may show a confusing "File Conversion" window - just close that window, the file is still fine.
@@ -2896,7 +2896,7 @@ function App(){
   // now carry the gold accent used elsewhere for "read this", label where the
   // numbers came from, and say plainly when they are not being counted.
   function goalPanelShell(on){
-    return {border:"1px solid "+(on?"#E3E8F0":"#E3E8F0"),borderLeft:"5px solid #D0B16F",
+    return {border:"1px solid "+(on?"#E3E8F0":"#E3E8F0"),borderLeft:"5px solid #1B4FA8",
       background:on?"#EAF0F9":"#FCFCFA",borderRadius:12,padding:"14px 16px",marginBottom:16,
       boxShadow:"0 1px 3px rgba(41,56,74,0.07)"};
   }
@@ -3038,7 +3038,7 @@ function App(){
   function FinWarn(props){
     if(!props.show)return null;
     return (
-      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"9px 12px",marginTop:8,marginBottom:4}}>
+      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"9px 12px",marginTop:8,marginBottom:4}}>
         <span style={{fontSize:13,lineHeight:1.5,color:"#29384A"}}>{props.children}</span>
       </div>
     );
@@ -3373,7 +3373,7 @@ function App(){
     function toggle(k){setExpAiPick(function(p){var n=Object.assign({},p);n[k]=!n[k];return n;});}
     var rowStyle={display:"flex",gap:9,alignItems:"flex-start",padding:"8px 0",borderTop:"1px solid #E3E8F0"};
     return (
-      <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"13px 15px",marginBottom:14}}>
+      <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"13px 15px",marginBottom:14}}>
         <div style={{fontSize:13,color:"#29384A",lineHeight:1.55,marginBottom:4}}>
           Suggested running costs. Nothing is added until you press <strong style={{color:"#01236D"}}>Add ticked items</strong>. Categories you have already filled in start unticked.
           {activeTaxRate()>0?(" Figures exclude "+taxLabel()+"."):""}
@@ -3999,7 +3999,7 @@ function App(){
       return a+Math.round(base*rate/100);
     },0);
     return (
-      <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"13px 15px",marginTop:14}}>
+      <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"13px 15px",marginTop:14}}>
         <div style={{fontSize:11,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>
           How your {taxLabel()} is worked out
         </div>
@@ -4040,7 +4040,7 @@ function App(){
     var ok=!isNaN(raw)&&raw!==0;
     var excl=ok?exclOfTax(raw):null;
     return (
-      <div style={{fontSize:13,color:"#29384A",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"3px solid #D0B16F",borderRadius:6,padding:"8px 11px",marginBottom:12,lineHeight:1.5}}>
+      <div style={{fontSize:13,color:"#29384A",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"3px solid #1B4FA8",borderRadius:6,padding:"8px 11px",marginBottom:12,lineHeight:1.5}}>
         <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap"}}>
           <span style={{flex:"1 1 240px",minWidth:0}}>
             {subject||"Amounts"} in this section should <strong style={{color:"#01236D"}}>exclude</strong> {taxLabel()}.
@@ -4137,7 +4137,7 @@ function App(){
         <button style={{fontFamily:"inherit",fontSize:13,color:"#7A93B8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={clearDevice} title="Removes your plan and signs you out - for shared computers">Finish and clear this device</button>
         <button style={{fontFamily:"inherit",fontSize:13,color:"#7A93B8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Export data</button>
         <button style={{fontFamily:"inherit",fontSize:13,color:"#7A93B8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={importData}>Import data</button>
-        <button style={{fontFamily:"inherit",fontSize:13,color:"#D0B16F",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){setShowFeedback(true);}}>Give feedback</button>
+        <button style={{fontFamily:"inherit",fontSize:13,color:"#1B4FA8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){setShowFeedback(true);}}>Give feedback</button>
         <button style={{fontFamily:"inherit",fontSize:11,color:"#E3E8F0",background:"none",border:"none",cursor:"pointer"}} onClick={function(){setShowAdmin(true);}}>⚙</button>
       </div>
     );
@@ -4147,7 +4147,7 @@ function App(){
   function BrandingPanel(){
     var swatches=["01236D","2A9D9F","1F5C5D","B14A38","29384A","5F7183"];
     return (
-      <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderLeft:"4px solid #D0B16F",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+      <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
         <div style={{fontSize:11,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>Brand your Word document</div>
 
         <div style={{display:"flex",gap:14,alignItems:"center",flexWrap:"wrap",marginBottom:12}}>
@@ -4576,7 +4576,7 @@ function App(){
               <label htmlFor="chkTaxReg" style={{fontSize:15,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>Are you registered for {taxLabel()}?</label>
             </div>
             {taxReg
-              ?(<div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"11px 13px",marginTop:8}}>
+              ?(<div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"11px 13px",marginTop:8}}>
                   <span style={{fontSize:14,color:"#29384A",lineHeight:1.55}}>
                     <strong style={{color:"#01236D"}}>All amounts entered should exclude {taxLabel()}.</strong> Enter your sales, costs and expenses at their tax-exclusive value. The tax itself is worked out separately from the rate and payment months you set in section 3.
                   </span>
@@ -4650,7 +4650,7 @@ function App(){
               </div>
             )}
             {!taxReg&&(
-              <div style={{fontSize:13,color:"#5A6C7E",background:"#FCFCFA",border:"1px solid #E3E8F0",borderLeft:"3px solid #D0B16F",borderRadius:6,padding:"9px 12px",marginBottom:12,lineHeight:1.55}}>
+              <div style={{fontSize:13,color:"#5A6C7E",background:"#FCFCFA",border:"1px solid #E3E8F0",borderLeft:"3px solid #1B4FA8",borderRadius:6,padding:"9px 12px",marginBottom:12,lineHeight:1.55}}>
                 You have said you are not registered for {taxLabel()}, so nothing here applies and no tax is included in your forecast. Tick <strong style={{color:"#01236D"}}>Are you registered for {taxLabel()}?</strong> in section 1 to use it.
               </div>
             )}
@@ -4739,7 +4739,7 @@ function App(){
               if(c.id==="txTax"){
                 var taxTotal=liveRows.reduce(function(s,r){return s+(r.txDetail&&r.txDetail.txTax||0);},0);
                 return (<div key={c.id} style={{marginBottom:10}}>
-                  <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}<span style={{fontSize:11,color:"#D0B16F",marginLeft:8,fontWeight:400}}>Auto-calculated — not editable</span></div>
+                  <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}<span style={{fontSize:11,color:"#5A6C7E",marginLeft:8,fontWeight:400}}>Auto-calculated — not editable</span></div>
                   <div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"not-allowed"})}>
                     <span style={{fontSize:13}}>From the Tax rate and payment months above</span>
                     <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(taxTotal)}</span>
@@ -4939,7 +4939,7 @@ function App(){
               </div>
               <div style={{textAlign:"center",paddingBottom:24,marginBottom:24,borderBottom:"2px solid #EAF0F9"}}>
                 <div style={{fontSize:26,fontWeight:800,color:"#01236D",marginBottom:8}}>{fdRef.current.bizName||"Business Plan"}</div>
-                <div style={{fontSize:15,fontWeight:500,color:"#D0B16F",marginBottom:6}}>Business Plan and Cashflow Forecast</div>
+                <div style={{fontSize:15,fontWeight:600,color:"#5A6C7E",marginBottom:6}}>Business Plan and Cashflow Forecast</div>
                 <div style={{fontSize:13,color:"#5A6C7E"}}>{fmtDate(new Date().toISOString().slice(0,10))}</div>
               </div>
               {planHtml&&<div style={{overflowX:"auto",pointerEvents:"none",maxWidth:780,marginLeft:"auto",marginRight:"auto"}} dangerouslySetInnerHTML={{__html:planHtml}}/>}
@@ -4997,7 +4997,7 @@ function App(){
             onClick={function(e){e.stopPropagation();}}>
             <div style={{fontSize:15,fontWeight:700,color:"#01236D",marginBottom:12}}>Give feedback</div>
             <div style={{background:"#FCFCFA",borderRadius:6,padding:16,marginTop:8,border:"1px solid #E3E8F0"}}>
-          {fbDone?<div style={{textAlign:"center",color:"#D0B16F",fontSize:15,padding:"8px 0"}}>Thank you for your feedback!</div>:(
+          {fbDone?<div style={{textAlign:"center",color:"#1F7A7C",fontSize:15,fontWeight:600,padding:"8px 0"}}>Thank you for your feedback!</div>:(
             <div>
               <div style={{fontSize:13,fontWeight:500,color:"#29384A",marginBottom:8}}>How would you rate your experience?</div>
               <div style={{display:"flex",gap:6,marginBottom:12}}>

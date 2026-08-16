@@ -35,11 +35,11 @@ a.nav-logo:hover span{color:var(--azure);}
 .nav-logo img{width:72px;height:72px;object-fit:contain;}
 .nav-logo span{font-size:17px;font-weight:700;color:var(--navy);letter-spacing:-0.02em;}
 .nav-links{display:flex;gap:28px;font-size:15px;color:var(--navy);font-weight:700;}
-.nav-links a:hover{color:var(--gold);}
+.nav-links a:hover{color:var(--azure);}
 .nav-right{display:flex;align-items:center;gap:18px;}
 .nav-paid{font-size:14px;color:var(--grey);white-space:nowrap;}
 .nav-paid a{color:var(--navy);font-weight:600;text-decoration:underline;}
-.nav-paid a:hover{color:var(--gold);}
+.nav-paid a:hover{color:var(--azure);}
 @media(max-width:860px){.nav-paid{display:none;}}
 .nav-cta{background:var(--navy);color:#fff;padding:9px 22px;border-radius:6px;font-size:14px;font-weight:600;transition:opacity 0.15s;}
 .nav-cta:hover{opacity:0.88;}
@@ -61,9 +61,7 @@ a.nav-logo:hover span{color:var(--azure);}
 /* A navy button vanishes on a navy background. On dark sections the primary
    button becomes gold with navy lettering - 6.97:1 against the section and
    6.97:1 for its own text. */
-.hero .btn-primary, section[style*="--navy"] .btn-primary{
-  background:var(--gold);color:var(--navy);
-}
+
 .final .btn-primary{background:var(--navy);color:#fff;}
 /* The enquiry form sits on a white card inside the navy section, so its
    button stays navy - gold on white would be unreadable. */
@@ -113,7 +111,7 @@ a.nav-logo:hover span{color:var(--azure);}
 /* STEP WALKTHROUGH */
 .walkthrough{padding:80px 24px;background:var(--white);}
 .section-header{text-align:center;margin-bottom:56px;}
-.eyebrow{font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--grey);margin-bottom:10px;}
 .section-title{font-size:clamp(28px,4vw,42px);font-weight:800;color:var(--navy);letter-spacing:-0.02em;line-height:1.2;}
 .section-sub{font-size:15px;color:var(--grey);margin-top:10px;}
 
@@ -220,7 +218,7 @@ a.nav-logo:hover span{color:var(--azure);}
 .p-list li{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:#29384A;padding:8px 0;border-bottom:1px solid #FCFCFA;}
 .p-list li:last-child{border-bottom:none;}
 .p-check{color:var(--gold);font-weight:700;flex-shrink:0;}
-.p-cta{display:block;text-align:center;background:var(--gold);color:white;padding:15px;border-radius:8px;font-size:16px;font-weight:700;border:none;cursor:pointer;width:100%;transition:opacity 0.15s;}
+.p-cta{display:block;text-align:center;background:#fff;color:var(--navy);padding:15px;border-radius:8px;font-size:16px;font-weight:700;border:none;cursor:pointer;width:100%;transition:opacity 0.15s;}
 .p-cta:hover{opacity:0.88;}
 .p-note{text-align:center;font-size:12px;color:var(--grey);margin-top:14px;}
 
@@ -273,8 +271,8 @@ footer a{color:var(--navy);text-decoration:underline;}
   </a>
   <div class="nav-links">
     <a href="./index.html#steps">How it works</a>
-    <a href="./index.html#plan-sample">Sample output</a>
     <a href="./index.html#pricing">Pricing</a>
+    <a href="./sample-plan.html">Sample output</a>
     <a href="./partners.html">Partners</a>
     <a href="./resources.html">Resources</a>
     <a href="./blog/index.html">Blog</a>

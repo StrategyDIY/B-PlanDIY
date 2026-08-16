@@ -34,11 +34,11 @@ a.nav-logo:hover span{color:var(--azure);}
 .nav-logo img{width:72px;height:72px;object-fit:contain;}
 .nav-logo span{font-size:17px;font-weight:700;color:var(--navy);letter-spacing:-0.02em;}
 .nav-links{display:flex;gap:28px;font-size:15px;color:var(--navy);font-weight:700;}
-.nav-links a:hover{color:var(--gold);}
+.nav-links a:hover{color:var(--azure);}
 .nav-right{display:flex;align-items:center;gap:18px;}
 .nav-paid{font-size:14px;color:var(--grey);white-space:nowrap;}
 .nav-paid a{color:var(--navy);font-weight:600;text-decoration:underline;}
-.nav-paid a:hover{color:var(--gold);}
+.nav-paid a:hover{color:var(--azure);}
 .nav-cta{background:var(--navy);color:#fff;padding:9px 22px;border-radius:6px;font-size:14px;font-weight:600;transition:opacity 0.15s;}
 .nav-cta:hover{opacity:0.88;}
 
@@ -57,9 +57,6 @@ a.nav-logo:hover span{color:var(--azure);}
 /* A navy button vanishes on a navy background. On dark sections the primary
    button becomes gold with navy lettering - 6.97:1 against the section and
    6.97:1 for its own text. */
-section[style*="--navy"] .btn-primary{
-  background:var(--gold);color:var(--navy);
-}
 /* Hero block: one wrapper sets the width, both rows fill it exactly.
    Grid 1fr 1fr guarantees two equal columns - no flex basis, no per-cell
    max-width, and no inline-block shrink-to-fit to work around. */
@@ -122,7 +119,7 @@ footer a{color:var(--navy);text-decoration:underline;}
 .doc-head{text-align:center;padding:40px 28px 30px;border-bottom:2px solid var(--ice);}
 .doc-logo{display:block;width:110px;height:110px;object-fit:contain;margin:0 auto 18px;border-radius:10px;}
 .doc-head .name{font-size:28px;font-weight:800;color:var(--navy);margin-bottom:8px;}
-.doc-head .kind{font-size:16px;font-weight:500;color:var(--gold);margin-bottom:6px;}
+.doc-head .kind{font-size:16px;font-weight:600;color:var(--grey);margin-bottom:6px;}
 .doc-head .date{font-size:13px;color:var(--grey);}
 .doc-body{padding:30px 34px 38px;}
 .doc-body h2{font-size:19px;font-weight:700;color:var(--navy);margin:30px 0 12px;
@@ -179,8 +176,8 @@ table.cf tr.hl td{background:#1F7A7C;color:#fff;font-weight:700;}
   </a>
   <div class="nav-links">
     <a href="index.html#steps">How it works</a>
-    <a href="sample-plan.html">Sample output</a>
     <a href="index.html#pricing">Pricing</a>
+    <a href="sample-plan.html">Sample output</a>
     <a href="partners.html">Partners</a>
     <a href="resources.html">Resources</a>
     <a href="blog/index.html">Blog</a>
