@@ -44,7 +44,6 @@ a.nav-logo:hover span{color:var(--azure);}
 .nav-cta:hover{opacity:0.88;}@media(max-width:600px){.nav-links{display:none;}}
 
 /* HERO */
-.hero h1{font-size:clamp(14px,1.6vw,18px);font-weight:600;line-height:1.3;letter-spacing:-0.01em;margin-bottom:20px;max-width:600px;margin-left:auto;margin-right:auto;}
 .hero h1 em{color:#fff;font-style:normal;}
 /* ---- Hero: two columns, text left, rotating illustration right ---- */
 .hero{background:var(--white);color:var(--navy);padding:0;text-align:left;position:relative;overflow:hidden;}
@@ -122,7 +121,7 @@ a.nav-logo:hover span{color:var(--azure);}
 .about{padding:76px 24px;background:var(--ice);border-top:1px solid var(--line);}
 .about-wrap{max-width:940px;margin:0 auto;display:grid;grid-template-columns:300px 1fr;
   gap:44px;align-items:stretch;}
-.about-photo{width:100%;height:100%;min-height:340px;object-fit:cover;object-position:center 22%;border-radius:14px;display:block;box-shadow:0 6px 28px rgba(1,35,109,0.14);}
+.about-photo{width:100%;height:100%;min-height:340px;object-fit:cover;object-position:center top;border-radius:14px;display:block;box-shadow:0 6px 28px rgba(1,35,109,0.14);}
 .about-copy .eyebrow{font-size:12px;font-weight:700;letter-spacing:0.09em;text-transform:uppercase;
   color:var(--grey);margin-bottom:10px;}
 .about-copy h2{font-size:clamp(24px,3vw,34px);font-weight:800;color:var(--navy);
@@ -183,7 +182,7 @@ a.nav-logo:hover span{color:var(--azure);}
    replicas of them no longer earn their space. ---------------------------- */
 .steps-grid{max-width:1000px;margin:0 auto;display:grid;gap:16px;
   grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}
-.step-card{background:var(--white);border:1px solid var(--line);border-left:4px solid var(--gold);
+.step-card{background:var(--white);border:1px solid var(--line);border-left:4px solid var(--azure);
   border-radius:12px;padding:20px 22px;box-shadow:0 1px 3px rgba(41,56,74,0.06);
   transition:transform .15s ease, box-shadow .15s ease;}
 .step-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(1,35,109,0.09);}
@@ -251,8 +250,9 @@ a.nav-logo:hover span{color:var(--azure);}
 /* TESTIMONIALS */
 .testimonials{padding:80px 24px;background:var(--ice);}
 .t-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;max-width:960px;margin:0 auto;}
-.t-card{background:var(--ice);border-radius:12px;padding:28px;border-left:3px solid var(--gold);}
-.t-text{font-size:14px;color:#29384A;line-height:1.7;margin-bottom:18px;font-style:italic;}
+.t-card{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:26px 26px 22px;box-shadow:0 2px 10px rgba(41,56,74,0.06);display:flex;flex-direction:column;}
+.t-text{flex:1;}
+.t-text{font-size:14.5px;color:var(--slate);line-height:1.75;margin-bottom:20px;font-style:italic;}
 .t-author{display:flex;align-items:center;gap:10px;}
 .t-avatar{width:36px;height:36px;border-radius:50%;background:var(--navy);color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .t-name{font-size:13px;font-weight:600;color:var(--navy);}
@@ -272,7 +272,7 @@ a.nav-logo:hover span{color:var(--azure);}
 .p-list{list-style:none;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:2px 28px;}
 .p-list li{display:flex;align-items:flex-start;gap:10px;font-size:14.5px;color:var(--slate);padding:9px 0;border-bottom:1px solid var(--line);line-height:1.5;}
 .p-list li:last-child{border-bottom:none;}
-.p-check{color:var(--gold);font-weight:700;flex-shrink:0;}
+.p-check{color:var(--pos);font-weight:700;flex-shrink:0;}
 .p-cta{display:block;text-align:center;background:#fff;color:var(--navy);padding:15px;border-radius:10px;font-size:16px;font-weight:800;text-decoration:none;margin-top:22px;transition:filter .15s,transform .12s;}
 .p-cta:hover{filter:brightness(1.05);transform:translateY(-1px);}
 @media(max-width:820px){
@@ -492,7 +492,6 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
   <div class="about-wrap">
     <img class="about-photo" src="img/paula.jpg" alt="Paula Savage, founder of B-PlanDIY" width="600" height="800" loading="lazy"/>
     <div class="about-copy">
-      <div class="eyebrow">Created by</div>
       <h2>Hi, I&rsquo;m Paula</h2>
       <p>After decades of working with businesses on planning and forecasts, filling out separate templates and complex spreadsheets, I thought there must be an easier way.</p>
       <p>So I built B-PlanDIY: five simple steps, plain English, and an integrated business plan and cashflow forecast at the end of it. One payment, no subscription, and it takes less than an hour.</p>
