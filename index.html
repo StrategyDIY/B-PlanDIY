@@ -53,7 +53,7 @@ a.nav-logo:hover span{color:var(--azure);}
 .hero-badge{display:inline-flex;align-items:center;gap:10px;background:var(--ice);border-radius:999px;padding:8px 18px;margin-bottom:26px;
   font-size:13px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--azure);}
 .hero-badge svg{flex-shrink:0;}
-.hero-title{font-size:clamp(30px,4.2vw,52px);font-weight:800;color:var(--navy);line-height:1.14;letter-spacing:-0.02em;margin-bottom:20px;}
+.hero-title{font-size:28px;font-weight:800;color:var(--navy);line-height:1.25;letter-spacing:-0.01em;margin-bottom:20px;}
 .hero-lede{font-size:clamp(16px,1.4vw,19px);color:var(--grey);line-height:1.6;margin-bottom:30px;max-width:520px;}
 .hero-ctas{display:flex;gap:20px;flex-wrap:wrap;align-items:center;margin-bottom:36px;}
 /* Direct children only. A bare `.hero-ctas a` also caught the "Verify your
@@ -109,7 +109,10 @@ a.nav-logo:hover span{color:var(--azure);}
 /* STEP WALKTHROUGH */
 .walkthrough{padding:80px 24px;background:var(--white);}
 .section-header{text-align:center;margin-bottom:56px;}
+.eyebrow-lg{font-size:clamp(15px,1.8vw,19px);font-weight:700;letter-spacing:0.12em;margin-bottom:12px;color:var(--navy);opacity:0.55;}
+.community .eyebrow-lg{color:rgba(255,255,255,0.62);opacity:1;}
 .eyebrow{font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--grey);margin-bottom:10px;}
+.section-title-sm{font-size:clamp(21px,3.2vw,34px);}
 .section-title{font-size:clamp(28px,4vw,42px);font-weight:800;color:var(--navy);letter-spacing:-0.02em;line-height:1.2;}
 .section-sub{font-size:15px;color:var(--grey);margin-top:10px;}
 
@@ -140,7 +143,7 @@ a.nav-logo:hover span{color:var(--azure);}
 .community .section-title{color:white;font-size:clamp(22px,3vw,32px);margin-bottom:10px;}
 .community .section-sub{color:rgba(255,255,255,0.7);max-width:600px;margin:0 auto 40px;}
 .community-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;max-width:820px;margin:0 auto;}
-.community-card{background:#fff;border:1px solid rgba(208,177,111,0.5);border-radius:16px;padding:30px 26px 26px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,0.18);transition:transform 0.2s,box-shadow 0.2s;}
+.community-card{background:#fff;border:1px solid rgba(255,255,255,0.5);border-radius:16px;padding:30px 26px 26px;text-align:center;box-shadow:0 6px 24px rgba(0,0,0,0.18);transition:transform 0.2s,box-shadow 0.2s;}
 .community-card:hover{transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,0.24);}
 .community-icon{width:54px;height:54px;background:var(--ice);border:1px solid #E3E8F0;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;}
 .community-title{font-size:17px;font-weight:700;color:var(--navy);margin-bottom:9px;}
@@ -182,7 +185,7 @@ a.nav-logo:hover span{color:var(--azure);}
    replicas of them no longer earn their space. ---------------------------- */
 .steps-grid{max-width:1000px;margin:0 auto;display:grid;gap:16px;
   grid-template-columns:repeat(auto-fit,minmax(280px,1fr));}
-.step-card{background:var(--white);border:1px solid var(--line);border-left:4px solid var(--azure);
+.step-card{background:var(--ice);border:1px solid var(--line);border-left:4px solid var(--azure);
   border-radius:12px;padding:20px 22px;box-shadow:0 1px 3px rgba(41,56,74,0.06);
   transition:transform .15s ease, box-shadow .15s ease;}
 .step-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(1,35,109,0.09);}
@@ -241,8 +244,8 @@ a.nav-logo:hover span{color:var(--azure);}
 /* FEATURES GRID */
 .features{padding:80px 24px;background:var(--white);}
 .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;max-width:960px;margin:0 auto;}
-.feature-card{background:white;border-radius:12px;padding:24px;border:1px solid #E3E8F0;transition:border-color 0.2s,box-shadow 0.2s;}
-.feature-card:hover{border-color:var(--gold);box-shadow:0 4px 16px rgba(208,177,111,0.15);}
+.feature-card{background:var(--ice);border-radius:12px;padding:24px;border:1px solid var(--line);transition:border-color 0.2s,box-shadow 0.2s,transform 0.15s;}
+.feature-card:hover{border-color:var(--azure);box-shadow:0 4px 16px rgba(27,79,168,0.14);transform:translateY(-2px);}
 .feature-icon{font-size:24px;margin-bottom:12px;}
 .feature-title{font-size:15px;font-weight:700;color:var(--navy);margin-bottom:5px;}
 .feature-desc{font-size:13px;color:var(--grey);line-height:1.6;}
@@ -251,8 +254,8 @@ a.nav-logo:hover span{color:var(--azure);}
 .testimonials{padding:80px 24px;background:var(--ice);}
 .t-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px;max-width:960px;margin:0 auto;}
 .t-card{background:var(--white);border:1px solid var(--line);border-radius:14px;padding:26px 26px 22px;box-shadow:0 2px 10px rgba(41,56,74,0.06);display:flex;flex-direction:column;}
-.t-text{flex:1;}
-.t-text{font-size:14.5px;color:var(--slate);line-height:1.75;margin-bottom:20px;font-style:italic;}
+
+.t-text{flex:1;font-size:14.5px;color:var(--slate);line-height:1.75;margin-bottom:20px;font-style:italic;}
 .t-author{display:flex;align-items:center;gap:10px;}
 .t-avatar{width:36px;height:36px;border-radius:50%;background:var(--navy);color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .t-name{font-size:13px;font-weight:600;color:var(--navy);}
@@ -262,25 +265,25 @@ a.nav-logo:hover span{color:var(--azure);}
 .pricing{padding:80px 24px;background:var(--white);}
 .p-body-title{font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
   color:var(--grey);margin-bottom:10px;}
-.pricing-card{max-width:960px;margin:0 auto;background:var(--white);border-radius:18px;box-shadow:0 8px 40px rgba(1,35,109,0.12);overflow:hidden;display:grid;grid-template-columns:340px 1fr;}
+.pricing-card{max-width:960px;margin:0 auto;background:var(--ice);border-radius:18px;box-shadow:0 8px 40px rgba(1,35,109,0.12);overflow:hidden;display:grid;grid-template-columns:340px 1fr;}
 .p-header{background:var(--navy);padding:40px 30px;text-align:center;display:flex;flex-direction:column;justify-content:center;}
 .p-badge{display:inline-block;background:var(--gold);color:var(--navy);font-size:11px;font-weight:800;letter-spacing:0.06em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:16px;}
 .p-price{font-size:56px;font-weight:800;color:white;line-height:1;}
 .p-price sup{font-size:24px;vertical-align:top;margin-top:10px;display:inline-block;}
 .p-period{font-size:13.5px;color:rgba(255,255,255,0.82);margin-top:8px;line-height:1.5;}
-.p-body{padding:36px 40px;display:flex;flex-direction:column;justify-content:center;}
+.p-body{padding:36px 40px;display:flex;flex-direction:column;justify-content:center;background:var(--ice);}
 .p-list{list-style:none;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:2px 28px;}
-.p-list li{display:flex;align-items:flex-start;gap:10px;font-size:14.5px;color:var(--slate);padding:9px 0;border-bottom:1px solid var(--line);line-height:1.5;}
+.p-list li{display:flex;align-items:flex-start;gap:10px;font-size:14.5px;color:var(--slate);padding:9px 0;border-bottom:1px solid rgba(1,35,109,0.09);line-height:1.5;}
 .p-list li:last-child{border-bottom:none;}
-.p-check{color:var(--pos);font-weight:700;flex-shrink:0;}
+.p-check{color:#1C6E70;font-weight:700;flex-shrink:0;}
 .p-cta{display:block;text-align:center;background:#fff;color:var(--navy);padding:15px;border-radius:10px;font-size:16px;font-weight:800;text-decoration:none;margin-top:22px;transition:filter .15s,transform .12s;}
-.p-cta:hover{filter:brightness(1.05);transform:translateY(-1px);}
+.p-cta:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,0,0,0.22);}
 @media(max-width:820px){
   .pricing-card{grid-template-columns:1fr;max-width:520px;}
   .p-body{padding:28px 26px;}
   .p-list{grid-template-columns:1fr;}
 }
-.p-cta:hover{opacity:0.88;}
+
 .p-note{text-align:center;font-size:12.5px;color:rgba(255,255,255,0.78);margin-top:14px;}
 /* FINAL CTA */
 .final{background:var(--ice);padding:72px 24px;text-align:center;color:var(--navy);}
@@ -348,7 +351,7 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
 <section class="demo" id="demo">
   <div class="section-header">
     <div class="eyebrow">See it in action</div>
-    <h2 class="section-title" style="font-size:clamp(22px,3.5vw,36px);">Watch a plan and cashflow built from scratch</h2>
+    <h2 class="section-title section-title-sm">Watch a plan and cashflow built from scratch</h2>
     <div class="section-sub">Just over a minute - start to finish.</div>
   </div>
   <div class="demo-frame">
@@ -366,8 +369,8 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
 
 <section class="walkthrough" id="steps">
   <div class="section-header">
-    <div class="eyebrow" style="font-size:clamp(15px,1.8vw,19px);font-weight:700;letter-spacing:0.12em;margin-bottom:12px;color:var(--navy);opacity:0.55;">How It Works</div>
-    <h2 class="section-title" style="font-size:clamp(22px,3.5vw,40px);">Five simple steps - with the help of AI</h2>
+    <div class="eyebrow eyebrow-lg">How It Works</div>
+    <h2 class="section-title section-title-sm">Five simple steps - with the help of AI</h2>
   </div>
   <div class="steps-grid">
     <div class="step-card">
@@ -404,7 +407,7 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
 
 <section class="plan-sample" id="plan-sample">
   <div class="section-header">
-    <div class="eyebrow" style="font-size:clamp(15px,1.8vw,19px);font-weight:700;letter-spacing:0.12em;margin-bottom:12px;color:var(--navy);opacity:0.55;">Sample Output</div>
+    <div class="eyebrow eyebrow-lg">Sample Output</div>
     <h2 class="section-title">Here's what you get</h2>
     <p class="section-sub">A business plan and a 12-month cashflow forecast, ready to share with banks, investors or your team.</p>
   </div>
@@ -430,7 +433,7 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
 
 <section class="features" id="features">
   <div class="section-header">
-    <div class="eyebrow" style="font-size:clamp(15px,1.8vw,19px);font-weight:700;letter-spacing:0.12em;margin-bottom:12px;color:var(--navy);opacity:0.55;">Everything Included</div>
+    <div class="eyebrow eyebrow-lg">Everything Included</div>
     <h2 class="section-title">All the tools you need</h2>
   </div>
   <div class="features-grid">
@@ -446,7 +449,7 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
 <!-- TESTIMONIALS -->
 <section class="testimonials">
   <div class="section-header">
-    <div class="eyebrow" style="font-size:clamp(15px,1.8vw,19px);font-weight:700;letter-spacing:0.12em;margin-bottom:12px;color:var(--navy);opacity:0.55;">What Business Owners Say</div>
+    <div class="eyebrow eyebrow-lg">What Business Owners Say</div>
     <h2 class="section-title">Real businesses, real results</h2>
   </div>
   <div class="t-grid">
@@ -459,8 +462,8 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
 <!-- PRICING -->
 <section class="pricing" id="pricing">
   <div class="section-header">
-    <div class="eyebrow" style="font-size:clamp(15px,1.8vw,19px);font-weight:700;letter-spacing:0.12em;margin-bottom:12px;color:var(--navy);opacity:0.55;">Simple Pricing</div>
-    <h2 class="section-title" style="font-size:clamp(20px,3vw,36px);">One price - no subscription - no hidden upgrade costs</h2>
+    <div class="eyebrow eyebrow-lg">Simple Pricing</div>
+    <h2 class="section-title section-title-sm">One price - no subscription - no hidden upgrade costs</h2>
   </div>
   <div class="pricing-card">
     <div class="p-header">
@@ -503,7 +506,7 @@ footer a{color:var(--navy);text-decoration:underline;}</style>
 
 <section class="community">
   <div class="section-header">
-    <div class="eyebrow" style="color:rgba(208,177,111,0.8);font-size:clamp(28px,4vw,42px);letter-spacing:0.04em;margin-bottom:14px;">Included With Your Plan</div>
+    <div class="eyebrow eyebrow-lg">Included With Your Plan</div>
     <h2 class="section-title">You're not on your own</h2>
     <p class="section-sub">When you sign up to B-PlanDIY you get more than just software — you join a community of small business owners who are figuring it out together. And you get access to as many free online seminars as you need.</p>
   </div>
