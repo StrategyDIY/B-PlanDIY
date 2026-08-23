@@ -22,6 +22,9 @@
 [functions."user-count"]
   timeout = 10
 
+[functions."stripe-webhook"]
+  timeout = 10
+
 [functions."send-reminders"]
   schedule = "@daily"
 
@@ -43,4 +46,9 @@
 [[redirects]]
   from = "/api/user-count"
   to = "/.netlify/functions/user-count"
+  status = 200
+
+[[redirects]]
+  from = "/api/stripe-webhook"
+  to = "/.netlify/functions/stripe-webhook"
   status = 200
