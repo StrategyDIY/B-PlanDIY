@@ -249,6 +249,28 @@ function showSuccessState(){
   if (cs) cs.textContent = 'One thing to check before you begin';
 }
 
+// Shown when the payment could not be confirmed, or the save failed. This used
+// to grant access anyway on any error, which meant the page handed out the app
+// to anyone who opened it with the network blocked.
+function showProblemState(message) {
+  var btn = document.getElementById('submitBtn');
+  btn.textContent = 'Try again';
+  btn.disabled = false;
+  var box = document.getElementById('problemMsg');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'problemMsg';
+    box.style.cssText = 'margin-top:16px;padding:14px;border-radius:8px;font-size:14px;' +
+      'background:#FDEEEB;color:#B14A38;border:1px solid #F2CFC7;line-height:1.6;';
+    document.getElementById('welcomeForm').appendChild(box);
+  }
+  box.innerHTML = (message
+    ? String(message).replace(/</g, '&lt;')
+    : 'We could not complete that just now.') +
+    ' <a href="/verify.html" style="color:#01236d;font-weight:600;">Restore your access here</a>' +
+    ' or email <a href="mailto:support@b-plandiy.com" style="color:#01236d;font-weight:600;">support@b-plandiy.com</a>.';
+}
+
 document.getElementById('welcomeForm').addEventListener('submit', function(e) {
   e.preventDefault();
 
@@ -278,26 +300,34 @@ document.getElementById('welcomeForm').addEventListener('submit', function(e) {
   var data = {};
   formData.forEach(function(value, key) { data[key] = value; });
 
-  fetch('/.netlify/functions/save-user', {
+  // The form field holds the local number only; the country code lives in a
+  // separate select. Sending the raw field recorded "021 123 4567" in Airtable
+  // with no way to tell which country it belonged to.
+  data.phone = phone;
+
+  // Proof of payment. Stripe puts this on the return URL, and the server
+  // checks it with Stripe before it will issue access to anyone.
+  data.session_id = new URLSearchParams(window.location.search).get('session_id') || '';
+
+  fetch('/api/save-user', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
   })
   .then(function(response) { return response.json(); })
   .then(function(result) {
-    var expiry = result.expiry || (Date.now() + (90 * 24 * 60 * 60 * 1000));
-    localStorage.setItem('bpd_access_expiry', String(expiry));
+    if (!result || !result.success || !result.token) {
+      showProblemState(result && result.message);
+      return;
+    }
+    localStorage.setItem('bpd_access_expiry', String(result.expiry));
     // The token is what actually unlocks the AI features; only the server can
     // mint one, so there is nothing to fall back to if it is missing.
-    if (result.token) localStorage.setItem('bpd_access_token', result.token);
+    localStorage.setItem('bpd_access_token', result.token);
     showSuccessState();
   })
   .catch(function() {
-    // The payment went through, so the app still opens. Without a token the AI
-    // features will ask them to verify their email, which reissues one.
-    var expiry = Date.now() + (90 * 24 * 60 * 60 * 1000);
-    localStorage.setItem('bpd_access_expiry', String(expiry));
-    showSuccessState();
+    showProblemState();
   });
 });
 </script>
