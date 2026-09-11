@@ -109,7 +109,15 @@ exports.handler = async (event) => {
     return { statusCode: 200, body: JSON.stringify({ error: 'no email' }) };
   }
 
-  const expiryTimestamp = Date.now() + (90 * 24 * 60 * 60 * 1000);
+  const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000;
+  // Deliberately a flat ninety days from today rather than an extension of any
+  // remaining access. Neither this function nor save-user records which payment
+  // it has already applied, and both can run more than once for a single one -
+  // Stripe retries webhook deliveries, and a customer can resubmit the thank-you
+  // form. Adding to the existing expiry would compound on every repeat; setting
+  // it makes a repeat harmless. The cost is that renewing early forfeits the
+  // days still left, so a customer is better off renewing near their expiry.
+  const expiryTimestamp = Date.now() + NINETY_DAYS;
   const paymentDate = new Date().toISOString().slice(0, 10);
 
   try {
@@ -121,8 +129,44 @@ exports.handler = async (event) => {
       { headers: { 'Authorization': `Bearer ${process.env.AIRTABLE_TOKEN}` } }
     );
     const existing = await lookup.json().catch(function () { return {}; });
-    if (lookup.ok && existing.records && existing.records.length) {
-      return { statusCode: 200, body: JSON.stringify({ ok: true, alreadyRecorded: true }) };
+    const prior = (lookup.ok && existing.records && existing.records[0]) || null;
+
+    // A returning customer already has a row. Skipping them here - which is what
+    // this used to do - took the $29 and gave nothing back: the expiry stayed
+    // where it was, and ReminderSent stayed true, so they were never reminded
+    // again either. Now the row is moved forward instead.
+    if (prior) {
+      const renew = await fetch(
+        `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${TABLE}/${prior.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${process.env.AIRTABLE_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fields: {
+              PaymentDate: paymentDate,
+              ExpiryTimestamp: expiryTimestamp,
+              ReminderSent: false
+            }
+          })
+        }
+      );
+
+      if (!renew.ok) {
+        const detail = await renew.json().catch(function () { return {}; });
+        await alertSupport('Renewal not applied for a paying customer', [
+          '<strong>Email:</strong> ' + email,
+          '<strong>Paid:</strong> ' + paymentDate,
+          '<strong>Expiry should now be:</strong> ' + new Date(expiryTimestamp).toDateString(),
+          '<strong>Airtable said:</strong> ' + renew.status + ' ' +
+            ((detail.error && (detail.error.message || detail.error.type)) || 'no detail')
+        ]);
+        return { statusCode: 200, body: JSON.stringify({ ok: false, renewal: renew.status }) };
+      }
+
+      return { statusCode: 200, body: JSON.stringify({ ok: true, renewed: email, expiry: expiryTimestamp }) };
     }
 
     const res = await fetch(
