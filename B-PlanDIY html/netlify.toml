@@ -1,0 +1,54 @@
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# anthropic does NOT stream - it awaits the full Anthropic response and returns
+# it in one piece, so Netlify's synchronous cap applies in full. 26 is the
+# maximum allowed. Plan generation stays inside it by splitting the work into
+# three smaller requests sent in parallel from the client; a single request
+# covering the whole plan used to hit the cap and return a 504.
+[functions."anthropic"]
+  timeout = 26
+
+[functions."save-user"]
+  timeout = 26
+
+[functions."verify-user"]
+  timeout = 10
+
+[functions."user-count"]
+  timeout = 10
+
+[functions."stripe-webhook"]
+  timeout = 10
+
+[functions."send-reminders"]
+  schedule = "@daily"
+
+[[redirects]]
+  from = "/api/anthropic"
+  to = "/.netlify/functions/anthropic"
+  status = 200
+
+[[redirects]]
+  from = "/api/save-user"
+  to = "/.netlify/functions/save-user"
+  status = 200
+
+[[redirects]]
+  from = "/api/verify-user"
+  to = "/.netlify/functions/verify-user"
+  status = 200
+
+[[redirects]]
+  from = "/api/user-count"
+  to = "/.netlify/functions/user-count"
+  status = 200
+
+[[redirects]]
+  from = "/api/stripe-webhook"
+  to = "/.netlify/functions/stripe-webhook"
+  status = 200
