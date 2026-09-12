@@ -2530,9 +2530,17 @@ function App(){
         if(r.revenue<mRows[minRev].revenue)minRev=i;
         if(r.revenue>mRows[maxRev].revenue)maxRev=i;
       });
+      var tRev=0,tProf=0,tUnits=0;
+      mRows.forEach(function(r){tRev+=r.revenue;tProf+=r.netProfit;tUnits+=r.units;});
       monthlyText="\n\nCALCULATED MONTHLY FORECAST (these are the actual figures in the plan):\n"+monthlyText+
         "Lowest closing cash: "+mRows[lowIdx].month+" at $"+Math.round(mRows[lowIdx].closingBalance)+". "+
-        "Weakest revenue month: "+mRows[minRev].month+". Strongest: "+mRows[maxRev].month+".";
+        "Weakest revenue month: "+mRows[minRev].month+". Strongest: "+mRows[maxRev].month+".\n"+
+        "FORECAST TOTALS - use these, not figures from the market research: "+
+        "annual revenue $"+Math.round(tRev)+" | annual net profit $"+Math.round(tProf)+
+        " | closing cash $"+Math.round(mRows[mRows.length-1].closingBalance)+
+        " | total units "+tUnits+
+        " | average selling price $"+mRows[0].avgPrice+" per unit"+
+        " | average unit cost $"+mRows[0].avgCost+".";
     }
     finText+=monthlyText;
     var onlineText=onlineCh.map(function(c){return f[c.id]?c.label+": "+f[c.id]:null;}).filter(Boolean).join(", ")||"Not provided";
@@ -2557,7 +2565,9 @@ function App(){
       " | Marketing: "+(f.execMkt||"")+" | Additional marketing: "+(f.execMktLaunch||"")+
       " | Other (assets/funding): "+(f.execOther||"")+" | Notes: "+(f.extra4||"")+
       " | Estimated extra sales units from goals: "+(f.goalSalesTotal||"0")+" | Estimated extra expenses from goals: $"+(f.goalExpTotal||"0")+
-      "\nPER-GOAL EXECUTION DETAIL (how each goal will be achieved and what it needs):\n"+goalsPlanText+
+      "\nNUMBER OF GOALS IN THIS PLAN: "+goals.filter(Boolean).length+
+      " - never refer to a goal number higher than this, and never name a goal that is not listed below.\n"+
+      "PER-GOAL EXECUTION DETAIL (how each goal will be achieved and what it needs):\n"+goalsPlanText+
       "\n\nSTEP 5 - FINANCIAL POSITION: "+finText+
       "\n\nDATE TERMINOLOGY - follow exactly:\n"+
       "- Refer to the Step 1 date only as the \"establishment date\" (the month the business was established).\n"+
@@ -2605,6 +2615,7 @@ function App(){
       "- Where a goal's How or Resources says \"not specified by the user\", say briefly that it still needs to be decided rather than inventing detail.\n"+
       "- Do NOT use bullet points or dashes within the goal summaries - prose only.\n"+
       "- After all the goals, finish with a paragraph headed ### Team & Resources covering the team as it stands, any planned hires, marketing support, and the estimated extra sales units and extra expenses from the goals.\n"+
+      "- If the estimated extra expenses from goals is $0 but individual goals describe costs, do NOT say there are no additional expenses. Say those costs have not yet been estimated into the forecast.\n"+
       SHARED_FORMAT+
       "- LENGTH: 450-520 words for these two sections combined.";
 
@@ -2621,7 +2632,8 @@ function App(){
       "peaks, troughs or a busy/quiet season that the figures do not show. If revenue rises steadily every month, "+
       "say so; do not claim some months are softer because the industry or the weather suggests they should be.\n"+
       "- When naming the tightest month for cash, use the month with the lowest closing cash given above, not a guess.\n"+
-      "- If the goals carry costs, say they are not yet in the forecast rather than saying there are no extra costs.\n"+
+      "- Use the FORECAST TOTALS above for revenue, profit and price. Never quote a price or revenue range from the market research as if it were the forecast, and never claim the forecast reaches the upper end of a range unless the annual revenue figure above actually does.\n"+
+      "- Do not refer to goals by number and do not invent a goal. Sections 3 and 4 are written separately; only the goals listed above exist.\n"+
       SHARED_FORMAT+
       "- LENGTH: 260-320 words for this section.";
 
