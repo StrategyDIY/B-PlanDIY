@@ -19,6 +19,22 @@
 <link rel="apple-touch-icon" href="/favicon-192.png">
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>How to write a business plan that is actually useful — B-PlanDIY</title>
+<link rel="canonical" href="https://b-plandiy.com/blog/how-to-write-a-business-plan.html"/>
+<meta property="og:type" content="article"/>
+<meta property="og:site_name" content="B-PlanDIY"/>
+<meta property="og:locale" content="en_NZ"/>
+<meta property="og:url" content="https://b-plandiy.com/blog/how-to-write-a-business-plan.html"/>
+<meta property="og:title" content="How to write a business plan that is actually useful — B-PlanDIY"/>
+<meta property="og:description" content="Most business plans are written once and never opened again. What to put in one so it earns its place."/>
+<meta property="og:image" content="https://b-plandiy.com/og-image.png"/>
+<meta property="og:image:width" content="1200"/>
+<meta property="og:image:height" content="630"/>
+<meta property="og:image:alt" content="B-PlanDIY - business plan and cashflow forecast in under an hour"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="How to write a business plan that is actually useful — B-PlanDIY"/>
+<meta name="twitter:description" content="Most business plans are written once and never opened again. What to put in one so it earns its place."/>
+<meta name="twitter:image" content="https://b-plandiy.com/og-image.png"/>
+
 <meta name="description" content="Most business plans are written once and never opened again. What to put in one so it earns its place."/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -43,7 +59,7 @@ a.nav-logo:hover span{color:var(--azure);}
 @media(max-width:860px){.nav-paid{display:none;}}
 .nav-cta{background:var(--navy);color:#fff;padding:9px 22px;border-radius:6px;font-size:14px;font-weight:600;transition:opacity 0.15s;}
 .nav-cta:hover{opacity:0.88;}
-@media(max-width:600px){.nav-links{display:none;}}
+
 
 /* HERO */
 .hero{background:var(--ice);color:var(--navy);padding:0 24px;text-align:center;height:320px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden;border-bottom:1px solid var(--line);}
@@ -234,6 +250,31 @@ footer a{color:var(--navy);text-decoration:underline;}
 @media(max-width:640px){
   .hero,.sample-intro{height:auto;min-height:220px;padding:36px 20px;}
 }
+
+/* --- Mobile navigation -----------------------------------------------------
+   Below 600px .nav-links is hidden, and until now nothing replaced it: Sample
+   output, Partners, Resources and the Blog were simply unreachable from a
+   phone. This disclosure menu carries the same links (plus the verify link,
+   which .nav-paid also hides on small screens) and needs no JavaScript.
+   The panel is anchored to the nav rather than the button so it cannot run off
+   the right edge, and it is shown by an explicit [open] rule rather than by
+   relying on how a browser hides a closed <details>. ---------------------- */
+.nav-menu{display:none;}
+.nav-menu-panel{display:none;}
+@media(max-width:600px){
+  .nav-links{display:none;}
+  .nav-menu{display:block;position:static;}
+  .nav-menu>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
+    font-size:15px;font-weight:700;color:#01236D;padding:10px 2px;}
+  .nav-menu>summary::-webkit-details-marker{display:none;}
+  .nav-menu>summary:focus-visible{outline:2px solid #1B4FA8;outline-offset:2px;border-radius:4px;}
+  .nav-menu[open]>.nav-menu-panel{display:flex;flex-direction:column;position:absolute;
+    top:100%;left:12px;right:12px;background:#fff;border:1px solid #E3E8F0;border-radius:12px;
+    box-shadow:0 10px 30px rgba(1,35,109,0.16);padding:6px;z-index:200;}
+  .nav-menu-panel a{padding:13px 14px;border-radius:8px;font-size:15px;font-weight:700;color:#01236D;}
+  .nav-menu-panel a:hover{background:#EAF0F9;}
+  .nav-menu-verify{border-top:1px solid #E3E8F0;margin-top:4px;font-weight:600 !important;font-size:14px !important;}
+}
 </style>
 
 <style>
@@ -277,6 +318,19 @@ footer a{color:var(--navy);text-decoration:underline;}
     <a href="../resources.html">Resources</a>
     <a href="../blog/index.html">Blog</a>
   </div>
+  <details class="nav-menu">
+    <summary aria-label="Open menu"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Menu</summary>
+    <div class="nav-menu-panel">
+    <a href="../index.html#steps">How it works</a>
+    <a href="../index.html#pricing">Pricing</a>
+    <a href="../sample-plan.html">Sample output</a>
+    <a href="../partners.html">Partners</a>
+    <a href="../resources.html">Resources</a>
+    <a href="../blog/index.html">Blog</a>
+  
+      <a class="nav-menu-verify" href="/verify.html">Already paid? Verify your email</a>
+    </div>
+  </details>
   <div class="nav-right">
     <span class="nav-paid">Already paid? <a href="https://b-plandiy.com/verify.html">Verify your email</a></span>
     <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="nav-cta">Get Started</a>
