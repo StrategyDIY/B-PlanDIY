@@ -1094,6 +1094,82 @@ export default function App(){
     return h;
   }
 
+  // A message the customer actually sees.
+  //
+  // Sixteen of the seventeen AI call sites read data.content straight off the
+  // response. On a 402, 429 or 403 that threw a TypeError into a bare catch,
+  // so the button pulsed, stopped, and said nothing whatsoever - which is the
+  // state a customer reaches the moment their token is missing or expired.
+  // Raising the message here rather than at each call site means even an empty
+  // catch block cannot swallow it.
+  function aiNotify(text, html){
+    try{
+      var id="bpd-ai-toast";
+      var box=document.getElementById(id);
+      if(!box){
+        box=document.createElement("div");
+        box.id=id;
+        box.setAttribute("role","alert");
+        box.style.cssText="position:fixed;left:50%;transform:translateX(-50%);bottom:24px;z-index:99999;"+
+          "max-width:min(560px,calc(100vw - 32px));background:#FDEEEB;color:#B14A38;"+
+          "border:1px solid #F2CFC7;border-radius:10px;padding:14px 44px 14px 16px;"+
+          "font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14.5px;line-height:1.55;"+
+          "box-shadow:0 6px 24px rgba(1,35,109,0.18);";
+        var x=document.createElement("button");
+        x.textContent="\u00d7";
+        x.setAttribute("aria-label","Dismiss");
+        x.style.cssText="position:absolute;top:8px;right:10px;background:none;border:none;"+
+          "font-size:20px;line-height:1;color:#B14A38;cursor:pointer;padding:2px 6px;";
+        x.onclick=function(){ box.remove(); };
+        box.appendChild(document.createElement("span"));
+        box.appendChild(x);
+        document.body.appendChild(box);
+      }
+      var span=box.firstChild;
+      if(html)span.innerHTML=html; else span.textContent=text;
+      clearTimeout(box.__t);
+      box.__t=setTimeout(function(){ if(box.parentNode)box.remove(); },12000);
+    }catch(e){}
+  }
+
+  // Every AI request goes through here, so every failure has an explanation.
+  async function aiFetch(payload){
+    var res;
+    try{
+      res=await fetch("/api/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify(payload)});
+    }catch(netErr){
+      aiNotify("Could not reach the AI service. Check your internet connection and try again - your plan is saved on this device.");
+      throw netErr;
+    }
+    if(!res.ok){
+      if(res.status===402){
+        aiNotify(null,"Your access has expired, so the AI features are switched off. "+
+          "<a href=\"/verify.html\" style=\"color:#01236D;font-weight:700;\">Verify your email</a> to restore it, "+
+          "or renew for $29. Everything you have entered is safe on this device.");
+      } else if(res.status===429){
+        aiNotify("That was a lot of requests at once. Wait a few seconds, then try again.");
+      } else if(res.status===413){
+        aiNotify("There is too much text in that section for the AI to read in one go. Shorten it a little and try again.");
+      } else if(res.status===403){
+        aiNotify("The AI service refused that request. If this keeps happening, email support@b-plandiy.com.");
+      } else {
+        aiNotify("The AI service is unavailable just now. Your plan is saved - please try again in a few minutes.");
+      }
+      throw new Error("ai request failed: "+res.status);
+    }
+    var data;
+    try{ data=await res.json(); }
+    catch(parseErr){
+      aiNotify("The AI service sent back something unreadable. Please try again.");
+      throw parseErr;
+    }
+    if(!data||!data.content){
+      aiNotify("The AI had nothing to return that time. Please try again.");
+      throw new Error("ai response had no content");
+    }
+    return data;
+  }
+
   function saveToStorage(){
     try{localStorage.setItem(STORAGE_KEY,JSON.stringify(fdRef.current));}catch(e){}
   }
@@ -1200,8 +1276,7 @@ export default function App(){
         "Opportunities: "+(fdRef.current.swotO||"")+"\n"+
         "Threats: "+(fdRef.current.swotT||"");
       prompt+=revisionNote(mode,goals.filter(Boolean).join("\n"),note);
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:400,messages:[{role:"user",content:prompt}]});
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       var lines=text.split("\n").filter(function(l){return l.trim();}).slice(0,5);
       var newGoals=goals.map(function(g,i){return g||(lines[i]||"");});
@@ -1217,8 +1292,7 @@ export default function App(){
     var prompt="Write a SWOT analysis for this business. Return ONLY the four sections in this exact format:\nStrengths: [3-4 points, comma separated]\nWeaknesses: [3-4 points, comma separated]\nOpportunities: [3-4 points, comma separated]\nThreats: [3-4 points, comma separated]\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nStage: "+(fdRef.current.stage||"")+"\nTeam: "+(fdRef.current.team||"")+"\nCompetitors: "+(fdRef.current.competitors||"")+"\nTarget market: "+(fdRef.current.targetCust||"")+"\nPosition statement: "+(fdRef.current.position||"not specified");
     prompt+=revisionNote(mode,["Strengths: "+(fdRef.current.swotS||""),"Weaknesses: "+(fdRef.current.swotW||""),"Opportunities: "+(fdRef.current.swotO||""),"Threats: "+(fdRef.current.swotT||"")].join("\n"),note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:500,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:500,messages:[{role:"user",content:prompt}]});
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       var sMatch=text.match(/Strengths:\s*(.+)/i);
       var wMatch=text.match(/Weaknesses:\s*(.+)/i);
@@ -1382,8 +1456,7 @@ export default function App(){
       "Where the contribution per unit is zero or negative, say so plainly first, because no volume of sales will reach breakeven until that is fixed.\n"+
       "Be realistic for a small business in "+bizLocation()+". No preamble, no closing summary, under 160 words.";
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:400,messages:[{role:"user",content:prompt}]});
       if(data.content)setBkText(data.content.map(function(x){return x.text||"";}).join("").trim());
     }catch(e){ setBkText("Could not get suggestions just now. Please try again."); }
     setBkLoading(false);
@@ -1402,8 +1475,7 @@ export default function App(){
       "Reply with ONLY one line per goal in the form Goal N = units, digits only, no words, no commas.\n"+
       "Example:\nGoal 1 = 180\nGoal 2 = 0\nGoal 3 = 60\n\nThe goals are:\n"+list;
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:200,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:200,messages:[{role:"user",content:prompt}]});
       if(data.content){
         var text=data.content.map(function(x){return x.text||"";}).join("");
         var map={};
@@ -1436,8 +1508,7 @@ export default function App(){
       "Reply with ONLY one line per goal in the form Goal N = Category = amount. Digits only for the amount, no dollar sign, no commas.\n"+
       "Example:\nGoal 1 = Marketing = 6000\nGoal 2 = None = 0\nGoal 3 = Team = 12000\n\nThe goals are:\n"+list;
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:250,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:250,messages:[{role:"user",content:prompt}]});
       if(data.content){
         var text=data.content.map(function(x){return x.text||"";}).join("");
         var map={};
@@ -1469,8 +1540,7 @@ export default function App(){
       "Target customer: "+(fdRef.current.targetCust||"");
     prompt+=revisionNote(mode,fdRef.current.marketSize,note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:300,messages:[{role:"user",content:prompt}]});
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.marketSize=text;
       saveToStorage();
@@ -1499,8 +1569,7 @@ export default function App(){
       "- Realistic for a small business in "+bizLocation()+". Plain prose, no bullet points, no headings, no preamble. Under 120 words.";
     prompt+=revisionNote(mode,fdRef.current.targetCust,note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:400,messages:[{role:"user",content:prompt}]});
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.targetCust=text;
       saveToStorage();
@@ -1535,8 +1604,7 @@ export default function App(){
       "- Realistic for a small business in "+bizLocation()+". Plain prose, no bullet points, no headings, no preamble. Under 120 words.";
     prompt+=revisionNote(mode,fdRef.current.advantage,note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:400,messages:[{role:"user",content:prompt}]});
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.advantage=text;
       saveToStorage();
@@ -1569,8 +1637,7 @@ export default function App(){
       "- Plain prose, no bullet points, no headings, no preamble. Keep the whole answer under 180 words.";
     prompt+=revisionNote(mode,fdRef.current.competitors,note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:450,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:450,messages:[{role:"user",content:prompt}]});
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.competitors=text;
       saveToStorage();
@@ -1588,8 +1655,7 @@ export default function App(){
     var prompt="Based ONLY on the following competitors already identified, summarise their key strengths and weaknesses. Do not introduce any other competitors.\n\nCompetitors:\n"+comps+"\n\nFormat each as '[Competitor name]: Strengths - ... Weaknesses - ...' Keep it concise.";
     prompt+=revisionNote(mode,fdRef.current.compStrWeakness,note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:400,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:400,messages:[{role:"user",content:prompt}]});
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.compStrWeakness=text;
       saveToStorage();
@@ -1604,8 +1670,7 @@ export default function App(){
     var prompt="For this specific business goal, suggest:\n1. How to achieve it (2-3 concrete action steps, 1-2 sentences)\n2. Resources needed (people, tools, budget - 1-2 sentences)\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nPosition statement: "+(fdRef.current.position||"not specified")+"\nGoal: "+(goals[i]||"")+"\n\nReturn in this exact format:\nHow: [your suggestion]\nResources: [your suggestion]";
     prompt+=revisionNote(mode,["How: "+(fdRef.current["goalHow"+(i+1)]||""),"Resources: "+(fdRef.current["goalRes"+(i+1)]||"")].join("\n"),note);
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:300,messages:[{role:"user",content:prompt}]});
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       var howMatch=text.match(/How:\s*([\s\S]+?)(?:\nResources:|$)/);
       var resMatch=text.match(/Resources:\s*([\s\S]+?)$/);
@@ -2371,21 +2436,30 @@ export default function App(){
       // buffered-function limit, so the plan can be far longer than one request
       // could produce before timing out.
       function requestPart(p){
-        return fetch("https://b-plandiy.com/.netlify/functions/anthropic",{
+        return fetch("/api/anthropic",{
           method:"POST",
           headers:aiHeaders(),
-          body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1200,messages:[{role:"user",content:p}]})
+          body:JSON.stringify({max_tokens:1200,messages:[{role:"user",content:p}]})
         }).then(function(res){
           return res.text().then(function(rawText){
+            // Status first. The old order only reached these checks when the
+            // body failed to parse - but a 402 comes back as perfectly good
+            // JSON, so it fell through to a branch that showed the customer
+            // the raw response object instead.
+            if(!res.ok){
+              if(res.status===402)throw new Error("your access has expired. Verify your email at b-plandiy.com/verify.html to restore it, or renew for $29 - everything you have entered is safe on this device.");
+              if(res.status===429)throw new Error("the service is busy just now. Wait a few seconds and try again.");
+              if(res.status===413)throw new Error("there is too much text in the plan for one request. Shorten the longest sections a little and try again.");
+              if(res.status===504||/timeout/i.test(rawText))throw new Error("the request timed out. Please try again.");
+              throw new Error("the AI service is unavailable just now. Your plan is saved - please try again in a few minutes.");
+            }
             var data;
             try{ data=JSON.parse(rawText); }
             catch(pe){
-              if(res.status===402)throw new Error("your access has expired. Please renew to generate your plan - your information is safe.");
-              if(res.status===404)throw new Error("the plan service could not be found (404). Check that netlify/functions/anthropic.js is present in GitHub and that Netlify has finished deploying.");
-              if(res.status===504||/timeout/i.test(rawText))throw new Error("the request timed out. Please try again.");
-              throw new Error("Response was not JSON. Status: "+res.status+". Body starts with: "+rawText.substring(0,200));
+              if(/timeout/i.test(rawText))throw new Error("the request timed out. Please try again.");
+              throw new Error("the AI service sent back something unreadable. Please try again.");
             }
-            if(!data.content)throw new Error(data.error?data.error.message:JSON.stringify(data));
+            if(!data.content)throw new Error("the AI had nothing to return that time. Please try again.");
             return data.content.map(function(x){return x.text||"";}).join("");
           });
         });
@@ -2406,7 +2480,7 @@ export default function App(){
       var dateStr=today.getDate()+" "+["January","February","March","April","May","June","July","August","September","October","November","December"][today.getMonth()]+" "+today.getFullYear();
       var html="<div style='text-align:center;padding:24px 0 32px;border-bottom:2px solid #EAF0F9;margin-bottom:28px'>";
       html+="<div style='font-size:26px;font-weight:800;color:#01236D;margin-bottom:8px'>"+(fdRef.current.bizName||"Business Plan")+"</div>";
-      html+="<div style='font-size:16px;font-weight:500;color:#D0B16F;margin-bottom:6px'>Business Plan and Cashflow Forecast</div>";
+      html+="<div style='font-size:16px;font-weight:500;color:#5A6C7E;margin-bottom:6px'>Business Plan and Cashflow Forecast</div>";
       html+="<div style='font-size:13px;color:#5A6C7E'>"+dateStr+"</div>";
       html+="</div>";
       var inList=false;var inOList=false;
@@ -2614,7 +2688,7 @@ export default function App(){
             Your backup has been saved to your <strong>Downloads</strong> folder as:
             <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:6,padding:"8px 10px",margin:"8px 0",fontSize:13,wordBreak:"break-all",color:"#01236D"}}>{backupName}</div>
           </div>
-          <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"12px 14px",marginBottom:16}}>
+          <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"12px 14px",marginBottom:16}}>
             <div style={{fontSize:15,fontWeight:700,color:"#01236D",marginBottom:6}}>Please don't try to open this file</div>
             <div style={{fontSize:13,color:"#29384A",lineHeight:1.6}}>
               It isn't a document, so there is nothing to read in it. If you double-click it your computer may show a confusing "File Conversion" window - just close that window, the file is still fine.
@@ -2750,7 +2824,7 @@ export default function App(){
   // now carry the gold accent used elsewhere for "read this", label where the
   // numbers came from, and say plainly when they are not being counted.
   function goalPanelShell(on){
-    return {border:"1px solid "+(on?"#E3E8F0":"#E3E8F0"),borderLeft:"5px solid #D0B16F",
+    return {border:"1px solid "+(on?"#E3E8F0":"#E3E8F0"),borderLeft:"5px solid #1B4FA8",
       background:on?"#EAF0F9":"#FCFCFA",borderRadius:12,padding:"14px 16px",marginBottom:16,
       boxShadow:"0 1px 3px rgba(41,56,74,0.07)"};
   }
@@ -2892,7 +2966,7 @@ export default function App(){
   function FinWarn(props){
     if(!props.show)return null;
     return (
-      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"9px 12px",marginTop:8,marginBottom:4}}>
+      <div style={{display:"flex",gap:8,alignItems:"flex-start",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"9px 12px",marginTop:8,marginBottom:4}}>
         <span style={{fontSize:13,lineHeight:1.5,color:"#29384A"}}>{props.children}</span>
       </div>
     );
@@ -3062,8 +3136,7 @@ export default function App(){
       "- Reply with the tidied text only. No preamble, no quotation marks.\n\n"+
       "THE TEXT:\n"+cur;
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:900,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:900,messages:[{role:"user",content:prompt}]});
       if(data.content){
         var out=data.content.map(function(x){return x.text||"";}).join("").trim();
         if(out){ fdRef.current[id]=out; saveToStorage(); bumpVoice(id); }
@@ -3159,8 +3232,7 @@ export default function App(){
       "PEOPLE: [PERMANENT or CONTRACT] | [role] | [annual salary, digits only] | [start month 1-12] | [max 10 words why]\n"+
       "(one PEOPLE line per person, or the single line PEOPLE: none)";
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:900,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:900,messages:[{role:"user",content:prompt}]});
       var text=(data.content||[]).map(function(x){return x.text||"";}).join("");
       var cats=[],people=[];
       text.split("\n").forEach(function(line){
@@ -3227,7 +3299,7 @@ export default function App(){
     function toggle(k){setExpAiPick(function(p){var n=Object.assign({},p);n[k]=!n[k];return n;});}
     var rowStyle={display:"flex",gap:9,alignItems:"flex-start",padding:"8px 0",borderTop:"1px solid #E3E8F0"};
     return (
-      <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"13px 15px",marginBottom:14}}>
+      <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"13px 15px",marginBottom:14}}>
         <div style={{fontSize:13,color:"#29384A",lineHeight:1.55,marginBottom:4}}>
           Suggested running costs. Nothing is added until you press <strong style={{color:"#01236D"}}>Add ticked items</strong>. Categories you have already filled in start unticked.
           {activeTaxRate()>0?(" Figures exclude "+taxLabel()+"."):""}
@@ -3458,8 +3530,7 @@ export default function App(){
       "UNIT: [what one unit is, 2-5 words]\n"+
       "WHY: [one or two short sentences on how you arrived at it, and what it assumes]";
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:300,messages:[{role:"user",content:prompt}]});
       var text=(data.content||[]).map(function(x){return x.text||"";}).join("");
       var pm=text.match(/PRICE:\s*[^\d-]*([0-9][0-9,]*\.?[0-9]*)/i);
       var um=text.match(/UNIT:\s*(.+)/i);
@@ -3505,8 +3576,7 @@ export default function App(){
       "UNIT: [what one unit is, 2-5 words]\n"+
       "WHY: [one or two short sentences on what the figure covers and what it assumes]";
     try{
-      var res=await fetch("https://b-plandiy.com/.netlify/functions/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:300,messages:[{role:"user",content:prompt}]})});
-      var data=await res.json();
+      var data=await aiFetch({max_tokens:300,messages:[{role:"user",content:prompt}]});
       var text=(data.content||[]).map(function(x){return x.text||"";}).join("");
       var cm=text.match(/COST:\s*\$?\s*([0-9][0-9,]*\.?[0-9]*)/i);
       var um=text.match(/UNIT:\s*(.+)/i);
@@ -3853,7 +3923,7 @@ export default function App(){
       return a+Math.round(base*rate/100);
     },0);
     return (
-      <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"13px 15px",marginTop:14}}>
+      <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"13px 15px",marginTop:14}}>
         <div style={{fontSize:11,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>
           How your {taxLabel()} is worked out
         </div>
@@ -3894,7 +3964,7 @@ export default function App(){
     var ok=!isNaN(raw)&&raw!==0;
     var excl=ok?exclOfTax(raw):null;
     return (
-      <div style={{fontSize:13,color:"#29384A",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"3px solid #D0B16F",borderRadius:6,padding:"8px 11px",marginBottom:12,lineHeight:1.5}}>
+      <div style={{fontSize:13,color:"#29384A",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"3px solid #1B4FA8",borderRadius:6,padding:"8px 11px",marginBottom:12,lineHeight:1.5}}>
         <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap"}}>
           <span style={{flex:"1 1 240px",minWidth:0}}>
             {subject||"Amounts"} in this section should <strong style={{color:"#01236D"}}>exclude</strong> {taxLabel()}.
@@ -3991,7 +4061,7 @@ export default function App(){
         <button style={{fontFamily:"inherit",fontSize:13,color:"#7A93B8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={clearDevice} title="Removes your plan and signs you out - for shared computers">Finish and clear this device</button>
         <button style={{fontFamily:"inherit",fontSize:13,color:"#7A93B8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Export data</button>
         <button style={{fontFamily:"inherit",fontSize:13,color:"#7A93B8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={importData}>Import data</button>
-        <button style={{fontFamily:"inherit",fontSize:13,color:"#D0B16F",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){setShowFeedback(true);}}>Give feedback</button>
+        <button style={{fontFamily:"inherit",fontSize:13,color:"#1B4FA8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){setShowFeedback(true);}}>Give feedback</button>
         <button style={{fontFamily:"inherit",fontSize:11,color:"#E3E8F0",background:"none",border:"none",cursor:"pointer"}} onClick={function(){setShowAdmin(true);}}>⚙</button>
       </div>
     );
@@ -4001,7 +4071,7 @@ export default function App(){
   function BrandingPanel(){
     var swatches=["01236D","2A9D9F","1F5C5D","B14A38","29384A","5F7183"];
     return (
-      <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderLeft:"4px solid #D0B16F",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+      <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:12,padding:"14px 16px",marginBottom:16}}>
         <div style={{fontSize:11,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.07em",marginBottom:8}}>Brand your Word document</div>
 
         <div style={{display:"flex",gap:14,alignItems:"center",flexWrap:"wrap",marginBottom:12}}>
@@ -4430,7 +4500,7 @@ export default function App(){
               <label htmlFor="chkTaxReg" style={{fontSize:15,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>Are you registered for {taxLabel()}?</label>
             </div>
             {taxReg
-              ?(<div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #D0B16F",borderRadius:6,padding:"11px 13px",marginTop:8}}>
+              ?(<div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"11px 13px",marginTop:8}}>
                   <span style={{fontSize:14,color:"#29384A",lineHeight:1.55}}>
                     <strong style={{color:"#01236D"}}>All amounts entered should exclude {taxLabel()}.</strong> Enter your sales, costs and expenses at their tax-exclusive value. The tax itself is worked out separately from the rate and payment months you set in section 3.
                   </span>
@@ -4504,7 +4574,7 @@ export default function App(){
               </div>
             )}
             {!taxReg&&(
-              <div style={{fontSize:13,color:"#5A6C7E",background:"#FCFCFA",border:"1px solid #E3E8F0",borderLeft:"3px solid #D0B16F",borderRadius:6,padding:"9px 12px",marginBottom:12,lineHeight:1.55}}>
+              <div style={{fontSize:13,color:"#5A6C7E",background:"#FCFCFA",border:"1px solid #E3E8F0",borderLeft:"3px solid #1B4FA8",borderRadius:6,padding:"9px 12px",marginBottom:12,lineHeight:1.55}}>
                 You have said you are not registered for {taxLabel()}, so nothing here applies and no tax is included in your forecast. Tick <strong style={{color:"#01236D"}}>Are you registered for {taxLabel()}?</strong> in section 1 to use it.
               </div>
             )}
@@ -4593,7 +4663,7 @@ export default function App(){
               if(c.id==="txTax"){
                 var taxTotal=liveRows.reduce(function(s,r){return s+(r.txDetail&&r.txDetail.txTax||0);},0);
                 return (<div key={c.id} style={{marginBottom:10}}>
-                  <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}<span style={{fontSize:11,color:"#D0B16F",marginLeft:8,fontWeight:400}}>Auto-calculated — not editable</span></div>
+                  <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}<span style={{fontSize:11,color:"#5A6C7E",marginLeft:8,fontWeight:400}}>Auto-calculated — not editable</span></div>
                   <div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"not-allowed"})}>
                     <span style={{fontSize:13}}>From the Tax rate and payment months above</span>
                     <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(taxTotal)}</span>
@@ -4793,7 +4863,7 @@ export default function App(){
               </div>
               <div style={{textAlign:"center",paddingBottom:24,marginBottom:24,borderBottom:"2px solid #EAF0F9"}}>
                 <div style={{fontSize:26,fontWeight:800,color:"#01236D",marginBottom:8}}>{fdRef.current.bizName||"Business Plan"}</div>
-                <div style={{fontSize:15,fontWeight:500,color:"#D0B16F",marginBottom:6}}>Business Plan and Cashflow Forecast</div>
+                <div style={{fontSize:15,fontWeight:600,color:"#5A6C7E",marginBottom:6}}>Business Plan and Cashflow Forecast</div>
                 <div style={{fontSize:13,color:"#5A6C7E"}}>{fmtDate(new Date().toISOString().slice(0,10))}</div>
               </div>
               {planHtml&&<div style={{overflowX:"auto",pointerEvents:"none",maxWidth:780,marginLeft:"auto",marginRight:"auto"}} dangerouslySetInnerHTML={{__html:planHtml}}/>}
@@ -4851,7 +4921,7 @@ export default function App(){
             onClick={function(e){e.stopPropagation();}}>
             <div style={{fontSize:15,fontWeight:700,color:"#01236D",marginBottom:12}}>Give feedback</div>
             <div style={{background:"#FCFCFA",borderRadius:6,padding:16,marginTop:8,border:"1px solid #E3E8F0"}}>
-          {fbDone?<div style={{textAlign:"center",color:"#D0B16F",fontSize:15,padding:"8px 0"}}>Thank you for your feedback!</div>:(
+          {fbDone?<div style={{textAlign:"center",color:"#1F7A7C",fontSize:15,fontWeight:600,padding:"8px 0"}}>Thank you for your feedback!</div>:(
             <div>
               <div style={{fontSize:13,fontWeight:500,color:"#29384A",marginBottom:8}}>How would you rate your experience?</div>
               <div style={{display:"flex",gap:6,marginBottom:12}}>
