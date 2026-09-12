@@ -2599,15 +2599,25 @@ function App(){
       "- LENGTH: 430-500 words for these two sections combined. Write in full, substantive paragraphs - this is a document a bank or investor may read.";
 
     var promptB=ctx+
-      "\nWrite ONLY these two sections, in this order:\n"+
-      "## 3. Vision & Position\n## 4. Goals & Achieving Them\n\n"+
-      "Sections 1, 2 and 5 are being written separately - do not repeat the business description, market analysis or financial position here.\n\n"+
+      "\nWrite ONLY this section:\n"+
+      "## 3. Vision & Position\n\n"+
+      "Sections 1, 2, 4 and 5 are being written separately - do not repeat the business description, market analysis, goals or financial position here.\n\n"+
       "SECTION 3 REQUIREMENTS - Vision & Position:\n"+
       "- Present Vision, Position Statement and Values as three separate labelled blocks, using these exact ### subheadings in this order:\n"+
       "### Vision\n### Position Statement\n### Values\n"+
       "- Under each, state that element clearly and directly in its own paragraph. Use the wording supplied above as the basis - refine it for clarity but do not replace its meaning or invent new content.\n"+
       "- For Values, present them as a short list of lines starting with - so each value is visible on its own line.\n"+
-      "- Do NOT include goals in this section.\n\n"+
+      "- Do NOT include goals in this section.\n"+
+      SHARED_FORMAT+
+      "- LENGTH: 120-160 words.";
+
+    // Its own call. Four goals fitted alongside section 3; eight would not, and
+    // a single longer request runs past the 26s function limit and returns a
+    // timeout rather than a plan.
+    var promptBGoals=ctx+
+      "\nWrite ONLY this section:\n"+
+      "## 4. Goals & Achieving Them\n\n"+
+      "Sections 1, 2, 3 and 5 are being written separately - do not repeat the business description, market analysis, vision or financial position here.\n\n"+
       "SECTION 4 REQUIREMENTS - Goals & Achieving Them:\n"+
       "- List each goal from the PER-GOAL EXECUTION DETAIL above as its own ### subheading, numbered, in this form:\n"+
       "### Goal 1: [short version of the goal]\n"+
@@ -2618,8 +2628,8 @@ function App(){
       "- After all the goals, finish with a paragraph headed ### Team & Resources covering the team as it stands, any planned hires, marketing support, and the estimated extra sales units and extra expenses from the goals.\n"+
       "- If the estimated extra expenses from goals is $0 but individual goals describe costs, do NOT say there are no additional expenses. Say those costs have not yet been estimated into the forecast.\n"+
       SHARED_FORMAT+
-      "- LENGTH: about 130 words for section 3, then 70-100 words for each of the "+
-      goals.filter(Boolean).length+" goals, then about 70 words for Team & Resources.";
+      "- LENGTH: 70-95 words for each of the "+goals.filter(Boolean).length+
+      " goals, then about 70 words for Team & Resources.";
 
     var promptC=ctx+
       "\nWrite ONLY this section:\n"+
@@ -2681,7 +2691,7 @@ function App(){
           return t;
         });
       }
-      var parts=await Promise.all([trackPart(promptA),trackPart(promptB,1500),trackPart(promptC)]);
+      var parts=await Promise.all([trackPart(promptA),trackPart(promptB,500),trackPart(promptBGoals,1400),trackPart(promptC)]);
       var text=parts.map(function(p){return p.trim();}).join("\n\n");
 
       var today=new Date();
