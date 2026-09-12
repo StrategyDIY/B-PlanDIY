@@ -18,20 +18,20 @@
 <link rel="shortcut icon" href="/favicon.ico">
 <link rel="apple-touch-icon" href="/favicon-192.png">
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Bloggies — B-PlanDIY</title>
+<title>Blog &amp; Stories — B-PlanDIY</title>
 <link rel="canonical" href="https://b-plandiy.com/blog/"/>
 <meta property="og:type" content="website"/>
 <meta property="og:site_name" content="B-PlanDIY"/>
 <meta property="og:locale" content="en_NZ"/>
 <meta property="og:url" content="https://b-plandiy.com/blog/"/>
-<meta property="og:title" content="Bloggies — B-PlanDIY"/>
+<meta property="og:title" content="Blog &amp; Stories — B-PlanDIY"/>
 <meta property="og:description" content="Practical articles on business planning and cashflow forecasting for New Zealand small businesses."/>
 <meta property="og:image" content="https://b-plandiy.com/og-image.png"/>
 <meta property="og:image:width" content="1200"/>
 <meta property="og:image:height" content="630"/>
 <meta property="og:image:alt" content="B-PlanDIY - business plan and cashflow forecast in under an hour"/>
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:title" content="Bloggies — B-PlanDIY"/>
+<meta name="twitter:title" content="Blog &amp; Stories — B-PlanDIY"/>
 <meta name="twitter:description" content="Practical articles on business planning and cashflow forecasting for New Zealand small businesses."/>
 <meta name="twitter:image" content="https://b-plandiy.com/og-image.png"/>
 
@@ -261,9 +261,10 @@ footer a{color:var(--navy);text-decoration:underline;}
    The panel is anchored to the nav rather than the button so it cannot run off
    the right edge, and it is shown by an explicit [open] rule rather than by
    relying on how a browser hides a closed <details>. ---------------------- */
+.nav-links a{white-space:nowrap;}
 .nav-menu{display:none;}
 .nav-menu-panel{display:none;}
-@media(max-width:600px){
+@media(max-width:1150px){
   .nav-links{display:none;}
   .nav-menu{display:block;position:static;}
   .nav-menu>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
@@ -289,14 +290,22 @@ footer a{color:var(--navy);text-decoration:underline;}
   .nav-cta{padding:9px 15px;font-size:13.5px;white-space:nowrap;}
 }
 
-/* Bloggies is split into two areas. Each heading sits directly above its own
-   list, so the two groups read as separate without extra chrome. */
-.area-head{max-width:760px;margin:0 auto 4px;padding:0 24px;}
+/* The page is split into two areas, side by side on a wide screen and stacked
+   on a narrow one. The lists inside drop their own centring and padding, since
+   the grid column now provides both. */
+.areas{max-width:1120px;margin:0 auto;padding:0 24px;display:grid;
+  grid-template-columns:1fr 1fr;gap:0 52px;align-items:start;}
+.areas .area-head{max-width:none;margin:0 0 2px;padding:0;}
+.areas .post-list{max-width:none;margin:0;padding:0;}
+.areas .area + .area{border-left:1px solid #E3E8F0;padding-left:52px;}
 .area-head h2{font-size:clamp(22px,3vw,30px);font-weight:800;color:var(--navy);
   letter-spacing:-0.02em;line-height:1.2;margin:0;}
 .area-head p{font-size:15px;color:var(--grey);margin:6px 0 0;}
-.area-gap{height:52px;}
-.area-empty{max-width:760px;margin:0 auto;padding:20px 24px 0;font-size:15px;color:var(--grey);}
+.area-empty{font-size:15px;color:var(--grey);padding-top:20px;}
+@media(max-width:860px){
+  .areas{grid-template-columns:1fr;gap:44px 0;}
+  .areas .area + .area{border-left:none;padding-left:0;border-top:1px solid #E3E8F0;padding-top:40px;}
+}
 </style>
 
 <style>
@@ -337,7 +346,7 @@ footer a{color:var(--navy);text-decoration:underline;}
     <a href="../sample-plan.html">Sample output</a>
     <a href="../partners.html">Partners</a>
     <a href="../resources.html">Resources</a>
-    <a href="../blog/index.html">Bloggies</a>
+    <a href="../blog/index.html">Blog &amp; Stories</a>
   </div>
   <details class="nav-menu">
     <summary aria-label="Open menu"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Menu</summary>
@@ -347,7 +356,7 @@ footer a{color:var(--navy);text-decoration:underline;}
     <a href="../sample-plan.html">Sample output</a>
     <a href="../partners.html">Partners</a>
     <a href="../resources.html">Resources</a>
-    <a href="../blog/index.html">Bloggies</a>
+    <a href="../blog/index.html">Blog &amp; Stories</a>
   
       <a class="nav-menu-verify" href="/verify.html">Already paid? Verify your email</a>
     </div>
@@ -369,48 +378,61 @@ footer a{color:var(--navy);text-decoration:underline;}
 
 <section style="background:#fff;padding:50px 0 70px;">
 
-  <div class="area-head">
-    <h2>Blogg</h2>
-    <p>Practical articles on planning, forecasting and running a small business.</p>
-  </div>
-  <div class="post-list">
+    <div class="areas">
 
-    <!-- ===== ADD NEW BLOGG POSTS AT THE TOP OF THIS LIST ===== -->
+      <div class="area">
+        <div class="area-head">
+          <h2>Blog</h2>
+          <p>Practical articles on planning, forecasting and running a small business.</p>
+        </div>
+        <div class="post-list">
 
-    <article class="post-card">
-      <div class="post-meta">15 August 2026</div>
-      <h2><a href="./what-a-bank-wants-to-see.html">What a New Zealand bank wants to see in a business plan</a></h2>
-      <p>Lenders spend most of their time on the forecast, not the prose. What they actually look for, and why your worst month matters more than your best.</p>
-      <a class="post-more" href="./what-a-bank-wants-to-see.html">Read more &rarr;</a>
-    </article>
+          <!-- ===== ADD NEW BLOG POSTS AT THE TOP OF THIS LIST ===== -->
 
-    <article class="post-card">
-      <div class="post-meta">8 August 2026</div>
-      <h2><a href="./how-to-write-a-business-plan.html">How to write a business plan that is actually useful</a></h2>
-      <p>Most business plans are written once and never opened again. Here is what to put in one so it earns its place.</p>
-      <a class="post-more" href="./how-to-write-a-business-plan.html">Read more &rarr;</a>
-    </article>
+          <article class="post-card">
+            <div class="post-meta">12 September 2026</div>
+            <h2><a href="./how-much-money-to-start-a-business-nz.html">How much money do I need to start a business in New Zealand?</a></h2>
+            <p>Not a number, a method. Real setup costs, the months of operating costs almost everyone forgets, and the figure the profit line never shows you.</p>
+            <a class="post-more" href="./how-much-money-to-start-a-business-nz.html">Read more &rarr;</a>
+          </article>
 
-  </div>
+          <article class="post-card">
+          <div class="post-meta">15 August 2026</div>
+          <h2><a href="./what-a-bank-wants-to-see.html">What a New Zealand bank wants to see in a business plan</a></h2>
+          <p>Lenders spend most of their time on the forecast, not the prose. What they actually look for, and why your worst month matters more than your best.</p>
+          <a class="post-more" href="./what-a-bank-wants-to-see.html">Read more &rarr;</a>
+        </article>
 
-  <div class="area-gap"></div>
+          <article class="post-card">
+          <div class="post-meta">8 August 2026</div>
+          <h2><a href="./how-to-write-a-business-plan.html">How to write a business plan that is actually useful</a></h2>
+          <p>Most business plans are written once and never opened again. Here is what to put in one so it earns its place.</p>
+          <a class="post-more" href="./how-to-write-a-business-plan.html">Read more &rarr;</a>
+        </article>
 
-  <div class="area-head">
-    <h2>Stories</h2>
-    <p>How real New Zealand businesses planned, forecast and grew.</p>
-  </div>
-  <div class="post-list">
+        </div>
+      </div>
 
-    <!-- ===== ADD NEW STORIES AT THE TOP OF THIS LIST ===== -->
+      <div class="area">
+        <div class="area-head">
+          <h2>Stories</h2>
+          <p>How real New Zealand businesses planned, forecast and grew.</p>
+        </div>
+        <div class="post-list">
 
-    <article class="post-card">
-      <div class="post-meta">12 September 2026 &middot; R de Wolf</div>
-      <h2><a href="./do-you-really-know-your-business.html">Do you really know your business?</a></h2>
-      <p>Six years in, with a plan already written, testing B-PlanDIY showed me how much I had stopped looking at &mdash; and some of it was critical.</p>
-      <a class="post-more" href="./do-you-really-know-your-business.html">Read more &rarr;</a>
-    </article>
+          <!-- ===== ADD NEW STORIES AT THE TOP OF THIS LIST ===== -->
 
-  </div>
+          <article class="post-card">
+          <div class="post-meta">12 September 2026 &middot; R de Wolf</div>
+          <h2><a href="./do-you-really-know-your-business.html">Do you really know your business?</a></h2>
+          <p>Six years in, with a plan already written, testing B-PlanDIY showed me how much I had stopped looking at &mdash; and some of it was critical.</p>
+          <a class="post-more" href="./do-you-really-know-your-business.html">Read more &rarr;</a>
+        </article>
+
+        </div>
+      </div>
+
+    </div>
 
 </section>
 

@@ -62,7 +62,10 @@ a.nav-logo:hover span{color:var(--azure);}
 
 
 /* HERO */
-.hero{background:var(--ice);color:var(--navy);padding:0 24px;text-align:center;height:320px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden;border-bottom:1px solid var(--line);}
+/* Band trimmed by 2cm, matching the other pages. The hero block is widened so
+   the title uses fewer lines rather than a smaller font; the article body
+   below stays at 720px, which is the right measure for reading. */
+.hero{background:var(--ice);color:var(--navy);padding:0 24px;text-align:center;height:244px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden;border-bottom:1px solid var(--line);}
 .hero::after{content:"";position:absolute;bottom:-2px;left:0;right:0;height:60px;background:transparent;clip-path:ellipse(55% 100% at 50% 100%);}
 .hero-eyebrow{display:inline-block;background:rgba(208,177,111,0.2);color:var(--gold);font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:22px;}
 .hero h1 em{color:#fff;font-style:normal;}
@@ -259,9 +262,10 @@ footer a{color:var(--navy);text-decoration:underline;}
    The panel is anchored to the nav rather than the button so it cannot run off
    the right edge, and it is shown by an explicit [open] rule rather than by
    relying on how a browser hides a closed <details>. ---------------------- */
+.nav-links a{white-space:nowrap;}
 .nav-menu{display:none;}
 .nav-menu-panel{display:none;}
-@media(max-width:600px){
+@media(max-width:1150px){
   .nav-links{display:none;}
   .nav-menu{display:block;position:static;}
   .nav-menu>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
@@ -330,7 +334,7 @@ footer a{color:var(--navy);text-decoration:underline;}
     <a href="../sample-plan.html">Sample output</a>
     <a href="../partners.html">Partners</a>
     <a href="../resources.html">Resources</a>
-    <a href="../blog/index.html">Bloggies</a>
+    <a href="../blog/index.html">Blog &amp; Stories</a>
   </div>
   <details class="nav-menu">
     <summary aria-label="Open menu"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Menu</summary>
@@ -340,7 +344,7 @@ footer a{color:var(--navy);text-decoration:underline;}
     <a href="../sample-plan.html">Sample output</a>
     <a href="../partners.html">Partners</a>
     <a href="../resources.html">Resources</a>
-    <a href="../blog/index.html">Bloggies</a>
+    <a href="../blog/index.html">Blog &amp; Stories</a>
   
       <a class="nav-menu-verify" href="/verify.html">Already paid? Verify your email</a>
     </div>
@@ -352,7 +356,7 @@ footer a{color:var(--navy);text-decoration:underline;}
 </nav>
 
 <section class="hero">
-  <div class="hero-block" style="max-width:720px;">
+  <div class="hero-block" style="max-width:960px;">
     <a class="back-link" href="./index.html" style="color:var(--grey);">&larr; All articles</a>
     <div class="hero-headline">Do you really know your business?</div>
     <p style="margin-top:14px;font-size:14px;color:var(--grey);">12 September 2026 &middot; a story from R de Wolf</p>
