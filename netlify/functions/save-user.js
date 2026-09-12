@@ -354,7 +354,11 @@ exports.handler = async (event) => {
         success: true,
         expiry: expiryTimestamp,
         token: issueToken(data.email, expiryTimestamp),
-        saved: !airtableFailed
+        saved: !airtableFailed,
+        // Returned so the thank-you page can tell the customer which address
+        // their access is filed under - it came from the payment, not from
+        // anything they typed, so they have no other way to know it.
+        email: data.email || ''
       })
     };
   } catch (err) {
