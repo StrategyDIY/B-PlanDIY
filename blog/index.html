@@ -62,7 +62,9 @@ a.nav-logo:hover span{color:var(--azure);}
 
 
 /* HERO */
-.hero{background:var(--ice);color:var(--navy);padding:0 24px;text-align:center;height:320px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden;border-bottom:1px solid var(--line);}
+/* Band trimmed by 2cm. The text is given more width rather than a smaller
+   font, so the headline and lede use fewer lines and still sit comfortably. */
+.hero{background:var(--ice);color:var(--navy);padding:0 24px;text-align:center;height:244px;display:flex;flex-direction:column;justify-content:center;position:relative;overflow:hidden;border-bottom:1px solid var(--line);}
 .hero::after{content:"";position:absolute;bottom:-2px;left:0;right:0;height:60px;background:transparent;clip-path:ellipse(55% 100% at 50% 100%);}
 .hero-eyebrow{display:inline-block;background:rgba(208,177,111,0.2);color:var(--gold);font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:22px;}
 .hero h1 em{color:#fff;font-style:normal;}
@@ -79,7 +81,7 @@ a.nav-logo:hover span{color:var(--azure);}
    Grid 1fr 1fr guarantees two equal columns - no flex basis, no per-cell
    max-width, and no inline-block shrink-to-fit to work around. */
 .hero-block{max-width:1120px;margin:0 auto;}
-.hero-lede{font-size:16.5px;color:var(--grey);line-height:1.65;max-width:640px;margin:14px auto 0;}
+.hero-lede{font-size:16.5px;color:var(--grey);line-height:1.65;max-width:900px;margin:14px auto 0;}
 .hero-headline{font-size:clamp(26px,3.4vw,38px);font-weight:800;color:var(--navy);letter-spacing:-0.02em;line-height:1.22;margin:0;text-align:center;}
 .hero-cols{display:block;text-align:center;margin-bottom:46px;}
 /* Points run across the full width in one row, with the image below */
