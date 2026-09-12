@@ -2346,6 +2346,28 @@ export default function App(){
     finBits.push("Expenses: "+expText);
     finBits.push("Other transactions: "+txText);
     var finText=finBits.join(" | ");
+
+    // The model used to be told the opening balance, the expense list and
+    // nothing else, then asked to describe "the shape of the forecast" and name
+    // the month cash looks tight. With no figures it had to invent a pattern,
+    // and it invented plausible-sounding seasonality that ran opposite to the
+    // actual numbers. Hand it the calculated months instead.
+    var mRows=calcCashflow(fdRef.current);
+    var monthlyText="", lowIdx=0, minRev=0, maxRev=0;
+    if(mRows.length){
+      mRows.forEach(function(r,i){
+        monthlyText+=r.month+": revenue $"+Math.round(r.revenue)+
+          ", net profit $"+Math.round(r.netProfit)+
+          ", closing cash $"+Math.round(r.closingBalance)+"\n";
+        if(r.closingBalance<mRows[lowIdx].closingBalance)lowIdx=i;
+        if(r.revenue<mRows[minRev].revenue)minRev=i;
+        if(r.revenue>mRows[maxRev].revenue)maxRev=i;
+      });
+      monthlyText="\n\nCALCULATED MONTHLY FORECAST (these are the actual figures in the plan):\n"+monthlyText+
+        "Lowest closing cash: "+mRows[lowIdx].month+" at $"+Math.round(mRows[lowIdx].closingBalance)+". "+
+        "Weakest revenue month: "+mRows[minRev].month+". Strongest: "+mRows[maxRev].month+".";
+    }
+    finText+=monthlyText;
     var onlineText=onlineCh.map(function(c){return f[c.id]?c.label+": "+f[c.id]:null;}).filter(Boolean).join(", ")||"Not provided";
     var contactText=[f.cName?"Name: "+f.cName:null,f.cEmail?"Email: "+f.cEmail:null,f.cMobile?"Mobile: "+f.cMobile:null].filter(Boolean).join(", ")||"Not provided";
     var legalText=(legalOpts.find(function(o){return o.v===legalStatus;})||{}).l||"Not specified";
@@ -2428,6 +2450,11 @@ export default function App(){
       "- Cover the opening position, the shape of the 12-month forecast, and what the closing position means for the business.\n"+
       "- Summarise the monthly figures rather than listing all twelve months individually.\n"+
       "- Comment on the main cost drivers and on any month where cash looks tight.\n"+
+      "- CRITICAL: describe the CALCULATED MONTHLY FORECAST above as it actually is. Do not invent seasonality, "+
+      "peaks, troughs or a busy/quiet season that the figures do not show. If revenue rises steadily every month, "+
+      "say so; do not claim some months are softer because the industry or the weather suggests they should be.\n"+
+      "- When naming the tightest month for cash, use the month with the lowest closing cash given above, not a guess.\n"+
+      "- If the goals carry costs, say they are not yet in the forecast rather than saying there are no extra costs.\n"+
       SHARED_FORMAT+
       "- LENGTH: 260-320 words for this section.";
 
