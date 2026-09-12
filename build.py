@@ -151,6 +151,27 @@ input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus
   box-shadow:0 0 0 3px rgba(42,157,159,0.18) !important;
 }
 select{border-radius:10px !important;padding:13px 12px !important;}
+/* Hover explanations for the banner's Save a backup / Clear plan buttons.
+   Shown on focus as well as hover, so the keyboard reaches them too. */
+.bpd-tip{position:relative;display:inline-flex;}
+.bpd-tip-msg{
+  position:absolute;top:calc(100% + 10px);right:0;width:290px;max-width:78vw;
+  background:#01236D;color:#fff;font-size:13px;line-height:1.55;font-weight:500;
+  padding:12px 14px;border-radius:10px;text-align:left;
+  box-shadow:0 10px 28px rgba(1,35,109,0.30);
+  opacity:0;visibility:hidden;transform:translateY(-4px);pointer-events:none;z-index:1000;
+  transition:opacity .15s ease, transform .15s ease, visibility .15s;
+}
+.bpd-tip-msg::before{
+  content:"";position:absolute;bottom:100%;right:24px;
+  border:7px solid transparent;border-bottom-color:#01236D;
+}
+.bpd-tip:hover .bpd-tip-msg,
+.bpd-tip:focus-within .bpd-tip-msg{opacity:1;visibility:visible;transform:translateY(0);}
+@media(max-width:640px){
+  .bpd-tip-msg{right:auto;left:0;width:min(290px,86vw);}
+  .bpd-tip-msg::before{right:auto;left:24px;}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" onerror="console.warn('jszip CDN failed')"></script>

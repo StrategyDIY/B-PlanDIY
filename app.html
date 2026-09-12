@@ -91,6 +91,27 @@ input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus
   box-shadow:0 0 0 3px rgba(42,157,159,0.18) !important;
 }
 select{border-radius:10px !important;padding:13px 12px !important;}
+/* Hover explanations for the banner's Save a backup / Clear plan buttons.
+   Shown on focus as well as hover, so the keyboard reaches them too. */
+.bpd-tip{position:relative;display:inline-flex;}
+.bpd-tip-msg{
+  position:absolute;top:calc(100% + 10px);right:0;width:290px;max-width:78vw;
+  background:#01236D;color:#fff;font-size:13px;line-height:1.55;font-weight:500;
+  padding:12px 14px;border-radius:10px;text-align:left;
+  box-shadow:0 10px 28px rgba(1,35,109,0.30);
+  opacity:0;visibility:hidden;transform:translateY(-4px);pointer-events:none;z-index:1000;
+  transition:opacity .15s ease, transform .15s ease, visibility .15s;
+}
+.bpd-tip-msg::before{
+  content:"";position:absolute;bottom:100%;right:24px;
+  border:7px solid transparent;border-bottom-color:#01236D;
+}
+.bpd-tip:hover .bpd-tip-msg,
+.bpd-tip:focus-within .bpd-tip-msg{opacity:1;visibility:visible;transform:translateY(0);}
+@media(max-width:640px){
+  .bpd-tip-msg{right:auto;left:0;width:min(290px,86vw);}
+  .bpd-tip-msg::before{right:auto;left:24px;}
+}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js" onerror="console.warn('jszip CDN failed')"></script>
@@ -4167,37 +4188,25 @@ function App(){
     );
   }
 
-  function BackupNote(){
-    var linkStyle={fontFamily:"inherit",fontSize:13,fontWeight:700,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"};
-    return (
-      <div style={{display:"flex",gap:14,alignItems:"stretch",background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:12,padding:"14px 18px",marginBottom:22}}>
-        <div style={{flex:"0 0 auto",display:"flex",alignItems:"center",paddingRight:14,borderRight:"1px solid #E3E8F0"}}>
-          <div style={{width:38,height:38,borderRadius:"50%",border:"2px solid #1B4FA8",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1B4FA8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 16.5a3.5 3.5 0 0 0-.7-6.93A5 5 0 0 0 7.2 9.2 3.9 3.9 0 0 0 8 16.5"/>
-              <path d="M12 12v7M9.5 14.5 12 12l2.5 2.5"/>
-            </svg>
-          </div>
-        </div>
-        <div style={{flex:1,minWidth:0}}>
-          <div style={{display:"flex",gap:10,alignItems:"flex-start",paddingBottom:12,borderBottom:"1px solid #E3E8F0"}}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#1B4FA8" style={{flexShrink:0,marginTop:2}}><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 14.5-4-4L8.4 11 11 13.6 15.6 9 17 10.4z"/></svg>
-            <span style={{fontSize:13,lineHeight:1.55,color:"#29384A"}}>
-              Your plan is saved in this browser only. It will be lost if you or your settings clear your browsing data.{" "}
-              <button style={linkStyle} onClick={exportData}>Save a backup file</button>{" "}saves a restore file to your Downloads.
-            </span>
-          </div>
-          <div style={{display:"flex",gap:10,alignItems:"flex-start",paddingTop:12}}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1B4FA8" strokeWidth="2" style={{flexShrink:0,marginTop:2}}><circle cx="12" cy="12" r="10"/><path d="M12 16v-5M12 8h.01" strokeLinecap="round"/></svg>
-            <span style={{fontSize:13,lineHeight:1.55,color:"#29384A"}}>
-              If you are finished and on a shared or public computer{" "}
-              <button style={linkStyle} onClick={clearDevice}>Clear plan from this device</button>{" "}so that anyone else who uses this computer can't open your plan.
-            </span>
-          </div>
-        </div>
-      </div>
-    );
+  // These were a standing panel above the plan. They are now two buttons in the
+  // banner; the explanation each one used to carry is on hover and on keyboard
+  // focus, so the banner stays quiet until somebody asks.
+  function BackupButtons(){
+    var wrap={position:"relative",display:"inline-flex"};
+    var btn={fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"10px 16px",borderRadius:10,
+      cursor:"pointer",whiteSpace:"nowrap",background:"#fff",border:"1px solid #E3E8F0"};
+    return (<>
+      <span className="bpd-tip" style={wrap}>
+        <button style={Object.assign({},btn,{color:"#5A6C7E"})} onClick={exportData} aria-describedby="bpd-tip-backup">Save a backup</button>
+        <span className="bpd-tip-msg" role="tooltip" id="bpd-tip-backup">Your plan is saved in this browser only, and will be lost if you or your settings clear your browsing data. This saves a restore file to your Downloads.</span>
+      </span>
+      <span className="bpd-tip" style={wrap}>
+        <button style={Object.assign({},btn,{color:"#B14A38"})} onClick={clearDevice} aria-describedby="bpd-tip-clear">Clear plan</button>
+        <span className="bpd-tip-msg" role="tooltip" id="bpd-tip-clear">Removes your plan from this computer &mdash; for when you have finished on a shared or public machine, so nobody else can open it. Save a backup first if you want to keep your work.</span>
+      </span>
+    </>);
   }
+
 
 
   function AppFooter(){
@@ -4890,11 +4899,10 @@ function App(){
           {[
             {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
             {label:"Cashflow",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
-            {label:"Graphs",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("graphs");},50);}},
-            {label:"What If",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
           ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, item.label==="Summary"?{background:"#01236D",color:"#fff",border:"1px solid #01236D"}:{background:"#fff",color:"#01236D",border:"1px solid #E3E8F0"})}>{item.label}</button>;})}
+          {BackupButtons()}
         </div>
-        <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
+        <BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
         <div style={cardStyle}>
           {StepNav(stepDefs.length)}
           <div style={{fontSize:11,fontWeight:700,color:"#7A93B8",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:8}}>Summary</div>
@@ -4964,8 +4972,9 @@ function App(){
         <div style={{display:"flex",gap:10,marginBottom:12}}>
           <button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={function(){setShowOutput(false);setStepAndSave(4);}}>← Edit</button>
           {!loading&&<button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){generateWordDoc();}}>Download Word (.docx)</button>}
+          <span style={{marginLeft:"auto"}}/>{BackupButtons()}
         </div>
-        <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
+        <BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
         {!loading&&!!planHtml&&BrandingPanel()}
         <div style={cardStyle}>
           {tab==="plan"&&(
@@ -5028,11 +5037,10 @@ function App(){
         {[
           {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
           {label:"Cashflow",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
-          {label:"Graphs",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("graphs");},50);}},
-          {label:"What If",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("whatif");},50);}},
         ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, item.label==="Summary"?Object.assign({background:"#01236D",color:"#fff",border:"1px solid #01236D"},step===stepDefs.length-1?{boxShadow:"0 0 0 3px rgba(208,177,111,0.55)"}:{}):{background:"#fff",color:"#01236D",border:"1px solid #E3E8F0"})}>{item.label}</button>;})}
+          {BackupButtons()}
       </div>
-      <BackupNote/><BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
+      <BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
       <div style={cardStyle}>
         {StepNav(step)}
         <div style={{fontSize:11,fontWeight:700,color:"#7A93B8",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:8}}>{currentStep.label}</div>
