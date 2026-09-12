@@ -2446,11 +2446,13 @@ export default function App(){
       "### Goal 1: [short version of the goal]\n"+
       "- Directly under each goal subheading, explain in prose how it will be achieved and what resources it needs, using the HOW and RESOURCES NEEDED supplied for that goal. Give each goal a proper explanation of several sentences rather than a single line.\n"+
       "- Where a goal's How or Resources says \"not specified by the user\", say briefly that it still needs to be decided rather than inventing detail.\n"+
+      "- EVERY goal listed above must appear, each with its own ### subheading, in the same order. Do not omit, merge or condense any goal to save space. If you are running long, shorten each goal rather than dropping one.\n"+
       "- Do NOT use bullet points or dashes within the goal summaries - prose only.\n"+
       "- After all the goals, finish with a paragraph headed ### Team & Resources covering the team as it stands, any planned hires, marketing support, and the estimated extra sales units and extra expenses from the goals.\n"+
       "- If the estimated extra expenses from goals is $0 but individual goals describe costs, do NOT say there are no additional expenses. Say those costs have not yet been estimated into the forecast.\n"+
       SHARED_FORMAT+
-      "- LENGTH: 450-520 words for these two sections combined.";
+      "- LENGTH: about 130 words for section 3, then 70-100 words for each of the "+
+      goals.filter(Boolean).length+" goals, then about 70 words for Team & Resources.";
 
     var promptC=ctx+
       "\nWrite ONLY this section:\n"+
@@ -2474,11 +2476,11 @@ export default function App(){
       // Three smaller requests sent together. Each is well inside Netlify's 26s
       // buffered-function limit, so the plan can be far longer than one request
       // could produce before timing out.
-      function requestPart(p){
+      function requestPart(p,tokens){
         return fetch("/api/anthropic",{
           method:"POST",
           headers:aiHeaders(),
-          body:JSON.stringify({max_tokens:1200,messages:[{role:"user",content:p}]})
+          body:JSON.stringify({max_tokens:tokens||1200,messages:[{role:"user",content:p}]})
         }).then(function(res){
           return res.text().then(function(rawText){
             // Status first. The old order only reached these checks when the
@@ -2505,14 +2507,14 @@ export default function App(){
       }
 
       var partsDone=0;
-      function trackPart(p){
-        return requestPart(p).then(function(t){
+      function trackPart(p,tokens){
+        return requestPart(p,tokens).then(function(t){
           partsDone++;
           genWords+=t.split(/\s+/).filter(Boolean).length;
           return t;
         });
       }
-      var parts=await Promise.all([trackPart(promptA),trackPart(promptB),trackPart(promptC)]);
+      var parts=await Promise.all([trackPart(promptA),trackPart(promptB,1500),trackPart(promptC)]);
       var text=parts.map(function(p){return p.trim();}).join("\n\n");
 
       var today=new Date();
