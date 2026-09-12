@@ -4026,15 +4026,22 @@ export default function App(){
   // focus, so the banner stays quiet until somebody asks.
   function BackupButtons(){
     var wrap={position:"relative",display:"inline-flex"};
-    var btn={fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"10px 16px",borderRadius:10,
-      cursor:"pointer",whiteSpace:"nowrap",background:"#fff",border:"1px solid #E3E8F0"};
+    // Deliberately not shaped like the navy navigation buttons: pill rather than
+    // rounded rectangle, tinted rather than solid, with an icon. These act on the
+    // customer's data rather than moving them around the app, so they should not
+    // look like another place to click through to.
+    var btn={fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"9px 15px",borderRadius:999,
+      cursor:"pointer",whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:7};
+    var save=Object.assign({},btn,{background:"#EAF0F9",border:"1px solid #CFE0F2",color:"#01236D"});
+    var wipe=Object.assign({},btn,{background:"#FDEEEB",border:"1px solid #F2CFC7",color:"#B14A38"});
+    var ic={flexShrink:0};
     return (<>
       <span className="bpd-tip" style={wrap}>
-        <button style={Object.assign({},btn,{color:"#5A6C7E"})} onClick={exportData} aria-describedby="bpd-tip-backup">Save a backup</button>
+        <button style={save} onClick={exportData} aria-describedby="bpd-tip-backup"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={ic}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>Save a backup</button>
         <span className="bpd-tip-msg" role="tooltip" id="bpd-tip-backup">Your plan is saved in this browser only, and will be lost if you or your settings clear your browsing data. This saves a restore file to your Downloads.</span>
       </span>
       <span className="bpd-tip" style={wrap}>
-        <button style={Object.assign({},btn,{color:"#B14A38"})} onClick={clearDevice} aria-describedby="bpd-tip-clear">Clear plan</button>
+        <button style={wipe} onClick={clearDevice} aria-describedby="bpd-tip-clear"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={ic}><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Clear plan</button>
         <span className="bpd-tip-msg" role="tooltip" id="bpd-tip-clear">Removes your plan from this computer &mdash; for when you have finished on a shared or public machine, so nobody else can open it. Save a backup first if you want to keep your work.</span>
       </span>
     </>);
@@ -4728,12 +4735,13 @@ export default function App(){
       <div style={appStyle}>
         <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:22,flexWrap:"wrap",background:"#fff",borderBottom:"2px solid #D0B16F",borderRadius:0,padding:"14px 4px 16px"}}>
           <img src={LOGO_SRC} style={{width:46,height:46,objectFit:"contain"}} alt="Logo"/>
-          <span style={{fontWeight:800,color:"#01236D",fontSize:22,letterSpacing:"-0.01em",marginRight:"auto",borderBottom:"3px solid #D0B16F",paddingBottom:3,lineHeight:1.1}}>B-PlanDIY</span>
+          <span style={{fontWeight:800,color:"#01236D",fontSize:22,letterSpacing:"-0.01em",marginRight:8,borderBottom:"3px solid #D0B16F",paddingBottom:3,lineHeight:1.1}}>B-PlanDIY</span>
+          <span style={{display:"inline-flex",gap:8,paddingLeft:14,marginLeft:6,borderLeft:"1px solid #E3E8F0"}}>{BackupButtons()}</span>
+          <span style={{marginLeft:"auto"}}/>
           {[
             {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
             {label:"Cashflow",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
-          ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, item.label==="Summary"?{background:"#01236D",color:"#fff",border:"1px solid #01236D"}:{background:"#fff",color:"#01236D",border:"1px solid #E3E8F0"})}>{item.label}</button>;})}
-          {BackupButtons()}
+          ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, {background:"#01236D",color:"#fff",border:"1px solid #01236D"})}>{item.label}</button>;})}
         </div>
         <BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
         <div style={cardStyle}>
@@ -4866,12 +4874,13 @@ export default function App(){
     <div style={appStyle}>
       <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:22,flexWrap:"wrap",background:"#fff",borderBottom:"2px solid #D0B16F",borderRadius:0,padding:"14px 4px 16px"}}>
         <img src={LOGO_SRC} style={{width:46,height:46,objectFit:"contain"}} alt="Logo"/>
-        <span style={{fontWeight:800,color:"#01236D",fontSize:22,letterSpacing:"-0.01em",marginRight:"auto",borderBottom:"3px solid #D0B16F",paddingBottom:3,lineHeight:1.1}}>B-PlanDIY</span>
+        <span style={{fontWeight:800,color:"#01236D",fontSize:22,letterSpacing:"-0.01em",marginRight:8,borderBottom:"3px solid #D0B16F",paddingBottom:3,lineHeight:1.1}}>B-PlanDIY</span>
+          <span style={{display:"inline-flex",gap:8,paddingLeft:14,marginLeft:6,borderLeft:"1px solid #E3E8F0"}}>{BackupButtons()}</span>
+          <span style={{marginLeft:"auto"}}/>
         {[
           {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
           {label:"Cashflow",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
-        ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, item.label==="Summary"?Object.assign({background:"#01236D",color:"#fff",border:"1px solid #01236D"},step===stepDefs.length-1?{boxShadow:"0 0 0 3px rgba(208,177,111,0.55)"}:{}):{background:"#fff",color:"#01236D",border:"1px solid #E3E8F0"})}>{item.label}</button>;})}
-          {BackupButtons()}
+        ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, Object.assign({background:"#01236D",color:"#fff",border:"1px solid #01236D"},(item.label==="Summary"&&step===stepDefs.length-1)?{boxShadow:"0 0 0 3px rgba(208,177,111,0.55)"}:{}))}>{item.label}</button>;})}
       </div>
       <BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
       <div style={cardStyle}>
