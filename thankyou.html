@@ -117,10 +117,6 @@ footer a{color:#01236d;}
         <input type="text" name="name" placeholder="e.g. Sarah Johnson" required/>
       </div>
       <div class="field">
-        <label>Email address *</label>
-        <input type="email" name="email" placeholder="e.g. sarah@yourbusiness.com" required/>
-      </div>
-      <div class="field">
         <label>Mobile number *</label>
         <div style="display:flex;gap:8px;">
           <select name="dialcode" style="flex:0 0 152px;">
@@ -164,6 +160,7 @@ footer a{color:#01236d;}
       <div class="success-icon"><svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#1F7A7C" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m8 12.5 2.8 2.8L16 9.5"/></svg></div>
       <h3>You're all set!</h3>
       <p>Thanks! We'll add you to the WhatsApp community group shortly. Read the note below, then click through to start building your business plan.</p>
+      <p id="regEmail" style="display:none;font-size:14px;color:#29384A;background:#EAF0F9;border:1px solid #E3E8F0;border-radius:8px;padding:14px 16px;margin:0 0 18px;line-height:1.6;text-align:left;"></p>
       <a href="./app.html" class="app-btn">Go to the app →</a>
     </div>
   </div>
@@ -237,9 +234,31 @@ footer a{color:#01236d;}
 </footer>
 
 <script>
-function showSuccessState(){
+function showSuccessState(registeredEmail){
   document.getElementById('welcomeForm').style.display = 'none';
   document.getElementById('successMsg').style.display = 'block';
+
+  // The address comes from the payment, not from a box on this page - which is
+  // why we show it. Paying by Apple Pay or Google Pay hands us whatever address
+  // sits on that wallet, and that is the one their access is filed under. A
+  // customer who never sees it here will type a different address into
+  // verify.html months later and be told there is no subscription.
+  var re = document.getElementById('regEmail');
+  if (re) {
+    if (registeredEmail) {
+      re.innerHTML = 'Your access is registered to <strong>' +
+        String(registeredEmail).replace(/</g, '&lt;') + '</strong>. ' +
+        'That is the address your receipt was sent to, and the one to enter at ' +
+        '<a href="/verify.html" style="color:#01236d;font-weight:600;">verify.html</a> ' +
+        'if you ever need to restore access on another device. ' +
+        'Email support@b-plandiy.com if you would like it changed.';
+    } else {
+      re.innerHTML = 'We could not read an email address from your payment. ' +
+        'Please email <a href="mailto:support@b-plandiy.com" style="color:#01236d;font-weight:600;">support@b-plandiy.com</a> ' +
+        'so we can register your access properly.';
+    }
+    re.style.display = 'block';
+  }
   // These lines described the form the user has just finished with
   var sub = document.getElementById('heroSub');
   if (sub) sub.textContent = 'Thanks - your details are in. Have a quick read of the note below before you start.';
@@ -276,17 +295,15 @@ document.getElementById('welcomeForm').addEventListener('submit', function(e) {
 
   // Validate required fields
   var name = this.querySelector('[name="name"]').value.trim();
-  var email = this.querySelector('[name="email"]').value.trim();
   var dial = this.querySelector('[name="dialcode"]').value;
   var localNum = this.querySelector('[name="phone"]').value.trim();
   // Drop a leading 0, which is a domestic prefix and is not used with a country code
   localNum = localNum.replace(/^0+/, '');
   var phone = (dial === '+other' ? '' : dial + ' ') + localNum;
 
-  if(!name || !email || !phone) {
+  if(!name || !phone) {
     var missing = [];
     if(!name) missing.push('Full name');
-    if(!email) missing.push('Email address');
     if(!phone) missing.push('Mobile number');
     alert('Please fill in: ' + missing.join(', '));
     return;
@@ -324,7 +341,7 @@ document.getElementById('welcomeForm').addEventListener('submit', function(e) {
     // The token is what actually unlocks the AI features; only the server can
     // mint one, so there is nothing to fall back to if it is missing.
     localStorage.setItem('bpd_access_token', result.token);
-    showSuccessState();
+    showSuccessState(result.email);
   })
   .catch(function() {
     showProblemState();
