@@ -2319,9 +2319,15 @@ export default function App(){
     }).filter(Boolean).join("; ")||"Not specified";
     var totalExp12=expCats.reduce(function(s,c){return s+catTotal("expDetail",c.id);},0);
     if(totalExp12)expText+=" (total "+moneyStr(totalExp12)+" over 12 months)";
+    // Direction is spelled out in words, not left to the sign. Given
+    // "Asset transactions: $2,000 net" the model wrote "additional outflows
+    // include a net $2,000 in asset transactions" - it read a positive number
+    // in a section headed "other transactions" as money going out. A minus
+    // sign is too small a cue to carry that meaning reliably.
     var txText=txCats.map(function(c){
       var tot=catTotal("txDetail",c.id);
-      return tot?c.l+": "+moneyStr(tot)+" net":null;
+      if(!tot)return null;
+      return c.l+": "+moneyStr(Math.abs(tot))+" net "+(tot>0?"CASH IN (money coming into the business)":"CASH OUT (money leaving the business)");
     }).filter(Boolean).join("; ")||"None";
     // Dates are formatted first because finBits below embeds planDate. When
     // this block sat after finBits, `var` hoisting meant planDate existed but
