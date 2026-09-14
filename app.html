@@ -4936,15 +4936,8 @@ function App(){
   function StorageWarnings(){
     var bar={fontFamily:"inherit",fontSize:13.5,lineHeight:1.5,padding:"11px 14px",
       borderRadius:8,marginBottom:10,display:"flex",alignItems:"flex-start",gap:10};
+    if(!saveBroke&&!staleTab)return null;
     return (<div style={{marginBottom:4}}>
-      {/* Always visible, on every screen. This warning lived only in a CSS
-          hover tooltip, and a touchscreen has no hover - so the phone users
-          who most need to know their plan lives only in this browser were the
-          one group who could never read it. */}
-      <div style={Object.assign({},bar,{background:"#F1F4F8",border:"1px solid #D8E0EA",color:"#3C4A5A"})}>
-        <span aria-hidden="true" style={{flexShrink:0}}>&#9432;</span>
-        <span>Your plan is saved <strong>in this browser only</strong> &mdash; it is not on our servers, and clearing your browsing data will delete it. Use <strong>Save a backup</strong> to keep a copy.</span>
-      </div>
       {saveBroke&&(
         <div role="alert" style={Object.assign({},bar,{background:"#FDEEEB",border:"1px solid #F2CFC7",color:"#8C3A2B"})}>
           <span aria-hidden="true" style={{flexShrink:0,fontWeight:700}}>!</span>
