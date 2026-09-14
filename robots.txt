@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Transactional pages. Nothing here is useful in search results, and thankyou
+# URLs carry a Stripe checkout session id.
+Disallow: /thankyou.html
+Disallow: /downloads/
+Disallow: /blog/_TEMPLATE.html
+
+Sitemap: https://b-plandiy.com/sitemap.xml

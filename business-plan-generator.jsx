@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { BarChart, Bar, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine, ResponsiveContainer } from "recharts";
 
 const GREEN="#D0B16F",GREEN_DARK="#1F7A7C",GREEN_LIGHT="#EAF0F9",AMBER="#29384A",AMBER_LIGHT="#EAF0F9",RED="#B14A38",RED_LIGHT="#FDEEEB";
@@ -22,13 +22,45 @@ const expCats=[
   {id:"xVeh",l:"Vehicle",ph:"e.g. 600 (lease, fuel, maintenance)"},
   {id:"xOtherExp",l:"Other expenses",ph:"e.g. 200 (anything not covered above)"}
 ];
+// The three tax rows carry `lfn` rather than a fixed label, so they read in
+// whatever the business calls its tax - GST, VAT, HST, Sales tax - taken from
+// the name chosen in Step 5. `auto` marks the rows the user cannot type into,
+// because they are derived from the rate and the payment months.
+//
+// Why three rows and not one. Sales, costs and expenses are entered
+// tax-exclusive, so none of the tax appears in the trading lines. The tax
+// charged to customers sits in the bank until the return is filed, and the tax
+// paid to suppliers leaves it the moment they are paid. Showing only the
+// remittance - as this did until now - deducted money that had never been
+// added, and understated closing cash by the whole liability. The three rows
+// also map onto a GST return: collected is Box 5, credits Box 11, and the two
+// netted is Box 15.
 const txCats=[
   {id:"txLoan",l:"Loan transactions",ph:"e.g. 50000 loan received, -2000 monthly repayment"},
   {id:"txAsset",l:"Asset transactions",ph:"e.g. 4000 equipment sale, -15000 vehicle purchase"},
-  {id:"txTax",l:"Tax payments",ph:"Auto-calculated from the Tax rate above"},
+  {id:"txTaxColl",l:"Tax collected on sales",lfn:function(w){return w+" collected on sales";},auto:true},
+  {id:"txTaxCred",l:"Tax credit on purchases",lfn:function(w){return w+" credit on purchases";},auto:true},
+  {id:"txTax",l:"Tax paid",lfn:function(w){return w+" paid";},auto:true},
   {id:"txTaxOther",l:"Tax payments other",ph:"e.g. 2000 income tax refund, -1000 withholding tax payment"},
   {id:"txOther",l:"Other transactions",ph:"e.g. 10000 owner investment, -500 drawings"}
 ];
+// What this business calls its tax. Mirrors taxLabel() inside the component,
+// but available to calcCashflow and the export builders, which sit outside it.
+// Escapes text before it is concatenated into the generated plan's HTML.
+//
+// The plan is built as a string and rendered with dangerouslySetInnerHTML, so
+// anything unescaped becomes live markup. On its own that is self-inflicted -
+// but the app encourages exporting and importing backup files, and import
+// accepts any JSON object. A hostile backup with a script payload in bizName,
+// opened by someone else, would run on b-plandiy.com and could read their
+// access token out of localStorage.
+function escHtml(t){
+  return String(t==null?"":t)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+function taxWordOf(f){return String((f&&f.taxName)||"").trim()||"products/services tax";}
+function txLabel(c,w){return c.lfn?c.lfn(w||"products/services tax"):c.l;}
 
 function shortMonth(m){
   if(!m)return"";
@@ -65,6 +97,23 @@ function fmt2(n){
   const v=Number(n)||0;
   return (v<0?"-"+CUR:CUR)+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 }
+// Strips everything that is not part of a number, while KEEPING a leading
+// minus sign.
+//
+// The old version was replace(/[^0-9.]/g,""), which deleted the sign. Since
+// every Other-transactions placeholder invites a negative - "-2000 monthly
+// repayment", "-500 drawings", "-15000 vehicle purchase" - and unit growth
+// accepts one for a declining forecast, that silently turned every outflow
+// into an inflow and every decline into growth.
+//
+// Thousands separators and currency symbols are dropped, so "$5,000" and
+// "5,000" both read as 5000 rather than 0 and 5.
+function cleanNum(str){
+  var t=String(str==null?"":str).trim();
+  var neg=/^-/.test(t);
+  var digits=t.replace(/[^0-9.]/g,"");
+  return (neg?"-":"")+digits;
+}
 // Gross profit as a percentage of sales. Blank when there are no sales, since
 // dividing by zero would otherwise show a meaningless or infinite figure.
 function gpPct(gp,rev){
@@ -90,12 +139,12 @@ function parseMonthly(str,def){
   if(s.includes("M")&&s.includes(":")){
     const arr=Array(12).fill(def);
     s.split(",").forEach(part=>{
-      const m=part.trim().match(/M(\d+):([0-9.]+)/i);
+      const m=part.trim().match(/M(\d+):(-?[0-9.]+)/i);
       if(m){const idx=parseInt(m[1])-1;if(idx>=0&&idx<12)arr[idx]=parseFloat(m[2]);}
     });
     return arr;
   }
-  const n=parseFloat(s.replace(/[^0-9.]/g,""));
+  const n=parseFloat(cleanNum(s));
   return Array(12).fill(isNaN(n)?def:n);
 }
 
@@ -105,12 +154,12 @@ function parseGrowth(str){
   if(s.includes("M")&&s.includes(":")){
     const arr=Array(12).fill(0);
     s.split(",").forEach(part=>{
-      const m=part.trim().match(/M(\d+):([0-9.]+)/i);
+      const m=part.trim().match(/M(\d+):(-?[0-9.]+)/i);
       if(m){const idx=parseInt(m[1])-1;if(idx>=0&&idx<12)arr[idx]=parseFloat(m[2]);}
     });
     return arr;
   }
-  const n=parseFloat(s.replace(/[^0-9.]/g,""));
+  const n=parseFloat(cleanNum(s));
   return Array(12).fill(isNaN(n)?0:n);
 }
 
@@ -139,7 +188,9 @@ function repairMonthGrids(d){
 }
 
 function calcCashflow(f){
-  const open=parseFloat(f.openingBalance)||0;
+  // cleanNum, not a bare parseFloat: "5,000" read as 5 and "$5,000" as 0,
+  // while the Debt field right beside it suggests exactly that format.
+  const open=parseFloat(cleanNum(f.openingBalance))||0;
   const unitGrowth=parseGrowth(f.unitGrowth);
   const priceInc=parseGrowth(f.priceInc);
   const costInc=parseGrowth(f.costInc);
@@ -172,7 +223,11 @@ function calcCashflow(f){
     ? (parseFloat(f.taxRate)||0)>0
     : f.taxRegistered==="1";
   const taxRate=taxRegistered?(parseFloat(f.taxRate)||0):0;
-  const salesTaxMode=String(f.taxName||"")==="Sales tax";
+  // Case-insensitive, and trimmed. An exact match on "Sales tax" meant a US
+  // business that typed "Sales Tax" - or left the name unset, which is the
+  // shipped default - was given VAT treatment and input credits it is not
+  // entitled to, understating the tax it owes by around 40%.
+  const salesTaxMode=/^sales\s*tax$/i.test(String(f.taxName||"").trim());
   let accTax=0;
 
   // Extra sales and costs implied by the Step 4 goals. Opt-in, because a user
@@ -233,20 +288,31 @@ function calcCashflow(f){
     // Revenue
     const monthlyUnits=parseMonthly(f.monthlyUnits,0);
     const hasMonthlyUnits=f.monthlyUnits&&f.monthlyUnits.includes("M");
-    let units=hasMonthlyUnits?monthlyUnits[i]:parseFloat(f["month1Units"]||0);
+    let units=hasMonthlyUnits?monthlyUnits[i]:(parseFloat(cleanNum(f["month1Units"]))||0);
     if(!hasMonthlyUnits&&i>0){
       for(let j=0;j<i;j++) units=units*(1+(unitGrowth[j]||0)/100);
     }
     units=units+goalUnitsFor(i);
-    let price=avgPrice[i]||parseFloat(f.avgPrice)||0;
-    if(priceInc[i]) price=price*(1+priceInc[i]/100);
+    // Rounded once, here, before it is used. Revenue and COGS used to multiply
+    // the unrounded figure while the table printed the rounded one, so the
+    // Units row times the Avg Price row did not reconcile to the revenue row.
+    units=Math.round(units);
+    // Price and cost increases compound month on month, exactly as unit growth
+    // does, and month 1 carries no uplift. They used to apply their increase
+    // once, and to apply it in month 1 - so a 5% rise showed as +5% immediately
+    // and then never again, understating month 12 by 39% on a 5% input.
+    // A monthly grid supplies its own figure per month, so it is left alone.
+    const hasMonthlyPrice=f.avgPrice&&String(f.avgPrice).includes("M");
+    const hasMonthlyCost=f.avgCost&&String(f.avgCost).includes("M");
+    let price=avgPrice[i]||parseFloat(cleanNum(f.avgPrice))||0;
+    if(!hasMonthlyPrice){for(let j=0;j<i;j++) price=price*(1+(priceInc[j]||0)/100);}
     const revProducts=Math.round(units*price);
     const revOther=Math.round(parseMonthly(f.otherRevenue,0)[i]);
     const revenue=revProducts+revOther;
 
     // COGS
-    let cost=avgCost[i]||parseFloat(f.avgCost)||0;
-    if(costInc[i]) cost=cost*(1+costInc[i]/100);
+    let cost=avgCost[i]||parseFloat(cleanNum(f.avgCost))||0;
+    if(!hasMonthlyCost){for(let j=0;j<i;j++) cost=cost*(1+(costInc[j]||0)/100);}
     const cogs=Math.round(units*cost);
 
     const grossProfit=revenue-cogs;
@@ -280,10 +346,16 @@ function calcCashflow(f){
     // and do charge it, so that tax is reclaimable and their cost is already
     // accounted for in net profit - adding it back would tax it twice.
     const teamExp=(expDetail["xTeam"]||0);
-    const taxableBase=netProfit+teamExp;
-    const monthTax=salesTaxMode
-      ? Math.round(revProducts*taxRate/100)
-      : Math.round(taxableBase*taxRate/100);
+    // The two sides are computed separately now, so each can have its own row.
+    // Sales tax takes no credit on inputs, so its credit side is nil.
+    //
+    // The sales side is revProducts, not revenue: grants, interest and rental
+    // income in "other revenue" are not taxable sales. Basing it on net profit,
+    // as this did, quietly taxed them.
+    const taxOnSales=Math.round(revProducts*taxRate/100);
+    const taxOnInputs=salesTaxMode?0:Math.round((cogs+totalExpenses-teamExp)*taxRate/100);
+    // Netted from the two rounded components, so the three rows always foot.
+    const monthTax=taxOnSales-taxOnInputs;
     const isTaxPayMonth=!!f["taxPayM"+(i+1)]||!Array.from({length:12},function(_,n){return f["taxPayM"+(n+1)];}).some(Boolean);
     const calcTax=isTaxPayMonth?accTax:0;
     if(isTaxPayMonth)accTax=0;
@@ -294,10 +366,18 @@ function calcCashflow(f){
     let otherTx=0;
     txCats.forEach(c=>{
       let v;
-      if(c.id==="txTax"){
-        // Always auto-calculated from the Tax rate - not user editable.
-        // Convention: money in is positive, money out is negative.
-        // Tax paid is an outflow, so the calculated figure is negated.
+      // Convention throughout: money in is positive, money out is negative.
+      if(c.id==="txTaxColl"){
+        // Charged to customers on top of the tax-exclusive prices entered, so
+        // it reaches the bank as it is earned and stays there until the return.
+        v=taxOnSales;
+      } else if(c.id==="txTaxCred"){
+        // Paid to suppliers on top of the tax-exclusive costs entered, so it
+        // leaves the bank when they are paid and is reclaimed via the return.
+        v=-taxOnInputs;
+      } else if(c.id==="txTax"){
+        // The net remittance, in the payment months only. Always auto-
+        // calculated from the Tax rate - not user editable.
         v=-calcTax;
       } else {
         v=Math.round(txArr[c.id][i]);
@@ -312,7 +392,7 @@ function calcCashflow(f){
 
     rows.push({
       month:getMonthLabel(i),
-      units:Math.round(units),
+      units:units,
       avgPrice:Math.round(price*100)/100,
       avgCost:Math.round(cost*100)/100,
       revenue,revProducts,revOther,
@@ -322,7 +402,12 @@ function calcCashflow(f){
       txDetail,otherTx,
       netCashflow,
       openingBalance:openBal,
-      closingBalance:bal
+      closingBalance:bal,
+      // Carried on the row so CfTable and the exports can label the tax lines
+      // without being handed the whole form object. The rate, the mode and the
+      // payment-month flag ride along so What If can recompute the tax rather
+      // than inheriting the baseline's.
+      taxWord:taxWordOf(f),taxRate:taxRate,salesTaxMode:salesTaxMode,isTaxPayMonth:isTaxPayMonth
     });
   }
   return rows;
@@ -351,16 +436,20 @@ function CfTable({rows}){
   const gpTotal=totals("grossProfit");
 
   const wrapStyle={overflowX:"auto"};
+  const wrapA11y={tabIndex:0,role:"region","aria-label":"12-month cashflow forecast"};
   const tblStyle={width:"100%",borderCollapse:"collapse",fontSize:13};
 
   var cftable=(
-    <div style={wrapStyle}>
+    <div style={wrapStyle} {...wrapA11y}>
       <table style={tblStyle}>
+        <caption style={{captionSide:"top",textAlign:"left",fontSize:12,color:"#5A6C7E",paddingBottom:8}}>
+          12-month cashflow forecast. Scroll sideways to see every month.
+        </caption>
         <thead>
           <tr>
-            <th style={thF}>Item</th>
-            {rows.map(function(r){return <th key={r.month} style={th}>{r.month.replace("Month ","M")}</th>;})}
-            <th style={Object.assign({},th,totB)}>Total</th>
+            <th scope="col" style={thF}>Item</th>
+            {rows.map(function(r){return <th scope="col" key={r.month} style={th}>{r.month.replace("Month ","M")}</th>;})}
+            <th scope="col" style={Object.assign({},th,totB)}>Total</th>
           </tr>
         </thead>
         <tbody>
@@ -394,7 +483,7 @@ function CfTable({rows}){
             <td style={Object.assign({},totals("netProfit")<0?hlR:hlG,totB)}>{fmt(totals("netProfit"))}</td>
           </tr>
           <tr><td style={hdr} colSpan={rows.length+2}>Other Transactions</td></tr>
-          {txCats.map(function(cat){return (<tr key={cat.id}><td style={tdF}>{cat.l}</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.txDetail&&r.txDetail[cat.id]||0)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(txTotals[cat.id])}</td></tr>);})}
+          {txCats.map(function(cat){if(cat.auto&&!rows.some(function(r){return (r.txDetail&&r.txDetail[cat.id])||0;}))return null;return (<tr key={cat.id}><td style={tdF}>{txLabel(cat,rows[0]&&rows[0].taxWord)}</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.txDetail&&r.txDetail[cat.id]||0)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(txTotals[cat.id])}</td></tr>);})}
           <tr><td style={hdr} colSpan={rows.length+2}>Cashflow</td></tr>
           <tr>
             <td style={totals("netCashflow")<0?hlRF:hlGF}>Net Cashflow</td>
@@ -424,7 +513,7 @@ function ChartTip({active,payload,label}){
 }
 
 function CfCharts({rows,expCatsData}){
-  const COLORS=["#01236D","#D0B16F","#1B4FA8","#7A93B8","#5A6C7E","#29384A","#1F7A7C","#B14A38","#7A93B8","#E3E8F0","#29384A","#E3E8F0","#EAF0F9","#EAF0F9"];
+  const COLORS=["#01236D","#D0B16F","#1B4FA8","#5A6C7E","#5A6C7E","#29384A","#1F7A7C","#B14A38","#5A6C7E","#E3E8F0","#29384A","#E3E8F0","#EAF0F9","#EAF0F9"];
   const expPieData=(expCatsData||[]).map(function(c,i){
     var total=rows.reduce(function(s,r){return s+(r.expDetail&&r.expDetail[c.id]||0);},0);
     return total>0?{name:c.l,value:total,color:COLORS[i%COLORS.length]}:null;
@@ -466,7 +555,7 @@ function CfCharts({rows,expCatsData}){
             <span style={{fontWeight:600}}>${Math.round(e.value).toLocaleString()}</span>
           </div>;})}
         </div>
-      </div>):<div style={{fontSize:13,color:"#7A93B8",padding:"16px 0"}}>No expense data entered yet.</div>}
+      </div>):<div style={{fontSize:13,color:"#5A6C7E",padding:"16px 0"}}>No expense data entered yet.</div>}
       <div style={{fontSize:13,fontWeight:600,color:"#5A6C7E",margin:"20px 0 8px",textTransform:"uppercase",letterSpacing:"0.05em"}}>Net Profit / (Loss)</div>
       <ResponsiveContainer width="100%" height={160}>
         <LineChart data={npData} margin={{top:4,right:24,left:8,bottom:0}}>
@@ -527,6 +616,7 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
   });
   var wiHireTotal=wiHireMonthly.reduce(function(s,v){return s+v;},0);
 
+  var wiAccTax=0;
   const adj=liveRows.map(function(r,ri){
     var units=Math.round((r.units||0)*(1+wiUnits/100));
     var price=(r.units>0?(r.revProducts/r.units):0)+wiPrice;
@@ -539,7 +629,21 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
     var exp=Math.round(r.totalExpenses+wiTeam+wiTotalExp+(wiHireMonthly[ri]||0));
     if(exp<0)exp=0;
     var np=gp-exp;
-    return Object.assign({},r,{revenue:rev,cogs:cogs,grossProfit:gp,totalExpenses:exp,netProfit:np});
+    // Tax has to be recomputed, not inherited. It used to carry over from the
+    // baseline inside otherTx, so doubling Units Sold doubled the revenue and
+    // left the tax where it was - overstating cash in exactly the scenario
+    // someone runs to decide whether growth is affordable.
+    var rate=r.taxRate||0;
+    var wages=((r.expDetail&&r.expDetail.xTeam)||0)+wiTeam+(wiHireMonthly[ri]||0);
+    var taxOnSales=Math.round(Math.round(units*price)*rate/100);
+    var taxOnInputs=r.salesTaxMode?0:Math.round((cogs+exp-wages)*rate/100);
+    var monthTax=taxOnSales-taxOnInputs;
+    var calcTax=r.isTaxPayMonth?wiAccTax:0;
+    if(r.isTaxPayMonth)wiAccTax=0;
+    wiAccTax+=monthTax;
+    var oldTax=((r.txDetail&&r.txDetail.txTaxColl)||0)+((r.txDetail&&r.txDetail.txTaxCred)||0)+((r.txDetail&&r.txDetail.txTax)||0);
+    var otherTxAdj=(r.otherTx||0)-oldTax+taxOnSales-taxOnInputs-calcTax;
+    return Object.assign({},r,{revenue:rev,cogs:cogs,grossProfit:gp,totalExpenses:exp,netProfit:np,otherTx:otherTxAdj});
   });
   // The real forecast is bal = bal + netProfit + otherTx. Leaving otherTx out
   // meant the adjusted closing balance never matched the baseline, even with
@@ -605,7 +709,7 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
             <div style={{fontSize:13,color:color,marginTop:4,fontWeight:500}}>
               {diff===0?"No change":(diff>0?"▲ ":"▼ ")+fmt(Math.abs(diff))+" ("+Math.abs(pct)+"% "+(diff>0?"increase":"decrease")+")"}
             </div>
-            <div style={{fontSize:11,color:"#7A93B8",marginTop:2}}>Baseline: {fmt(item.base)}</div>
+            <div style={{fontSize:11,color:"#5A6C7E",marginTop:2}}>Baseline: {fmt(item.base)}</div>
           </div>);
         })}
         {(function(){
@@ -663,7 +767,7 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
               <option value="">From {wiMonthLabel(1)}</option>
               {Array.from({length:11},function(_,k){var m=k+2;return <option key={m} value={String(m)}>From {wiMonthLabel(m)}</option>;})}
             </select>
-            <button title="Remove" style={{fontFamily:"inherit",fontSize:15,lineHeight:1,color:"#7A93B8",background:"none",border:"1px solid #E3E8F0",borderRadius:6,padding:"0 11px",cursor:"pointer"}}
+            <button title="Remove" style={{fontFamily:"inherit",fontSize:15,lineHeight:1,color:"#5A6C7E",background:"none",border:"1px solid #E3E8F0",borderRadius:6,padding:"0 11px",cursor:"pointer"}}
               onClick={function(){var a=wiHires.slice();a.splice(hi,1);setWiHires(a);}}>&times;</button>
           </div>
         );})}
@@ -692,7 +796,7 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
         return (
         <div key={s.label} style={{marginBottom:20}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",marginBottom:6}}>
-            <span style={{fontSize:13,color:"#29384A"}}>{s.label} <span style={{fontSize:11,color:"#7A93B8"}}>{s.sub}</span></span>
+            <span style={{fontSize:13,color:"#29384A"}}>{s.label} <span style={{fontSize:11,color:"#5A6C7E"}}>{s.sub}</span></span>
             <div style={{textAlign:"right"}}>
               <span style={{fontSize:13,fontWeight:600,color:color}}>{headline}</span>
               {s.val!==0&&!s.isDollar&&<span style={{fontSize:13,color:color,marginLeft:8}}>({dispDiff} / mo avg)</span>}
@@ -700,7 +804,7 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
           </div>
           <input type="range" min={s.min} max={s.max} step={s.step} value={s.val} style={sl} onChange={function(e){s.set(parseFloat(e.target.value));}}/>
           <div style={{display:"flex",justifyContent:"space-between",marginTop:3}}>
-            <span style={{fontSize:11,color:"#7A93B8"}}>Baseline avg: {dispBase}/mo</span>
+            <span style={{fontSize:11,color:"#5A6C7E"}}>Baseline avg: {dispBase}/mo</span>
             {s.val!==0&&<span style={{fontSize:11,color:color}}>Adjusted: {dispAdj}/mo</span>}
           </div>
         </div>
@@ -745,7 +849,8 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
     return SHORT_MONTHS[idx]+" "+String(yr).slice(2);
   }
   function mKey(m){return keyPrefix+(m+1)+post;}
-  var mgStyle={display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:6};
+  var mgNarrow=typeof window!=="undefined"&&window.matchMedia&&window.matchMedia("(max-width:600px)").matches;
+  var mgStyle={display:"grid",gridTemplateColumns:mgNarrow?"repeat(3,1fr)":"repeat(6,1fr)",gap:mgNarrow?8:6};
   return (
     <div>
       <div key={storeKey+"-"+ver} style={mgStyle}>
@@ -753,7 +858,7 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
           var key=mKey(m);
           var locked=m<start;
           return (<div key={m+"-"+ver}>
-              <label style={{fontSize:11,color:locked?"#E3E8F0":"#7A93B8",marginBottom:2,display:"block",textAlign:"center"}}>{monthLabel(m)}</label>
+              <label style={{fontSize:11,color:locked?"#E3E8F0":"#5A6C7E",marginBottom:2,display:"block",textAlign:"center"}}>{monthLabel(m)}</label>
               <input style={Object.assign({},inp,{textAlign:"right",padding:"6px 8px",fontSize:13},locked?{background:"#FCFCFA",color:"#E3E8F0",cursor:"not-allowed"}:{})} defaultValue={locked?"":fdRef.current[key]||""} placeholder={locked?"-":"0"} readOnly={locked} onChange={locked?undefined:function(e){
                 fdRef.current[key]=e.target.value;
                 var parts=Array.from({length:12},function(_,n){return n<start?"0":fdRef.current[mKey(n)]||"0";});
@@ -800,9 +905,9 @@ function FinSection(props){
       <button
         onClick={props.onToggle}
         style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:open?"#FCFCFA":"#fff",border:"none",borderBottom:open?"1px solid #E3E8F0":"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
-        <span style={{fontSize:13,color:"#7A93B8",transform:open?"rotate(90deg)":"none",transition:"transform 0.15s",display:"inline-block"}}>▶</span>
+        <span style={{fontSize:13,color:"#5A6C7E",transform:open?"rotate(90deg)":"none",transition:"transform 0.15s",display:"inline-block"}}>▶</span>
         <span style={{fontSize:15,fontWeight:700,color:"#01236D",flex:1}}>{props.title}</span>
-        {props.hint&&<span style={{fontSize:11,color:props.hintColor||"#7A93B8",fontWeight:props.hintColor?700:400}}>{props.hint}</span>}
+        {props.hint&&<span style={{fontSize:11,color:props.hintColor||"#5A6C7E",fontWeight:props.hintColor?700:400}}>{props.hint}</span>}
       </button>
       {open&&<div style={{padding:"14px"}}>{props.children}</div>}
     </div>
@@ -829,7 +934,12 @@ export default function App(){
   var savedData=savedState[0];
 
   var fdRef=useRef(savedData);
-  var stepState=useState(parseInt(localStorage.getItem("bpg_step")||"0")||0);
+  // Guarded like every other read in the file. Unwrapped, this threw during
+  // render wherever storage access is blocked - a private window, cookies
+  // disabled, enterprise policy - and the customer got a white page.
+  var stepState=useState(function(){
+    try{ return parseInt(localStorage.getItem("bpg_step")||"0")||0; }catch(e){ return 0; }
+  });
   var step=stepState[0];var setStep=stepState[1];
   var tabState=useState("plan");var tab=tabState[0];var setTab=tabState[1];
   var previewTabState=useState("details");var previewTab=previewTabState[0];var setPreviewTab=previewTabState[1];
@@ -863,32 +973,149 @@ export default function App(){
   var showOutputState=useState(false);var showOutput=showOutputState[0];var setShowOutput=showOutputState[1];
   var planFailedState=useState(false);var planFailed=planFailedState[0];var setPlanFailed=planFailedState[1];
   var showBackupHelpState=useState(false);var showBackupHelp=showBackupHelpState[0];var setShowBackupHelp=showBackupHelpState[1];
-  // Shown once, on the first visit only. The flag is separate from the plan data
-  // so importing a backup does not bring the welcome screen back.
-  var showWelcomeState=useState(function(){
-    try{ return localStorage.getItem("bpd_seen_welcome")!=="1"; }catch(e){ return false; }
-  });
-  var showWelcome=showWelcomeState[0];var setShowWelcome=showWelcomeState[1];
-  function dismissWelcome(){
-    try{ localStorage.setItem("bpd_seen_welcome","1"); }catch(e){}
-    setShowWelcome(false);
+
+  // Storage health. saveBrokeRef mirrors the state so saveToStorage, which runs
+  // on every keystroke, can test it without forcing a re-render each time.
+  var saveBrokeState=useState(false);var saveBroke=saveBrokeState[0];var setSaveBroke=saveBrokeState[1];
+  var saveBrokeRef=useRef(false);
+  var saveRev=useRef(0);
+  var staleTabState=useState(false);var staleTab=staleTabState[0];var setStaleTab=staleTabState[1];
+  // Bumped whenever fdRef is filled from outside the form - the intake, an
+  // import. Step 1's fields are uncontrolled (defaultValue, read once on
+  // mount), so without a remount they keep showing whatever they mounted with:
+  // blank boxes, and a Stage dropdown displaying the first option while a
+  // different value sits in the plan and goes into every AI prompt.
+  var formVerState=useState(0);var formVer=formVerState[0];var setFormVer=formVerState[1];
+
+  // Opening questions for a brand new plan.
+  //
+  // Seven questions, and only seven. Each one is something the AI cannot work out
+  // for itself and the owner can answer from memory in seconds. Everything else
+  // in steps 2 and 3 - target customer, market size, competitors, advantage,
+  // SWOT, vision, position, values, goals - is derivable from these answers,
+  // which is why asking for any of it here would be asking twice.
+  //
+  // Deliberately left out: industry (inferable from the description), and every
+  // financial figure. Price, unit cost and opening balance are owner-only facts
+  // the AI genuinely cannot supply, but they need looking up, and someone three
+  // minutes into a free app has not yet decided they care. They stay in step 5,
+  // where people arrive expecting to need numbers.
+  var INTAKE_Q=[
+    {id:"bizName",kind:"text",q:"What is your business called?",
+     help:"However you write it on an invoice or a sign.",
+     ph:"e.g. Rolling Beans"},
+    {id:"description",kind:"area",rows:3,q:"In a sentence or two, what does it do and who for?",
+     help:"This one matters most. Nearly every AI suggestion later is built from this answer, so a little detail here pays for itself.",
+     ph:"e.g. A mobile coffee cart selling barista-made espresso to shoppers at weekend markets around Whangarei."},
+    {id:"locations",kind:"text",q:"Where does it operate?",
+     help:"Town, region or country. It decides which competitors are real and keeps the plan to a sensible scale.",
+     ph:"e.g. Whangarei, Northland"},
+    {id:"stage",kind:"choice",q:"What stage is it at?",
+     help:"",
+     opts:["Great idea (thinking about going into business)","Early stage (business started and getting traction)","Established business (been in business awhile)"]},
+    {id:"bizType",kind:"choice",q:"How is the business set up?",
+     help:"",
+     opts:["Sole Trader","Company (Ltd)","Partnership","Trust","Other"]},
+    {id:"history",kind:"area",rows:3,q:"What made you start it? What gap did you spot?",
+     help:"Worth a moment. This is the one part of a plan nobody else can write for you, and it usually turns into the best paragraph in the finished document.",
+     ph:"e.g. I was at the growers market and realised hundreds of people walked past every weekend with nowhere to buy a decent coffee."},
+    // Last, and built differently from the rest.
+    //
+    // The position statement is read by seven separate AI prompts - target
+    // customer, SWOT, goals, per-goal execution and others - so leaving it
+    // blank weakens most of what the app generates. It is also the hardest
+    // field in the whole app, because it asks for a composed sentence rather
+    // than a fact, which is why it sits alone in Step 1 with no AI help.
+    //
+    // Four short blanks turn that composition back into recall. Nobody has to
+    // write the sentence; they fill in four phrases and watch it assemble.
+    {id:"position",kind:"position",q:"Last one. Finish this sentence about your business.",
+     help:"Four short phrases, a few words each and your position statement writes itself."}
+  ];
+
+  var INTAKE_LABEL={bizName:"Name",description:"What it does",locations:"Where",
+    stage:"Stage",bizType:"Set up as",history:"Why you started",position:"Position statement"};
+
+  // Built from whichever parts are present, so a half-finished answer still
+  // produces a grammatical sentence rather than one with holes in it.
+  function assemblePosition(){
+    var f=fdRef.current;
+    // Trailing punctuation is stripped per part, not just off the end. Someone
+    // who types "after-school club." into a middle blank would otherwise get
+    // "...is an after-school club. that will give them evenings back."
+    function part(v){ return String(v||"").trim().replace(/[.,;:]+$/,"").trim(); }
+    var who=part(f.posWho);
+    var need=part(f.posNeed);
+    var what=part(f.posWhat);
+    var ben=part(f.posBenefit);
+    var name=String(f.bizName||"").trim()||"this business";
+    // Both halves or nothing. Filling one and inventing the other produced
+    // "For shoppers, Rolling Beans is a business." - grammatical, and worse
+    // than an empty field, because it looks answered.
+    if(!who||!what)return "";
+    // "is a accounting app" otherwise. The exceptions are the words that start
+    // with a vowel but sound like a consonant - unique, university, used, euro.
+    var art=/^[aeiou]/i.test(what)&&!/^(uni|use|usu|ubi|eu|one)/i.test(what)?"an":"a";
+    if(/^(a|an|the)\s/i.test(what))art="";      // they typed their own article
+    var s="For "+who;
+    if(need)s+=" who "+need;
+    s+=", "+name+" is "+(art?art+" ":"")+what;
+    if(ben)s+=" that will "+ben;
+    return s.replace(/\.+$/,"")+".";
   }
 
-  // Shown the first time the Finances step is opened - it lists what the user
-  // needs to hand before starting the cashflow.
-  var showFinIntroState=useState(false);
-  var showFinIntro=showFinIntroState[0];var setShowFinIntro=showFinIntroState[1];
-  function maybeShowFinIntro(){
-    try{ if(localStorage.getItem("bpd_seen_finances")==="1")return; }catch(e){ return; }
-    setShowFinIntro(true);
+  // Shown only for a genuinely empty plan. Someone who has typed anything, or
+  // imported a backup, is not a new user and should never see this.
+  // Any real content anywhere means this is not a new user.
+  //
+  // This used to probe eight keys and ignore everything else - industry, team,
+  // goals, vision, values, every expense category - so someone who had gone
+  // straight to Step 5 and built a forecast would get the full-screen intake
+  // dropped over their work.
+  function planLooksEmpty(){
+    var f=fdRef.current||{};
+    // Seeded automatically rather than typed, so their presence proves nothing.
+    var auto={taxRegistered:1,currencySym:1,taxName:1,taxRate:1,_rev:1,_planHtml:1};
+    var keys=Object.keys(f);
+    for(var i=0;i<keys.length;i++){
+      if(auto[keys[i]])continue;
+      var v=f[keys[i]];
+      if(v==null)continue;
+      if(typeof v==="object"){ if(Object.keys(v).length)return false; continue; }
+      if(String(v).trim())return false;
+    }
+    return true;
   }
-  function dismissFinIntro(){
-    try{ localStorage.setItem("bpd_seen_finances","1"); }catch(e){}
-    setShowFinIntro(false);
+  var showIntakeState=useState(function(){
+    try{ if(localStorage.getItem("bpd_intake_done")==="1")return false; }catch(e){ return false; }
+    return planLooksEmpty();
+  });
+  var showIntake=showIntakeState[0];var setShowIntake=showIntakeState[1];
+  var intakeIdxState=useState(0);var intakeIdx=intakeIdxState[0];var setIntakeIdx=intakeIdxState[1];
+  var intakeAnsState=useState({});var intakeAns=intakeAnsState[0];var setIntakeAns=intakeAnsState[1];
+
+  function closeIntake(){
+    try{ localStorage.setItem("bpd_intake_done","1"); }catch(e){}
+    setShowIntake(false);
+    setFormVer(function(v){return v+1;});
   }
+  // Answers are written to the plan as they are given, not held to the end, so
+  // a closed tab halfway through still leaves the person better off than when
+  // they arrived.
+  function setIntakeAnswer(id,val){
+    fdRef.current[id]=val;
+    saveToStorage();
+    setIntakeAns(function(a){var n=Object.assign({},a);n[id]=val;return n;});
+  }
+  // The first-visit welcome overlay and the first-time Finances overlay were
+  // removed. Both were full-screen modals shown before the user had done
+  // anything. The bpd_seen_welcome and bpd_seen_finances keys are still cleared
+  // in clearDevice so a machine that used an earlier build is left clean.
   var backupNameState=useState("");var backupName=backupNameState[0];var setBackupName=backupNameState[1];
   var showDirectionState=useState(false);var showDirection=showDirectionState[0];var setShowDirection=showDirectionState[1];
-  var planHtmlState=useState("");var planHtml=planHtmlState[0];var setPlanHtml=planHtmlState[1];
+  // Seeded from the saved plan, so a reload shows the generated document
+  // rather than an empty output pane.
+  var planHtmlState=useState(function(){return (savedData&&savedData._planHtml)||"";});var planHtml=planHtmlState[0];var setPlanHtml=planHtmlState[1];
   var liveRowsState=useState(function(){return calcCashflow(fdRef.current);});
   var liveRows=liveRowsState[0];var setLiveRows=liveRowsState[1];
   var loadingState=useState(false);var loading=loadingState[0];var setLoading=loadingState[1];
@@ -932,6 +1159,10 @@ export default function App(){
   var tcVersionState=useState(0);var tcVersion=tcVersionState[0];var setTcVersion=tcVersionState[1];
   var advLoadingState=useState(false);var advLoading=advLoadingState[0];var setAdvLoading=advLoadingState[1];
   var advVersionState=useState(0);var advVersion=advVersionState[0];var setAdvVersion=advVersionState[1];
+  var visLoadingState=useState(false);var visLoading=visLoadingState[0];var setVisLoading=visLoadingState[1];
+  var visVersionState=useState(0);var visVersion=visVersionState[0];var setVisVersion=visVersionState[1];
+  var valLoadingState=useState(false);var valLoading=valLoadingState[0];var setValLoading=valLoadingState[1];
+  var valVersionState=useState(0);var valVersion=valVersionState[0];var setValVersion=valVersionState[1];
   var compLoadingState=useState(false);var compLoading=compLoadingState[0];var setCompLoading=compLoadingState[1];
   var cswLoadingState=useState(false);var cswLoading=cswLoadingState[0];var setCswLoading=cswLoadingState[1];
   var bkLoadingState=useState(false);var bkLoading=bkLoadingState[0];var setBkLoading=bkLoadingState[1];
@@ -1029,7 +1260,7 @@ export default function App(){
   var adminPwState=useState("");var adminPw=adminPwState[0];var setAdminPw=adminPwState[1];
   var adminMsgInputState=useState("");var adminMsgInput=adminMsgInputState[0];var setAdminMsgInput=adminMsgInputState[1];
 
-  var inp={width:"100%",fontFamily:"inherit",fontSize:15,color:"#29384A",background:"#fff",border:"1px solid #E3E8F0",borderRadius:10,padding:"14px 14px",outline:"none",boxSizing:"border-box"};
+  var inp={width:"100%",fontFamily:"inherit",fontSize:16,color:"#29384A",background:"#fff",border:"1px solid #9AA8BC",borderRadius:10,padding:"14px 14px",outline:"none",boxSizing:"border-box"};
   var ta=function(r){return Object.assign({},inp,{resize:"vertical",lineHeight:1.6,minHeight:r*26});};
   // Two-column field rows. flex-basis 260px means the pair sits side by side on
   // desktop and stacks automatically on narrow screens, with no media query.
@@ -1084,6 +1315,43 @@ export default function App(){
   var suggestBtnBusy=Object.assign({},suggestBtn,{background:"#01236D",cursor:"wait",fontWeight:700,boxShadow:"0 0 0 3px rgba(1,35,109,0.15)"});
   function busyLabel(t){return <span><span className="bpd-pulse" style={{display:"inline-block",width:8,height:8,borderRadius:"50%",background:"#D0B16F",marginRight:8,verticalAlign:"middle"}}/>{t}</span>;}
 
+  // The app and the forecast are free. Payment buys the AI features only.
+  //
+  // This is a presentation check, not the gate. The real gate is in
+  // netlify/functions/anthropic.js, which verifies the signed token and returns
+  // 402 without one - editing localStorage here buys nothing but a nicer button.
+  // Its job is to let a free user see what is locked before they click, rather
+  // than pressing Suggest and waiting for a round trip to tell them no.
+  //
+  // Three states, because "you have not bought this yet" and "what you bought
+  // has run out" need different words and different links.
+  function aiAccess(){
+    var exp=0,tok="";
+    try{
+      exp=parseInt(localStorage.getItem("bpd_access_expiry")||"0",10)||0;
+      tok=localStorage.getItem("bpd_access_token")||"";
+    }catch(e){ return "none"; }
+    if(!exp||!tok)return "none";
+    if(Date.now()>exp)return "expired";
+    return "ok";
+  }
+  function hasAi(){ return aiAccess()==="ok"; }
+
+  // One message, used by every locked AI button and by Generate Plan.
+  function aiLockedNotice(){
+    if(aiAccess()==="expired"){
+      aiNotify(null,"Your access has run out, so the AI features are switched off. "+
+        "The plan and forecast keep working, and everything you have entered is safe on this device. "+
+        "<a href=\"/verify.html\" style=\"color:#01236D;font-weight:700;\">Verify your email</a> to restore access, "+
+        "or renew for $29.");
+    }else{
+      aiNotify(null,"Writing with AI is the paid part of B-PlanDIY. "+
+        "The plan and the 12-month forecast are free and stay free - this button, and Generate Plan, need access. "+
+        "<a href=\"https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00\" style=\"color:#01236D;font-weight:700;\">Get access for $29</a>, "+
+        "or <a href=\"/verify.html\" style=\"color:#01236D;font-weight:700;\">verify your email</a> if you have already paid.");
+    }
+  }
+
   // Every AI request carries the signed access token. The endpoint verifies it
   // server-side, so editing localStorage no longer buys anyone anything.
   function aiHeaders(){
@@ -1133,7 +1401,35 @@ export default function App(){
   }
 
   // Every AI request goes through here, so every failure has an explanation.
-  async function aiFetch(payload){
+  // Two Suggest buttons in step 2 are free to everyone, as a taster: the target
+  // customer and the market opportunity. They are the two questions people
+  // stall on first, and answering them is what shows the AI is worth $29.
+  //
+  // The server has to agree - it is the actual gate - so a free call carries a
+  // free_mode name that netlify/functions/anthropic.js allows without a token,
+  // under a much tighter rate limit and a smaller token cap.
+  var FREE_MODES={targetCust:1,marketSize:1};
+
+  // Pulls {error:{message}} out of a response body, when there is one worth
+  // showing. Returns "" rather than a half-parsed fragment.
+  function serverMessage(raw){
+    try{
+      var d=JSON.parse(raw||"");
+      var m=d&&d.error&&d.error.message;
+      return (typeof m==="string"&&m.trim())?m.trim():"";
+    }catch(e){ return ""; }
+  }
+
+  async function aiFetch(payload,freeMode){
+    // Stop here rather than spending a round trip to be told 402. Every Suggest
+    // button funnels through this one function, so the check belongs here and
+    // not at twenty call sites.
+    if(freeMode&&FREE_MODES[freeMode]){
+      payload=Object.assign({},payload,{free_mode:freeMode});
+    }else if(!hasAi()){
+      aiLockedNotice();
+      throw new Error("ai locked");
+    }
     var res;
     try{
       res=await fetch("/api/anthropic",{method:"POST",headers:aiHeaders(),body:JSON.stringify(payload)});
@@ -1142,12 +1438,18 @@ export default function App(){
       throw netErr;
     }
     if(!res.ok){
+      // Read the body before branching, so the endpoint's own wording can be
+      // used where it is more specific than ours.
+      var rawBody="";
+      try{ rawBody=await res.text(); }catch(e){}
       if(res.status===402){
-        aiNotify(null,"Your access has expired, so the AI features are switched off. "+
-          "<a href=\"/verify.html\" style=\"color:#01236D;font-weight:700;\">Verify your email</a> to restore it, "+
-          "or renew for $29. Everything you have entered is safe on this device.");
+        aiLockedNotice();
       } else if(res.status===429){
-        aiNotify("That was a lot of requests at once. Wait a few seconds, then try again.");
+        // The server distinguishes "slow down" from "that is your free
+        // allowance" and says so, including the price. Throwing that away and
+        // showing "wait a few seconds" turned the conversion moment into a
+        // button that looked broken and stayed broken for an hour.
+        aiNotify(serverMessage(rawBody)||"That was a lot of requests at once. Wait a few seconds, then try again.");
       } else if(res.status===413){
         aiNotify("There is too much text in that section for the AI to read in one go. Shorten it a little and try again.");
       } else if(res.status===403){
@@ -1170,32 +1472,90 @@ export default function App(){
     return data;
   }
 
+  // Returns whether the write actually landed.
+  //
+  // This used to be a one-line try/catch with an empty handler, which meant a
+  // full quota was indistinguishable from success across all ~90 call sites.
+  // Once storage filled - a logo is held as a data URI in the same blob - every
+  // keystroke silently failed while the screen looked completely normal, and
+  // the customer only discovered it after closing the tab.
+  //
+  // Each save also carries a revision. Two tabs open on the same plan used to
+  // overwrite each other without either showing anything; now the second tab
+  // notices the stored revision has moved past its own and says so instead of
+  // clobbering the work.
   function saveToStorage(){
-    try{localStorage.setItem(STORAGE_KEY,JSON.stringify(fdRef.current));}catch(e){}
+    try{
+      saveRev.current=saveRev.current+1;
+      var payload=Object.assign({},fdRef.current,{_rev:saveRev.current});
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(payload));
+      if(saveBrokeRef.current){saveBrokeRef.current=false;setSaveBroke(false);}
+      return true;
+    }catch(e){
+      if(!saveBrokeRef.current){saveBrokeRef.current=true;setSaveBroke(true);}
+      return false;
+    }
+  }
+
+  // Another tab has written since we last did. Checked on focus and on the
+  // storage event rather than on every keystroke, which would cost a parse per
+  // character.
+  function checkForOtherTab(){
+    try{
+      var raw=localStorage.getItem(STORAGE_KEY);
+      if(!raw)return;
+      var rev=(JSON.parse(raw)||{})._rev||0;
+      if(rev>saveRev.current)setStaleTab(true);
+    }catch(e){}
   }
 
   function setStepAndSave(n){
     setStep(n);
     try{localStorage.setItem("bpg_step",String(n));}catch(e){}
     window.scrollTo(0,0);
-    // Step 5 is the Finances step. Every route in - Next, Back and the progress
-    // bar - passes through here, so this is the one place it needs checking.
-    if(n===4)maybeShowFinIntro();
   }
+
+  // Cross-tab detection. The storage event fires in the OTHER tabs when one
+  // writes, and the focus check catches the case where a tab was in the
+  // background and missed it.
+  useEffect(function(){
+    function onStore(e){ if(!e||e.key===STORAGE_KEY)checkForOtherTab(); }
+    window.addEventListener("storage",onStore);
+    window.addEventListener("focus",checkForOtherTab);
+    return function(){
+      window.removeEventListener("storage",onStore);
+      window.removeEventListener("focus",checkForOtherTab);
+    };
+  },[]);
 
   var refreshLive=useCallback(function(){setLiveRows(calcCashflow(fdRef.current));},[]);
 
-  function RT(id,ph,rows){
+  function RT(id,ph,rows,label){
     return (<div>
-      <textarea ref={growRef} onInput={growOn} key={id+"-"+(voiceVer[id]||0)} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>
+      <textarea ref={growRef} onInput={growOn} key={id+"-"+(voiceVer[id]||0)} aria-label={fieldLabel(id,label)} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>
       {VoiceTools(id)}
     </div>);
   }
-  function R(id,ph){
-    return <input key={id} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={inp} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
+  // Accessible names.
+  //
+  // Every question in this app is a styled div sitting above its input, which
+  // looks like a label and is not one: a screen reader announced the
+  // placeholder instead, so "Business name" was heard as "e.g. Flowly Ltd" -
+  // and once the customer typed, even that went away. The twelve selects had
+  // no name at all, which made the Month and Year dropdowns indistinguishable.
+  //
+  // fieldLabel() lets the call site pass the question text through to
+  // aria-label. Where it is not supplied we fall back to the id, prettified,
+  // which is still better than nothing.
+  function fieldLabel(id,label){
+    if(label)return label;
+    return String(id||"").replace(/([A-Z])/g," $1").replace(/^./,function(c){return c.toUpperCase();}).trim();
   }
-  function RS(id,opts){
-    return <select style={sel} defaultValue={fdRef.current[id]||opts[0]} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}>
+  function R(id,ph,label){
+    return <input key={id} aria-label={fieldLabel(id,label)} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={inp} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
+  }
+  function RS(id,opts,label){
+    return <select aria-label={fieldLabel(id,label)} id={"field-"+id} name={id} style={sel} defaultValue={fdRef.current[id]||opts[0]} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}>
       {opts.map(function(o){return <option key={o} value={o}>{o}</option>;})}</select>;
   }
 
@@ -1540,7 +1900,7 @@ export default function App(){
       "Target customer: "+(fdRef.current.targetCust||"");
     prompt+=revisionNote(mode,fdRef.current.marketSize,note);
     try{
-      var data=await aiFetch({max_tokens:300,messages:[{role:"user",content:prompt}]});
+      var data=await aiFetch({max_tokens:300,messages:[{role:"user",content:prompt}]},"marketSize");
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.marketSize=text;
       saveToStorage();
@@ -1569,7 +1929,7 @@ export default function App(){
       "- Realistic for a small business in "+bizLocation()+". Plain prose, no bullet points, no headings, no preamble. Under 120 words.";
     prompt+=revisionNote(mode,fdRef.current.targetCust,note);
     try{
-      var data=await aiFetch({max_tokens:400,messages:[{role:"user",content:prompt}]});
+      var data=await aiFetch({max_tokens:400,messages:[{role:"user",content:prompt}]},"targetCust");
       var text=data.content.map(function(x){return x.text||"";}).join("").trim();
       fdRef.current.targetCust=text;
       saveToStorage();
@@ -1581,6 +1941,69 @@ export default function App(){
   // Sits below the competitor fields on the form, so it can use them. An
   // advantage stated without reference to who you are competing against tends
   // to come back as generic marketing copy.
+  // Vision and Values. Both read the position statement, which is why they sit
+  // downstream of it: a vision that contradicts the positioning is worse than
+  // no vision at all.
+  async function suggestVision(mode,note){
+    setVisLoading(true);
+    (function(){var was=fdRef.current.vision||"";stashAI("vis",function(){fdRef.current.vision=was;saveToStorage();setVisVersion(function(v){return v+1;});});})();
+    setVisVersion(function(v){return v+1;});
+    var yr=new Date().getFullYear()+2;
+    var prompt="Write a one-sentence vision statement for this business.\n\n"+
+      "Business: "+(fdRef.current.bizName||"this business")+"\n"+
+      "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
+      "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
+      "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
+      "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n"+
+      "Stage: "+(fdRef.current.stage||"not specified")+"\n"+
+      "Goals: "+(goals.filter(Boolean).join("; ")||"not specified")+"\n\n"+
+      "Rules:\n"+
+      "- Follow the shape: By (year) be the (ambition) for (who). Name a year, an ambition, and who it is for.\n"+
+      "- Use "+yr+" as the year unless the goals above imply a different horizon.\n"+
+      "- Match the ambition to the size of the business. A single-operator business becoming the best known in its town is a real vision; becoming a national market leader is not.\n"+
+      "- Build on the position statement rather than contradicting it, and name the same customer it names.\n"+
+      "- One sentence. No preamble, no quotation marks, no heading. Under 40 words.";
+    prompt+=revisionNote(mode,fdRef.current.vision,note);
+    try{
+      var data=await aiFetch({max_tokens:200,messages:[{role:"user",content:prompt}]});
+      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
+      fdRef.current.vision=text;
+      saveToStorage();
+      setVisVersion(function(v){return v+1;});
+    }catch(e){}
+    setVisLoading(false);
+  }
+
+  async function suggestValues(mode,note){
+    setValLoading(true);
+    (function(){var was=fdRef.current.values||"";stashAI("val",function(){fdRef.current.values=was;saveToStorage();setValVersion(function(v){return v+1;});});})();
+    setValVersion(function(v){return v+1;});
+    var prompt="Write three core values for this business.\n\n"+
+      "Business: "+(fdRef.current.bizName||"this business")+"\n"+
+      "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
+      "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "Why the owner started it: "+(fdRef.current.history||"not specified")+"\n"+
+      "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
+      "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n"+
+      "Competitive advantage: "+(fdRef.current.advantage||"not specified")+"\n\n"+
+      "Rules:\n"+
+      "- Exactly three values. One per line, formatted as: Name - a short plain-English explanation of what it means in practice here.\n"+
+      "- Draw them from what this business actually does and why the owner started it. A value that would fit any business in any industry is not worth writing down.\n"+
+      "- Say what the value means for this business specifically, not what the word means in general.\n"+
+      "- Avoid the empty ones: integrity, excellence, innovation, passion, teamwork - unless there is something concrete above that gives one of them real meaning here.\n"+
+      "- No preamble, no heading, no bullet characters, no numbering. Under 70 words in total.";
+    prompt+=revisionNote(mode,fdRef.current.values,note);
+    try{
+      var data=await aiFetch({max_tokens:300,messages:[{role:"user",content:prompt}]});
+      var text=data.content.map(function(x){return x.text||"";}).join("").trim();
+      fdRef.current.values=text;
+      saveToStorage();
+      setValVersion(function(v){return v+1;});
+    }catch(e){}
+    setValLoading(false);
+  }
+
   async function suggestAdvantage(mode,note){
     setAdvLoading(true);
     (function(){var was=fdRef.current.advantage||"";stashAI("adv",function(){fdRef.current.advantage=was;saveToStorage();setAdvVersion(function(v){return v+1;});});})();
@@ -1788,7 +2211,7 @@ export default function App(){
       data.push(sr("OTHER TRANSACTIONS"));
       txCats.forEach(function(c){
         var tv=cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;});
-        if(tv.some(function(v){return v!==0;}))data.push(dr(c.l,tv));
+        if(tv.some(function(v){return v!==0;}))data.push(dr(txLabel(c,cfRows[0]&&cfRows[0].taxWord),tv));
       });
       data.push(dr("Total Other Transactions",cfRows.map(function(r){return r.otherTx||0;})));
       data.push(sr("CASHFLOW"));
@@ -1915,7 +2338,7 @@ export default function App(){
       var graphChildren=[];
       graphChildren.push(new Paragraph({pageBreakBefore:true,spacing:{after:200},children:[new TextRun(Object.assign({text:"Financial Graphs",bold:true,size:36,font:FONT},OWN?{}:{color:ACCENT}))]}));
 
-      var CHART_COLORS=["#01236D","#D0B16F","#1B4FA8","#7A93B8","#5A6C7E","#29384A","#1F7A7C","#B14A38","#7A93B8","#E3E8F0","#29384A","#E3E8F0","#EAF0F9","#EAF0F9"];
+      var CHART_COLORS=["#01236D","#D0B16F","#1B4FA8","#5A6C7E","#5A6C7E","#29384A","#1F7A7C","#B14A38","#5A6C7E","#E3E8F0","#29384A","#E3E8F0","#EAF0F9","#EAF0F9"];
 
       // Shared axis helper. Always includes zero in the range so negative
       // values sit below the baseline rather than mirroring positives.
@@ -1952,7 +2375,7 @@ export default function App(){
         ctx.font="10px Arial";
         for(var v=sc.lo; v<=sc.hi+sc.step/2; v+=sc.step){
           var y=sc.y(v);
-          ctx.strokeStyle=(Math.abs(v)<sc.step/1000)?"#7A93B8":"#E3E8F0";
+          ctx.strokeStyle=(Math.abs(v)<sc.step/1000)?"#5A6C7E":"#E3E8F0";
           ctx.lineWidth=1;
           ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(padL+plotW,y);ctx.stroke();
           ctx.fillStyle="#5A6C7E";
@@ -1986,7 +2409,7 @@ export default function App(){
           ctx.fillRect(x,top,barW,h);
         });
 
-        ctx.strokeStyle="#7A93B8";ctx.lineWidth=1;
+        ctx.strokeStyle="#5A6C7E";ctx.lineWidth=1;
         ctx.beginPath();ctx.moveTo(padL,zeroY);ctx.lineTo(padL+plotW,zeroY);ctx.stroke();
 
         ctx.fillStyle="#5A6C7E";ctx.font="10px Arial";ctx.textAlign="center";
@@ -2030,7 +2453,7 @@ export default function App(){
         ctx.textAlign="right";ctx.font="10px Arial";
         for(var v=scA.lo; v<=scA.hi+scA.step/2; v+=scA.step){
           var y=scA.y(v);
-          ctx.strokeStyle=(Math.abs(v)<scA.step/1000)?"#7A93B8":"#E3E8F0";
+          ctx.strokeStyle=(Math.abs(v)<scA.step/1000)?"#5A6C7E":"#E3E8F0";
           ctx.lineWidth=1;
           ctx.beginPath();ctx.moveTo(padL,y);ctx.lineTo(padL+plotW,y);ctx.stroke();
           ctx.fillStyle="#5A6C7E";
@@ -2057,7 +2480,7 @@ export default function App(){
           ctx.fillRect(cx+gap/2,Math.min(zB,yB),barW,Math.max(1,Math.abs(yB-zB)));
         });
 
-        ctx.strokeStyle="#7A93B8";ctx.lineWidth=1;
+        ctx.strokeStyle="#5A6C7E";ctx.lineWidth=1;
         ctx.beginPath();ctx.moveTo(padL,scA.y(0));ctx.lineTo(padL+plotW,scA.y(0));ctx.stroke();
 
         ctx.fillStyle="#5A6C7E";ctx.font="10px Arial";ctx.textAlign="center";
@@ -2082,7 +2505,7 @@ export default function App(){
         drawAxes(ctx,sc,padL,padT,plotH,plotW,isCurrency!==false);
 
         var zeroY=sc.y(0);
-        ctx.strokeStyle="#7A93B8";ctx.lineWidth=1;
+        ctx.strokeStyle="#5A6C7E";ctx.lineWidth=1;
         ctx.beginPath();ctx.moveTo(padL,zeroY);ctx.lineTo(padL+plotW,zeroY);ctx.stroke();
 
         var slot=plotW/data.length;
@@ -2238,7 +2661,7 @@ export default function App(){
         expCats.forEach(function(c){var vs=cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;});if(vs.some(function(v){return v!==0;}))tblRows.push(mr(c.l,cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;}),false));});
         tblRows.push(mrk("Total Expenses","totalExpenses",true));tblRows.push(mrk("Net Profit/(Loss)","netProfit",true));
         tblRows.push(mhr("Other Transactions"));
-        txCats.forEach(function(c){var vs=cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;});if(vs.some(function(v){return v!==0;}))tblRows.push(mr(c.l,cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;}),false));});
+        txCats.forEach(function(c){var vs=cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;});if(vs.some(function(v){return v!==0;}))tblRows.push(mr(txLabel(c,cfRows[0]&&cfRows[0].taxWord),cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;}),false));});
         tblRows.push(mrk("Total Other Transactions","otherTx",true));
         tblRows.push(mhr("Cashflow"));tblRows.push(mrk("Net Cashflow","netCashflow",true));tblRows.push(mrk("Closing Balance","closingBalance",true,{noTotal:true}));
         cfChildren.push(new Table({width:{size:TBL_W,type:WidthType.DXA},columnWidths:colWidths,layout:TableLayoutType.FIXED,rows:tblRows}));
@@ -2258,33 +2681,50 @@ export default function App(){
         setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
       }).catch(function(err){alert("Error: "+err.message);});
     }
+    // Last resort: jsDelivr's UMD build. Success is judged by the global
+    // actually being there, not by which event fired - the old chain trusted
+    // onload, and a host that returns module source fires load even though
+    // nothing usable was defined.
+    function tryLastDocxSource(){
+      var s3=document.createElement("script");
+      s3.src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js";
+      s3.onload=function(){
+        if(window.docx&&window.docx.Document){buildAndSave();return;}
+        alert("The Word library could not be loaded. Your plan is safe - please try again in a few minutes, or use Export data to save a backup in the meantime.");
+      };
+      s3.onerror=function(){
+        alert("The Word library could not be loaded. Your plan is safe - please try again in a few minutes, or use Export data to save a backup in the meantime.");
+      };
+      document.head.appendChild(s3);
+    }
     if(window.docx&&window.docx.Document){
       buildAndSave();
     } else {
       var s=document.createElement("script");
-      s.src="https://esm.sh/docx@8.5.0?bundle";
+      s.src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js";
       s.onload=function(){
-        // esm.sh may expose as default export
-        if(!window.docx&&typeof docx!=='undefined'){window.docx=docx;}
-        buildAndSave();
+        if(window.docx&&window.docx.Document){buildAndSave();return;}
+        tryLastDocxSource();
       };
       s.onerror=function(){
-        // Try cdnjs as fallback
-        var s2=document.createElement("script");
-        s2.src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.umd.min.js";
-        s2.onload=function(){buildAndSave();};
-        s2.onerror=function(){alert("Could not load Word library. Please try again.");};
-        document.head.appendChild(s2);
+        tryLastDocxSource();
       };
       document.head.appendChild(s);
     }
   }
 
   async function generatePlan(){
+    // Checked before any loading state is set, so a free user gets the message
+    // and stays where they are rather than watching an output pane open and
+    // then fail.
+    if(!hasAi()){
+      aiLockedNotice();
+      return;
+    }
     setLoading(true);
     setShowOutput(true);
     setPlanFailed(false);
-    setPlanHtml("");
+    setPlanHtml("");try{delete fdRef.current._planHtml;}catch(e){}
     setLoadMsg("Generating your business plan\u2026 0s");
     var genStart=Date.now();
     var genWords=0;
@@ -2327,7 +2767,7 @@ export default function App(){
     var txText=txCats.map(function(c){
       var tot=catTotal("txDetail",c.id);
       if(!tot)return null;
-      return c.l+": "+moneyStr(Math.abs(tot))+" net "+(tot>0?"CASH IN (money coming into the business)":"CASH OUT (money leaving the business)");
+      return txLabel(c,taxWordOf(f))+": "+moneyStr(Math.abs(tot))+" net "+(tot>0?"CASH IN (money coming into the business)":"CASH OUT (money leaving the business)");
     }).filter(Boolean).join("; ")||"None";
     // Dates are formatted first because finBits below embeds planDate. When
     // this block sat after finBits, `var` hoisting meant planDate existed but
@@ -2392,10 +2832,11 @@ export default function App(){
       " | Description: "+(f.description||f.history||"")+" | History: "+(f.history||"")+
       " | Locations: "+(f.locations||"")+" | Team: "+(f.team||"")+
       " | Online: "+onlineText+" | Contact: "+contactText+" | Legal: "+legalText+
+      " | IP: "+(f.ip||"")+
       " | Notes: "+(f.extra1||"")+
       "\n\nSTEP 2 - MARKET & CUSTOMERS: Target customer: "+(f.targetCust||"")+" | Current customers: "+(f.currentCust||"")+
       " | Market opportunity: "+(f.marketSize||"")+" | Competitors: "+(f.competitors||"")+
-      " | Competitor strengths/weaknesses: "+(f.compStrWeakness||"")+" | Competitive advantage: "+(f.advantage||"")+" | IP: "+(f.ip||"")+
+      " | Competitor strengths/weaknesses: "+(f.compStrWeakness||"")+" | Competitive advantage: "+(f.advantage||"")+
       " | Notes: "+(f.extra3||"")+
       "\n\nSTEP 3 - VISION & STRATEGY: Vision: "+(f.vision||"")+" | Position: "+(f.position||"")+" | Values: "+(f.values||"")+
       " | SWOT Strengths: "+(f.swotS||"")+" | Weaknesses: "+(f.swotW||"")+" | Opportunities: "+(f.swotO||"")+" | Threats: "+(f.swotT||"")+
@@ -2484,9 +2925,17 @@ export default function App(){
       "say so; do not claim some months are softer because the industry or the weather suggests they should be.\n"+
       "- When naming the tightest month for cash, use the month with the lowest closing cash given above, not a guess.\n"+
       "- Use the FORECAST TOTALS above for revenue, profit and price. Never quote a price or revenue range from the market research as if it were the forecast, and never claim the forecast reaches the upper end of a range unless the annual revenue figure above actually does.\n"+
+      // Plan 9 wrote a complete-looking section 5 - opening position, revenue,
+      // cost drivers, closing cash - that never once said what the business
+      // earns. Annual net profit was simply absent. "Use the totals for
+      // revenue, profit and price" tells it which figures to use if it uses
+      // them; it does not require it to. This does.
+      "- MANDATORY: state the annual net profit figure in dollars, and say whether monthly net profit rises, falls or holds steady across the year. A financial section that never states the profit is incomplete, however well it covers revenue and cash.\n"+
+      "- MANDATORY: state the annual revenue figure and the closing cash figure in dollars.\n"+
+      "- If Other transactions are listed above, describe each one in the direction given (cash in or cash out). Do not describe money coming into the business as an outflow, or money leaving it as an inflow.\n"+
       "- Do not refer to goals by number and do not invent a goal. Sections 3 and 4 are written separately; only the goals listed above exist.\n"+
       SHARED_FORMAT+
-      "- LENGTH: 260-320 words for this section.";
+      "- LENGTH: 280-340 words for this section.";
 
     try{
       // Three smaller requests sent together. Each is well inside Netlify's 26s
@@ -2536,9 +2985,9 @@ export default function App(){
       var today=new Date();
       var dateStr=today.getDate()+" "+["January","February","March","April","May","June","July","August","September","October","November","December"][today.getMonth()]+" "+today.getFullYear();
       var html="<div style='text-align:center;padding:24px 0 32px;border-bottom:2px solid #EAF0F9;margin-bottom:28px'>";
-      html+="<div style='font-size:26px;font-weight:800;color:#01236D;margin-bottom:8px'>"+(fdRef.current.bizName||"Business Plan")+"</div>";
+      html+="<div style='font-size:26px;font-weight:800;color:#01236D;margin-bottom:8px'>"+escHtml(fdRef.current.bizName||"Business Plan")+"</div>";
       html+="<div style='font-size:16px;font-weight:500;color:#5A6C7E;margin-bottom:6px'>Business Plan and Cashflow Forecast</div>";
-      html+="<div style='font-size:13px;color:#5A6C7E'>"+dateStr+"</div>";
+      html+="<div style='font-size:13px;color:#5A6C7E'>"+escHtml(dateStr)+"</div>";
       html+="</div>";
       var inList=false;var inOList=false;
       text.trim().split("\n").forEach(function(ln){
@@ -2548,25 +2997,25 @@ export default function App(){
         if(trimmed.startsWith("## ")){
           if(inList){html+="</ul>";inList=false;}
           if(inOList){html+="</ol>";inOList=false;}
-          html+="<h2 style='font-size:18px;font-weight:700;color:#01236D;margin:28px 0 10px;padding-bottom:5px;border-bottom:2px solid #EAF0F9'>"+trimmed.slice(3)+"</h2>";
+          html+="<h2 style='font-size:18px;font-weight:700;color:#01236D;margin:28px 0 10px;padding-bottom:5px;border-bottom:2px solid #EAF0F9'>"+escHtml(trimmed.slice(3))+"</h2>";
         } else if(trimmed.startsWith("### ")){
           if(inList){html+="</ul>";inList=false;}
           if(inOList){html+="</ol>";inOList=false;}
-          html+="<h3 style='font-size:14px;font-weight:600;color:#29384A;margin:14px 0 5px'>"+trimmed.slice(4)+"</h3>";
+          html+="<h3 style='font-size:14px;font-weight:600;color:#29384A;margin:14px 0 5px'>"+escHtml(trimmed.slice(4))+"</h3>";
         } else if(trimmed.match(/^\d+\.\s/)){
           if(inList){html+="</ul>";inList=false;}
           if(inOList){html+="</ol>";inOList=false;}
-          html+="<p style='margin-bottom:5px;line-height:1.7;font-size:14px;padding-left:4px'>"+trimmed+"</p>";
+          html+="<p style='margin-bottom:5px;line-height:1.7;font-size:14px;padding-left:4px'>"+escHtml(trimmed)+"</p>";
         } else if(trimmed.startsWith("- ")||trimmed.startsWith("* ")||trimmed.startsWith("• ")||(ln.match(/^(\s{2,}|\t)/)&&!trimmed.startsWith("#"))){
           if(inOList){html+="</ol>";inOList=false;}
           if(!inList){html+="<ul style='margin:4px 0 8px;padding-left:20px;list-style-type:disc'>";inList=true;}
           var txt=trimmed.replace(/^[-*•]\s*/,"");
-          html+="<li style='font-size:14px;line-height:1.7;color:#29384A;margin-bottom:3px;display:list-item;list-style-type:disc'>"+txt+"</li>";
+          html+="<li style='font-size:14px;line-height:1.7;color:#29384A;margin-bottom:3px;display:list-item;list-style-type:disc'>"+escHtml(txt)+"</li>";
         } else if(trimmed.startsWith("#")){}
         else{
           if(inList){html+="</ul>";inList=false;}
           if(inOList){html+="</ol>";inOList=false;}
-          html+="<p style='margin-bottom:8px;line-height:1.7;font-size:14px'>"+trimmed+"</p>";
+          html+="<p style='margin-bottom:8px;line-height:1.7;font-size:14px'>"+escHtml(trimmed)+"</p>";
         }
       });
       if(inList)html+="</ul>";
@@ -2579,11 +3028,14 @@ export default function App(){
         html+="<p style='font-size:13px;color:#5A6C7E;margin-bottom:16px;font-style:italic'>Units Sold &amp; Monthly Sales, Expenses Breakdown, Net Profit/(Loss) and Closing Bank Balance charts appear below.</p>";
       }
       setPlanHtml(html);
+      // Persisted, so a refresh, a back button or a phone backgrounding the tab
+      // no longer throws away a generation the customer waited 90 seconds for.
+      fdRef.current._planHtml=html;saveToStorage();
     }catch(e){
       // Flagged so downloadWord() refuses - otherwise the error text itself
       // was being written into the Word document as the plan body.
       setPlanFailed(true);
-      setPlanHtml("<p style='color:#B14A38'>Could not generate the plan: "+e.message+"</p><p style='color:#5A6C7E'>Your information is safe. Please press Generate Business Plan to try again.</p>");
+      setPlanHtml("<p style='color:#B14A38'>Could not generate the plan: "+escHtml(e.message)+"</p><p style='color:#5A6C7E'>Your information is safe. Please press Generate Business Plan to try again.</p>");
     }
     try{ clearInterval(genTicker); }catch(e){}
     setLoading(false);
@@ -2621,7 +3073,9 @@ export default function App(){
   // For a shared or public computer: removes the plan AND the access token, so
   // nothing of this person is left behind for whoever uses the machine next.
   function clearDevice(){
-    if(!window.confirm("Clear everything from this computer?\n\nThis removes your plan and signs you out. Next time you will need to enter your email at b-plandiy.com/verify.html to get back in.\n\nUse this on a shared or public computer. Export a backup first if you want to keep your work."))return;
+    // Wording changed when the app became free: clearing no longer locks anyone
+    // out of the app, only of the AI features they have paid for.
+    if(!window.confirm("Clear everything from this computer?\n\nThis removes your plan and your AI access from this browser. The app and the forecast stay free to use, but to switch the AI features back on you will need to enter your email at b-plandiy.com/verify.html.\n\nUse this on a shared or public computer. Export a backup first if you want to keep your work."))return;
     try{
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem("bpg_step");
@@ -2629,6 +3083,7 @@ export default function App(){
       localStorage.removeItem("bpd_access_token");
       localStorage.removeItem("bpd_seen_welcome");
       localStorage.removeItem("bpd_seen_finances");
+      localStorage.removeItem("bpd_intake_done");
       localStorage.removeItem("bpg_admin_msg");
       localStorage.removeItem("bpg_ggc");
     }catch(e){}
@@ -2682,16 +3137,27 @@ export default function App(){
             data.taxRegistered=((parseFloat(data.taxRate)||0)>0)?"1":"";
           }
           repairMonthGrids(data);
+          // Everything that can throw runs FIRST, against a local variable.
+          // This used to assign fdRef.current and save before calling
+          // calcCashflow - which throws on a backup whose cfStartDate is not a
+          // string - so a rejected file had already replaced the customer's
+          // plan in storage by the time the catch said "could not be read".
+          var newRows=calcCashflow(data);
+          var newGoals=Array.from({length:6},function(_,i){return data["goal"+(i+1)]||"";});
+          // Only now is the live plan replaced.
           fdRef.current=data;
-          saveToStorage();
+          if(!saveToStorage()){
+            alert("Your backup was loaded, but there was not enough room to save it on this device. Free some space and save a backup before closing this tab.");
+          }
+          setLiveRows(newRows);
+          setGoals(newGoals);
           setLegalStatus(data.legalStatus||"");
           setTaxReg(data.taxRegistered==="1");
           setBizDate(data.bizDate||"");
           setCurrency(data.currencySym);setCurSym(data.currencySym||"$");setTaxName(data.taxName||"");
           setBrandLogo(data.brandLogo||"");setBrandColour(data.brandColour||"");setUseOwnStyles(data.brandOwnStyles==="1");
-          setGoals(Array.from({length:6},function(_,i){return data["goal"+(i+1)]||"";}));
-          setLiveRows(calcCashflow(data));
           setShowDirection(false);setShowOutput(false);
+          setFormVer(function(v){return v+1;});
           setStepAndSave(0);
           window.scrollTo(0,0);
           alert("Backup restored successfully.");
@@ -2707,42 +3173,15 @@ export default function App(){
 
   // Shown immediately after a backup is saved. Without this, people open the
   // downloaded file expecting to read it and hit a File Conversion dialog.
-  function FinancesIntro(){
-    if(!showFinIntro)return null;
-    return (
-      <div className="bpd-overlay" style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:10000,overflowY:"auto"}}>
-        <div style={{background:"#fff",borderRadius:12,maxWidth:620,width:"100%",padding:"20px 20px 22px",boxShadow:"0 12px 44px rgba(0,0,0,0.28)",margin:"auto"}}>
-          <img src="img/finances.jpg" alt="It's all about the money. You are going to need some information at hand to complete your cashflow: a balance sheet or details of opening balances; expected sales including price; any costs of making those sales; details and amounts of expenses normally incurred; tax rates on sales, costs and expenses and when those payments are due; and any other transactions outside profit or loss that will impact cashflow, such as drawings and assets." style={{width:"100%",height:"auto",display:"block",borderRadius:6}}/>
-          <button
-            style={{width:"100%",marginTop:16,fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"13px 20px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}}
-            onClick={dismissFinIntro}>Got it, let's do the numbers &rarr;</button>
-        </div>
-      </div>
-    );
-  }
-
-  function WelcomeScreen(){
-    if(!showWelcome)return null;
-    return (
-      <div className="bpd-overlay" style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:10000,overflowY:"auto"}}>
-        <div style={{background:"#fff",borderRadius:12,maxWidth:620,width:"100%",padding:"20px 20px 22px",boxShadow:"0 12px 44px rgba(0,0,0,0.28)",margin:"auto"}}>
-          <img src="img/welcome.jpg" alt="B-PlanDIY will help your business succeed. Five steps: enter your business details; outline your target market, the opportunity and competitors; analyse strengths, weaknesses, opportunities and threats and define your goals; consider the actions and resources needed; create your 12-month cashflow forecast. It should take less than an hour." style={{width:"100%",height:"auto",display:"block",borderRadius:6}}/>
-          <button
-            style={{width:"100%",marginTop:16,fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"13px 20px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}}
-            onClick={dismissWelcome}>Let's get started &rarr;</button>
-        </div>
-      </div>
-    );
-  }
-
   function BackupHelp(){
+    var dlgRef=useDialog(showBackupHelp,function(){setShowBackupHelp(false);});
     if(!showBackupHelp)return null;
     return (
-      <div className="bpd-overlay" style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:9999}} onClick={function(){setShowBackupHelp(false);}}>
-        <div style={{background:"#fff",borderRadius:12,maxWidth:520,width:"100%",padding:"24px 26px",boxShadow:"0 10px 40px rgba(0,0,0,0.25)"}} onClick={function(e){e.stopPropagation();}}>
-          <div style={{fontSize:18,fontWeight:700,color:"#01236D",marginBottom:10}}>Backup saved</div>
+      <div className="bpd-overlay" role="dialog" aria-modal="true" aria-label="Backup downloaded" style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:9999}} onClick={function(){setShowBackupHelp(false);}}>
+        <div ref={dlgRef} style={{background:"#fff",borderRadius:12,maxWidth:520,width:"100%",padding:"24px 26px",boxShadow:"0 10px 40px rgba(0,0,0,0.25)"}} onClick={function(e){e.stopPropagation();}}>
+          <div style={{fontSize:18,fontWeight:700,color:"#01236D",marginBottom:10}}>Backup downloaded</div>
           <div style={{fontSize:15,color:"#29384A",lineHeight:1.6,marginBottom:14}}>
-            Your backup has been saved to your <strong>Downloads</strong> folder as:
+            Check your <strong>Downloads</strong> folder for:
             <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:6,padding:"8px 10px",margin:"8px 0",fontSize:13,wordBreak:"break-all",color:"#01236D"}}>{backupName}</div>
           </div>
           <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"12px 14px",marginBottom:16}}>
@@ -2758,10 +3197,13 @@ export default function App(){
             <li>Save a fresh backup whenever you make significant changes.</li>
           </ul>
           <div style={{borderTop:"1px solid #E3E8F0",marginTop:16,paddingTop:14,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
-            <button style={{fontFamily:"inherit",fontSize:13,color:"#5A6C7E",background:"none",border:"none",cursor:"pointer",textDecoration:"underline",padding:0,textAlign:"left"}}
-              onClick={function(){setShowBackupHelp(false);clearDevice();}}>
-              On a shared computer? Clear everything from this device
-            </button>
+            {/* "Clear everything from this device" used to sit here. Offering a
+                one-click wipe immediately after telling someone their backup is
+                safe - when all we know is that a download started - was the
+                shortest path in the app from "everything is fine" to
+                "everything is gone". It is still on the banner and in the
+                footer, where it is a deliberate act rather than a next step. */}
+            <span style={{fontSize:13,color:"#5A6C7E"}}>Once you can see the file, your plan is safe.</span>
             <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"10px 22px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){setShowBackupHelp(false);}}>Got it</button>
           </div>
         </div>
@@ -3235,7 +3677,7 @@ export default function App(){
           <button style={btn} onClick={function(){undoTidy(id);}}>Undo tidy</button>
         )}
         {has&&(
-          <button style={Object.assign({},btn,{color:"#7A93B8"})}
+          <button style={Object.assign({},btn,{color:"#5A6C7E"})}
             onClick={function(){ if(window.confirm("Clear this field?")){fdRef.current[id]="";saveToStorage();bumpVoice(id);} }}>Clear</button>
         )}
         {listening&&<span style={{fontSize:11,color:"#B14A38"}}>Listening&hellip; speak now</span>}
@@ -3484,7 +3926,7 @@ export default function App(){
                   <option value="">Starts {monthNameFor(1)}</option>
                   {Array.from({length:11},function(_,k){var m=k+2;return <option key={m} value={String(m)}>Starts {monthNameFor(m)}</option>;})}
                 </select>
-                <button title="Remove" style={{fontFamily:"inherit",fontSize:15,lineHeight:1,color:"#7A93B8",background:"none",border:"1px solid #E3E8F0",borderRadius:6,padding:"0 11px",cursor:"pointer"}}
+                <button title="Remove" style={{fontFamily:"inherit",fontSize:15,lineHeight:1,color:"#5A6C7E",background:"none",border:"1px solid #E3E8F0",borderRadius:6,padding:"0 11px",cursor:"pointer"}}
                   onClick={function(){var rs=teamRows(cat);rs.splice(ri,1);if(!rs.length)rs=[{name:"",amt:"",start:""}];setRows(rs,true);}}>&times;</button>
               </div>
             );})}
@@ -3504,7 +3946,7 @@ export default function App(){
                   {hires.map(function(h,hi){return (
                     <div key={hi} style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#5A6C7E",padding:"3px 0"}}>
                       <span>Goal {h.goal+1}{h.row.start&&parseInt(h.row.start)>1?" (from "+monthNameFor(parseInt(h.row.start))+")":""}</span>
-                      <span style={{fontWeight:600,color:on?"#01236D":"#7A93B8"}}>{fmt(goalExpRowCost(h.row))}</span>
+                      <span style={{fontWeight:600,color:on?"#01236D":"#5A6C7E"}}>{fmt(goalExpRowCost(h.row))}</span>
                     </div>
                   );})}
                   {on&&(
@@ -3690,7 +4132,7 @@ export default function App(){
               onChange={function(e){upd(i,"qty",e.target.value.replace(/[^0-9.]/g,""));}}/>
             <input style={Object.assign({},inp,{flex:"0 0 96px",textAlign:"right",fontSize:13})} placeholder="0" value={r.amt}
               onChange={function(e){upd(i,"amt",e.target.value.replace(/[^0-9.]/g,""));}}/>
-            <button title="Remove" style={{fontFamily:"inherit",fontSize:15,lineHeight:1,color:"#7A93B8",background:"none",border:"1px solid #E3E8F0",borderRadius:6,padding:"0 10px",cursor:"pointer",flex:"0 0 34px"}}
+            <button title="Remove" style={{fontFamily:"inherit",fontSize:15,lineHeight:1,color:"#5A6C7E",background:"none",border:"1px solid #E3E8F0",borderRadius:6,padding:"0 10px",cursor:"pointer",flex:"0 0 34px"}}
               onClick={function(){var a=rows.slice();a.splice(i,1);if(!a.length)a=[{name:"",qty:"",amt:""}];setRows(a);}}>&times;</button>
           </div>
         );})}
@@ -3997,9 +4439,13 @@ export default function App(){
                   ? <span>Over 12 months: {fmt(totRev)} of sales &times; {rate}% </span>
                   : <span>Over 12 months: ({fmt(totNp)} + {fmt(totTeam)}) &times; {rate}% </span>}
                 = <strong style={{color:"#01236D"}}>{fmt(accrued)}</strong> of {taxLabel()}.
-                {Math.abs(Math.abs(totTax)-accrued)>1
-                  ? <span> Of that, <strong style={{color:"#01236D"}}>{fmt(Math.abs(totTax))}</strong> falls due in the months you ticked above and appears in your cashflow. The rest is earned late in the year and paid after the forecast ends, so hold it aside rather than treating it as spare cash.</span>
-                  : <span> All of it falls due in the months you ticked above.</span>}
+                {Math.abs(Math.abs(totTax)-Math.abs(accrued))>1
+                  ? (accrued<0
+                      ? <span> Of that, <strong style={{color:"#01236D"}}>{fmt(Math.abs(totTax))}</strong> is refunded in the months you ticked above and appears in your cashflow. The rest relates to later months and is received after the forecast ends, so do not count on it within this year.</span>
+                      : <span> Of that, <strong style={{color:"#01236D"}}>{fmt(Math.abs(totTax))}</strong> falls due in the months you ticked above and appears in your cashflow. The rest is earned late in the year and paid after the forecast ends, so hold it aside rather than treating it as spare cash.</span>)
+                  : (accrued<0
+                      ? <span> All of it is refunded in the months you ticked above.</span>
+                      : <span> All of it falls due in the months you ticked above.</span>)}
               </div>
             )}
           </div>
@@ -4081,6 +4527,240 @@ export default function App(){
   // These were a standing panel above the plan. They are now two buttons in the
   // banner; the explanation each one used to carry is on hover and on keyboard
   // focus, so the banner stays quiet until somebody asks.
+  function Intake(){
+    var dlgRef=useDialog(showIntake,null);   // no Escape close: skipping is explicit
+    if(!showIntake)return null;
+    var total=INTAKE_Q.length;
+    var done=intakeIdx>=total;               // the summary screen
+    var q=done?null:INTAKE_Q[intakeIdx];
+    var val=q?(intakeAns[q.id]!==undefined?intakeAns[q.id]:(fdRef.current[q.id]||"")):"";
+
+    var wrap={position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.55)",
+      display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:10000,overflowY:"auto"};
+    var card={background:"#fff",borderRadius:12,maxWidth:620,width:"100%",padding:"26px 28px 24px",
+      boxShadow:"0 12px 44px rgba(0,0,0,0.28)",margin:"auto"};
+    var input={width:"100%",boxSizing:"border-box",fontFamily:"inherit",fontSize:15,padding:"11px 12px",
+      border:"1px solid #D5DFEC",borderRadius:6,color:"#29384A",outline:"none"};
+    var primary={fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 22px",borderRadius:6,
+      border:"none",background:"#01236D",color:"#fff",cursor:"pointer"};
+    var quiet={fontFamily:"inherit",fontSize:13.5,color:"#5A6C7E",background:"none",border:"none",
+      cursor:"pointer",textDecoration:"underline",padding:0};
+
+    function go(n){ setIntakeIdx(Math.max(0,Math.min(total,n))); }
+    function finish(){ closeIntake(); setStepAndSave(1); }
+
+    if(done){
+      var filled=INTAKE_Q.filter(function(x){return String(fdRef.current[x.id]||"").trim();});
+      return (
+        <div style={wrap} role="dialog" aria-modal="true" aria-label="Getting started">
+          <div style={card} ref={dlgRef}>
+            <div style={{fontSize:20,fontWeight:800,color:"#01236D",marginBottom:8}}>That's the hard part done</div>
+            <div style={{fontSize:14.5,color:"#29384A",lineHeight:1.6,marginBottom:16}}>
+              {filled.length} {filled.length===1?"answer has":"answers have"} gone into Step 1. You can change any of them there at any time.
+              Next is Market &amp; Customers, where the first two AI suggestions are free to try &mdash; they will use what you have just told us.
+            </div>
+            <ul style={{listStyle:"none",margin:"0 0 20px",padding:0,borderTop:"1px solid #E3E8F0"}}>
+              {filled.map(function(x){
+                var v=String(fdRef.current[x.id]||"");
+                return (<li key={x.id} style={{padding:"9px 0",borderBottom:"1px solid #E3E8F0",fontSize:13.5,color:"#29384A",lineHeight:1.5}}>
+                  <span style={{color:"#5A6C7E"}}>{INTAKE_LABEL[x.id]||x.id}: </span>
+                  {v.length>150?v.slice(0,150)+"…":v}
+                </li>);
+              })}
+            </ul>
+            <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+              <button style={primary} onClick={finish}>See my free AI suggestions &rarr;</button>
+              <button style={quiet} onClick={function(){go(total-1);}}>Back</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div style={wrap} role="dialog" aria-modal="true" aria-label="Getting started">
+        <div style={card} ref={dlgRef}>
+          <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.09em",textTransform:"uppercase",color:"#5A6C7E",marginBottom:12}}>
+            A few questions first &middot; {intakeIdx+1} of {total}
+          </div>
+          <div style={{height:4,background:"#E3E8F0",borderRadius:99,marginBottom:20}}>
+            <div style={{height:4,width:((intakeIdx+1)/total*100)+"%",background:"#D0B16F",borderRadius:99,transition:"width .2s"}}/>
+          </div>
+          <div style={{fontSize:19,fontWeight:800,color:"#01236D",marginBottom:q.help?6:16,lineHeight:1.35}}>{q.q}</div>
+          {q.help?<div style={{fontSize:13.5,color:"#5A6C7E",lineHeight:1.55,marginBottom:16}}>{q.help}</div>:null}
+
+          {q.kind==="position"
+            ? (function(){
+                var rows=[
+                  {k:"posWho",lead:"For",ph:"shoppers at weekend markets"},
+                  {k:"posNeed",lead:"who",ph:"want a proper coffee without losing their spot"},
+                  // Just "is a", not "<business name> is a". A long name made
+                  // this label wider than the other three, so its input started
+                  // further right on desktop and wrapped onto its own line on a
+                  // phone. The name still appears, in the live preview below.
+                  {k:"posWhat",lead:"is a",ph:"mobile espresso cart"},
+                  {k:"posBenefit",lead:"that will",ph:"bring cafe-quality coffee straight to them"}
+                ];
+                var preview=assemblePosition();
+                return (<div style={{marginBottom:20}}>
+                  {rows.map(function(r){
+                    return (<div key={r.k} style={{display:"flex",alignItems:"center",gap:10,marginBottom:9,flexWrap:"wrap"}}>
+                      <span style={{fontSize:14,color:"#5A6C7E",minWidth:76,flexShrink:0,textAlign:"right"}}>{r.lead}</span>
+                      <input style={Object.assign({},input,{flex:"1 1 200px",minWidth:0})} placeholder={r.ph}
+                        value={intakeAns[r.k]!==undefined?intakeAns[r.k]:(fdRef.current[r.k]||"")}
+                        onChange={function(e){
+                          setIntakeAnswer(r.k,e.target.value);
+                          // Only write a sentence we actually have. assemble
+                          // returns "" until both the who and the what blanks
+                          // are filled, and writing that blanked an existing
+                          // statement on the first keystroke.
+                          var built=assemblePosition();
+                          if(built){fdRef.current.position=built;saveToStorage();}
+                        }}/>
+                    </div>);
+                  })}
+                  <div style={{marginTop:14,padding:"12px 14px",background:"#F4F7FB",borderRadius:6,
+                    fontSize:14.5,color:preview?"#01236D":"#5A6C7E",lineHeight:1.6,fontStyle:preview?"normal":"italic"}}>
+                    {preview||"Your position statement will appear here as you fill the blanks."}
+                  </div>
+                </div>);
+              })()
+            : q.kind==="choice"
+            ? (<div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
+                {q.opts.map(function(o){
+                  var on=val===o;
+                  return (<button key={o} onClick={function(){setIntakeAnswer(q.id,o);go(intakeIdx+1);}}
+                    style={{textAlign:"left",fontFamily:"inherit",fontSize:14.5,padding:"12px 14px",borderRadius:6,cursor:"pointer",
+                      border:"1px solid "+(on?"#01236D":"#D5DFEC"),background:on?"#EAF0F9":"#fff",color:"#29384A"}}>{o}</button>);
+                })}
+              </div>)
+            : q.kind==="area"
+              ? (<textarea autoFocus rows={q.rows||3} style={Object.assign({},input,{resize:"vertical",lineHeight:1.6,marginBottom:20})}
+                   placeholder={q.ph} value={val}
+                   onChange={function(e){setIntakeAnswer(q.id,e.target.value);}}/>)
+              : (<input autoFocus style={Object.assign({},input,{marginBottom:20})} placeholder={q.ph} value={val}
+                   onChange={function(e){setIntakeAnswer(q.id,e.target.value);}}
+                   onKeyDown={function(e){if(e.key==="Enter"){e.preventDefault();go(intakeIdx+1);}}}/>)}
+
+          <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+            {q.kind!=="choice"
+              ? <button style={primary} onClick={function(){go(intakeIdx+1);}}>
+                  {intakeIdx===total-1?"Finish":"Next"} &rarr;
+                </button>
+              : null}
+            {intakeIdx>0?<button style={quiet} onClick={function(){go(intakeIdx-1);}}>Back</button>:null}
+            {/* Every question is skippable. A blank answer costs a little plan
+                quality; a question someone cannot answer costs the whole visit. */}
+            <button style={quiet} onClick={function(){go(intakeIdx+1);}}>Skip this one</button>
+            <span style={{marginLeft:"auto"}}/>
+            <button style={quiet} onClick={function(){closeIntake();}}>Fill the form myself</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Marks the two Suggest buttons that cost nothing. Only shown to people who
+  // have not paid - to a customer with access every button is free, so the tag
+  // would be noise.
+  function FreeTag(){
+    if(hasAi())return null;
+    return (
+      <span style={{fontSize:10,fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",
+        color:"#1C6E70",background:"#E6F2F1",border:"1px solid #BFDEDA",
+        borderRadius:999,padding:"3px 8px",marginLeft:8,whiteSpace:"nowrap"}}>Free to try</span>
+    );
+  }
+
+  // Standing notice in the banner for anyone without AI access. Without it the
+  // only way to learn the AI is paid is to press a button and be refused, which
+  // is a poor way to find out what something costs.
+  function AiAccessPill(){
+    var state=aiAccess();
+    if(state==="ok")return null;
+    var pill={fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"9px 15px",borderRadius:999,
+      cursor:"pointer",whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:7,
+      background:"#FBF4E6",border:"1px solid #E8D6AC",color:"#8A6A1F",textDecoration:"none"};
+    return (
+      <span className="bpd-tip" style={{position:"relative",display:"inline-flex"}}>
+        <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" style={pill} aria-describedby="bpd-tip-ai">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          {state==="expired"?"Renew AI access":"Unlock AI – $29"}
+        </a>
+        <span className="bpd-tip-msg" role="tooltip" id="bpd-tip-ai">
+          The plan and the 12-month forecast are free. Suggest with AI and Generate Plan need access &mdash; $29 for three months.
+          {state==="expired"?" Yours has run out; verify your email at b-plandiy.com/verify.html to restore it after renewing.":""}
+        </span>
+      </span>
+    );
+  }
+
+  // Two standing warnings, both about work the customer could lose. Neither is
+  // a tooltip: on a phone there is no hover, and these are exactly the messages
+  // that must not depend on one.
+  // Dialog behaviour for the overlays. None of the four had role="dialog",
+  // aria-modal, an Escape handler, a focus move or a scroll lock, so Tab walked
+  // straight out into the form behind them and Escape - the universal dismiss -
+  // did nothing anywhere in the app.
+  function useDialog(open,onClose){
+    var boxRef=useRef(null);
+    useEffect(function(){
+      if(!open)return;
+      var prevFocus=document.activeElement;
+      var prevOverflow=document.body.style.overflow;
+      document.body.style.overflow="hidden";
+      var box=boxRef.current;
+      if(box){
+        var first=box.querySelector("input,textarea,select,button,[href]");
+        if(first&&first.focus)first.focus();
+        else{box.setAttribute("tabindex","-1");box.focus();}
+      }
+      function onKey(e){
+        if(e.key==="Escape"){ e.stopPropagation(); if(onClose)onClose(); return; }
+        if(e.key!=="Tab"||!boxRef.current)return;
+        var f=boxRef.current.querySelectorAll('input:not([disabled]),textarea:not([disabled]),select:not([disabled]),button:not([disabled]),[href],[tabindex]:not([tabindex="-1"])');
+        if(!f.length)return;
+        var a=f[0],z=f[f.length-1];
+        if(e.shiftKey&&document.activeElement===a){e.preventDefault();z.focus();}
+        else if(!e.shiftKey&&document.activeElement===z){e.preventDefault();a.focus();}
+      }
+      document.addEventListener("keydown",onKey,true);
+      return function(){
+        document.removeEventListener("keydown",onKey,true);
+        document.body.style.overflow=prevOverflow;
+        if(prevFocus&&prevFocus.focus)try{prevFocus.focus();}catch(e){}
+      };
+    },[open]);
+    return boxRef;
+  }
+
+  function StorageWarnings(){
+    var bar={fontFamily:"inherit",fontSize:13.5,lineHeight:1.5,padding:"11px 14px",
+      borderRadius:8,marginBottom:10,display:"flex",alignItems:"flex-start",gap:10};
+    return (<div style={{marginBottom:4}}>
+      {/* Always visible, on every screen. This warning lived only in a CSS
+          hover tooltip, and a touchscreen has no hover - so the phone users
+          who most need to know their plan lives only in this browser were the
+          one group who could never read it. */}
+      <div style={Object.assign({},bar,{background:"#F1F4F8",border:"1px solid #D8E0EA",color:"#3C4A5A"})}>
+        <span aria-hidden="true" style={{flexShrink:0}}>&#9432;</span>
+        <span>Your plan is saved <strong>in this browser only</strong> &mdash; it is not on our servers, and clearing your browsing data will delete it. Use <strong>Save a backup</strong> to keep a copy.</span>
+      </div>
+      {saveBroke&&(
+        <div role="alert" style={Object.assign({},bar,{background:"#FDEEEB",border:"1px solid #F2CFC7",color:"#8C3A2B"})}>
+          <span aria-hidden="true" style={{flexShrink:0,fontWeight:700}}>!</span>
+          <span><strong>Your work is no longer being saved on this device.</strong> The browser has run out of room. Save a backup file now, then remove your logo or start a new plan to free space.</span>
+        </div>
+      )}
+      {staleTab&&(
+        <div role="alert" style={Object.assign({},bar,{background:"#FBF4E6",border:"1px solid #E8D6AC",color:"#7A5E18"})}>
+          <span aria-hidden="true" style={{flexShrink:0,fontWeight:700}}>!</span>
+          <span><strong>This plan was changed in another tab.</strong> To avoid overwriting that work, save a backup here, then reload this page to pick up the newer version.</span>
+        </div>
+      )}
+    </div>);
+  }
+
   function BackupButtons(){
     var wrap={position:"relative",display:"inline-flex"};
     // Deliberately not shaped like the navy navigation buttons: pill rather than
@@ -4108,11 +4788,11 @@ export default function App(){
 
   function AppFooter(){
     return (
-      <div style={{fontSize:13,color:"#7A93B8",padding:"8px 0",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-        <button style={{fontFamily:"inherit",fontSize:13,color:"#7A93B8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={startOver}>Start a new plan</button>
-        <button style={{fontFamily:"inherit",fontSize:13,color:"#7A93B8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={clearDevice} title="Removes your plan and signs you out - for shared computers">Finish and clear this device</button>
-        <button style={{fontFamily:"inherit",fontSize:13,color:"#7A93B8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Export data</button>
-        <button style={{fontFamily:"inherit",fontSize:13,color:"#7A93B8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={importData}>Import data</button>
+      <div style={{fontSize:13,color:"#5A6C7E",padding:"8px 0",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+        <button style={{fontFamily:"inherit",fontSize:13,color:"#5A6C7E",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={startOver}>Start a new plan</button>
+        <button style={{fontFamily:"inherit",fontSize:13,color:"#5A6C7E",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={clearDevice} title="Removes your plan and signs you out - for shared computers">Finish and clear this device</button>
+        <button style={{fontFamily:"inherit",fontSize:13,color:"#5A6C7E",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Export data</button>
+        <button style={{fontFamily:"inherit",fontSize:13,color:"#5A6C7E",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={importData}>Import data</button>
         <button style={{fontFamily:"inherit",fontSize:13,color:"#1B4FA8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){setShowFeedback(true);}}>Give feedback</button>
         <button style={{fontFamily:"inherit",fontSize:11,color:"#E3E8F0",background:"none",border:"none",cursor:"pointer"}} onClick={function(){setShowAdmin(true);}}>⚙</button>
       </div>
@@ -4129,7 +4809,7 @@ export default function App(){
         <div style={{display:"flex",gap:14,alignItems:"center",flexWrap:"wrap",marginBottom:12}}>
           {brandLogo
             ? <img src={brandLogo} alt="Your logo" style={{maxWidth:120,maxHeight:60,objectFit:"contain",border:"1px solid #E3E8F0",borderRadius:6,background:"#fff",padding:4}}/>
-            : <div style={{width:120,height:60,border:"1px dashed #D0B16F",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#7A93B8",textAlign:"center",padding:6}}>No logo yet</div>}
+            : <div style={{width:120,height:60,border:"1px dashed #D0B16F",borderRadius:6,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#5A6C7E",textAlign:"center",padding:6}}>No logo yet</div>}
           <div style={{flex:"1 1 220px",minWidth:0}}>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               <button style={suggestBtn} onClick={function(){
@@ -4271,15 +4951,30 @@ export default function App(){
               <div style={f2col}>{onlineCh.slice(3).map(onlineRow)}</div>
             </div>);
           })()}
-          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Legal obligations</div>
+          <fieldset style={{border:"none",padding:0,margin:0}}>
+          <legend style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,padding:0}}>Legal obligations</legend>
           <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
-            {legalOpts.map(function(o){var _ls={flex:"1 1 260px",minWidth:0,display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",border:"1px solid "+(legalStatus===o.v?o.color:"#E3E8F0"),borderRadius:6,cursor:"pointer",background:legalStatus===o.v?o.bg:"#fff"};return (<div key={o.v} style={_ls} onClick={function(){setLegalAndSave(o.v);}}>
-              <div style={{width:17,height:17,borderRadius:"50%",border:"1.5px solid "+(legalStatus===o.v?o.color:"#E3E8F0"),flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",marginTop:1}}>
-                <div style={{width:8,height:8,borderRadius:"50%",background:legalStatus===o.v?o.color:"transparent"}}></div>
-              </div>
-              <div><div style={{fontSize:15,lineHeight:1.35,color:"#29384A"}}>{o.l}</div><div style={{fontSize:13,color:"#5A6C7E",marginTop:2}}>{o.s}</div></div>
-            </div>);})}
+            {legalOpts.map(function(o){
+              var on=legalStatus===o.v;
+              var _ls={flex:"1 1 260px",minWidth:0,display:"flex",alignItems:"flex-start",gap:10,padding:"12px 12px",minHeight:44,
+                border:"1px solid "+(on?o.color:"#9AA8BC"),borderRadius:6,cursor:"pointer",background:on?o.bg:"#fff"};
+              return (<label key={o.v} style={_ls}>
+                <input type="radio" name="legalStatus" value={o.v} checked={on}
+                  onChange={function(){setLegalAndSave(o.v);}}
+                  style={{width:17,height:17,flexShrink:0,marginTop:1,accentColor:o.color,cursor:"pointer"}}/>
+                <span><span style={{fontSize:15,lineHeight:1.35,color:"#29384A",display:"block"}}>{o.l}</span><span style={{fontSize:13,color:"#5A6C7E",marginTop:2,display:"block"}}>{o.s}</span></span>
+              </label>);})}
           </div>
+          </fieldset>
+          <div style={{marginBottom:14}}/>
+          {/* Moved here from Step 2. Whether a business owns a trademark or
+              patent is a fact only its owner knows - no AI can suggest it - so
+              it belongs with the other facts, next to Legal obligations. It is
+              also read by the competitive-advantage prompt in Step 2, which
+              used to sit ABOVE this field: pressing that Suggest button while
+              filling the form top to bottom always sent "none stated". */}
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What Intellectual Property does your business have?</div>
+          {RT("ip","e.g. Registered trademark, proprietary software. Or: none.",2)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
           <textarea ref={growRef} onInput={growOn} key="extra1" style={ta(2)} defaultValue={fdRef.current["extra1"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra1"]=e.target.value;saveToStorage();}}/>
@@ -4287,17 +4982,20 @@ export default function App(){
       );}},
     {label:"Step 2 of 5 - Market & Customers",title:"Tell us about your customers, market and competitors",desc:"Providing facts and figures is important.",
       render:function(){return (<>
+          {/* Above the target-customer question on purpose: its Suggest prompt
+              reads this answer, so asking for it afterwards meant the button always
+              ran with "none stated". */}
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Does the business have any current customers/market share?</div>
+          {RT("currentCust","e.g. 45 paying customers, approx 2% of local market...",2)}
+          <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Who is the target customer/market?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={tcLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestTargetCust();}} disabled={tcLoading}>{tcLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"tc",has:!!(fdRef.current.targetCust||"").trim(),loading:tcLoading,run:suggestTargetCust})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={tcLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestTargetCust();}} disabled={tcLoading}>{tcLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"tc",has:!!(fdRef.current.targetCust||"").trim(),loading:tcLoading,run:suggestTargetCust})}{FreeTag()}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"tc-"+tcVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.targetCust||""} placeholder="e.g. Small business owners aged 30-50..." onChange={function(e){fdRef.current.targetCust=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Does the business have any current customers/market share?</div>
-          {RT("currentCust","e.g. 45 paying customers, approx 2% of local market...",2)}
-          <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What is the target market opportunity (estimated)?</div>
-          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={msLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestMarketSize();}} disabled={msLoading}>{msLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"ms",has:!!(fdRef.current.marketSize||"").trim(),loading:msLoading,run:suggestMarketSize})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={msLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestMarketSize();}} disabled={msLoading}>{msLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"ms",has:!!(fdRef.current.marketSize||"").trim(),loading:msLoading,run:suggestMarketSize})}{FreeTag()}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"ms-"+msVersion} style={{marginTop:8}}>
             <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.marketSize||""} placeholder="e.g. SME accounting software, roughly $120M a year in our region..." onChange={function(e){fdRef.current.marketSize=e.target.value;saveToStorage();}}/>
           </div>
@@ -4320,9 +5018,6 @@ export default function App(){
             <textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current.advantage||""} placeholder="What makes you better or different?" onChange={function(e){fdRef.current.advantage=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What Intellectual Property does your business have?</div>
-          {RT("ip","e.g. Registered trademark, proprietary software. Or: none.",2)}
-          <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
           <textarea ref={growRef} onInput={growOn} key="extra3" style={ta(2)} defaultValue={fdRef.current["extra3"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra3"]=e.target.value;saveToStorage();}}/>
         </>
@@ -4337,14 +5032,20 @@ export default function App(){
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Vision</div>
           <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>By (year) be the (ambition) for (who)</span>
-          {RT("vision","e.g. By 2027, to be the go-to invoicing tool for 10,000 sole traders...",3)}
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={visLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestVision();}} disabled={visLoading}>{visLoading?busyLabel("Working on it…"):"Suggest with AI"}</button>{ReviseButtons({id:"vis",has:!!(fdRef.current.vision||"").trim(),loading:visLoading,run:suggestVision})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and change anything that is not the ambition you have for your business.</span></div>
+          <div key={"vis-"+visVersion} style={{marginTop:8}}>
+            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.vision||""} placeholder="e.g. By 2027, to be the go-to invoicing tool for 10,000 sole traders..." onChange={function(e){fdRef.current.vision=e.target.value;saveToStorage();}}/>
+          </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Position Statement</div>
           <div style={{fontSize:13,color:"#5A6C7E",marginBottom:5}}>Entered in Step 1. To change it, go back to <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={function(){setStepAndSave(0);window.scrollTo(0,0);}}>Step 1 - Business Details</button>.</div>
           <div style={Object.assign({},ta(3),{background:"#FCFCFA",color:"#5A6C7E",whiteSpace:"pre-wrap",cursor:"not-allowed",overflow:"auto"})}>{fdRef.current.position||"Not yet entered - add it in Step 1."}</div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Values</div><div style={{fontSize:13,color:"#5A6C7E",marginBottom:6}}>The principles that guide your business</div>
-          {RT("values","e.g. Simplicity - we remove complexity, not add to it...",3)}
+          <div style={{display:"flex",alignItems:"center",gap:0}}><button style={valLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestValues();}} disabled={valLoading}>{valLoading?busyLabel("Working on it…"):"Suggest with AI"}</button>{ReviseButtons({id:"val",has:!!(fdRef.current.values||"").trim(),loading:valLoading,run:suggestValues})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and change anything that is not how you actually run your business.</span></div>
+          <div key={"val-"+valVersion} style={{marginTop:8}}>
+            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.values||""} placeholder="e.g. Simplicity - we remove complexity, not add to it..." onChange={function(e){fdRef.current.values=e.target.value;saveToStorage();}}/>
+          </div>
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Goals</div>
           <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>The main steps to achieve success</span>
@@ -4403,7 +5104,7 @@ export default function App(){
                     </div>
                   );
                 })}
-                {!goals.filter(Boolean).length&&<div style={{fontSize:13,color:"#7A93B8",padding:"6px 0"}}>Add your goals in Step 3 first.</div>}
+                {!goals.filter(Boolean).length&&<div style={{fontSize:13,color:"#5A6C7E",padding:"6px 0"}}>Add your goals in Step 3 first.</div>}
                 {!!goals.filter(Boolean).length&&(
                   <div style={{display:"flex",justifyContent:"flex-end",gap:8,fontSize:13,color:"#5A6C7E",marginTop:2}}>
                     12-month total: <strong style={{color:"#01236D"}}>{Math.round(goalSalesSum()).toLocaleString()} units</strong>
@@ -4447,7 +5148,7 @@ export default function App(){
                     </div>
                   );
                 })}
-                {!goals.filter(Boolean).length&&<div style={{fontSize:13,color:"#7A93B8",padding:"6px 0"}}>Add your goals in Step 3 first.</div>}
+                {!goals.filter(Boolean).length&&<div style={{fontSize:13,color:"#5A6C7E",padding:"6px 0"}}>Add your goals in Step 3 first.</div>}
                 {!!goals.filter(Boolean).length&&(
                   <div style={{display:"flex",justifyContent:"flex-end",fontSize:13,color:"#5A6C7E",marginTop:2}}>
                     12-month total: <strong style={{color:"#01236D",marginLeft:5}}>{fmt(goalExpTotalSum())}</strong>
@@ -4712,13 +5413,19 @@ export default function App(){
               // Tax payments is derived from the Tax rate and payment months set
               // above - it is displayed read-only so it cannot drift from the
               // calculation. Use "Tax payments other" for anything manual.
-              if(c.id==="txTax"){
-                var taxTotal=liveRows.reduce(function(s,r){return s+(r.txDetail&&r.txDetail.txTax||0);},0);
+              if(c.auto){
+                // All three tax rows are derived, so all three are shown
+                // read-only here. A business with no rate sees none of them.
+                var taxTotal=liveRows.reduce(function(s,r){return s+(r.txDetail&&r.txDetail[c.id]||0);},0);
+                if(!taxTotal)return null;
+                var how=c.id==="txTaxColl"?"Charged to customers on your tax-exclusive prices — held until your return is filed"
+                       :c.id==="txTaxCred"?"Paid to suppliers on your tax-exclusive costs — reclaimed through your return"
+                       :"From the Tax rate and payment months above";
                 return (<div key={c.id} style={{marginBottom:10}}>
-                  <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}<span style={{fontSize:11,color:"#5A6C7E",marginLeft:8,fontWeight:400}}>Auto-calculated — not editable</span></div>
-                  <div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"not-allowed"})}>
-                    <span style={{fontSize:13}}>From the Tax rate and payment months above</span>
-                    <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums"}}>{fmt(taxTotal)}</span>
+                  <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{txLabel(c,taxLabel())}<span style={{fontSize:11,color:"#5A6C7E",marginLeft:8,fontWeight:400}}>Auto-calculated — not editable</span></div>
+                  <div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,cursor:"not-allowed"})}>
+                    <span style={{fontSize:13}}>{how}</span>
+                    <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums",flexShrink:0}}>{fmt(taxTotal)}</span>
                   </div>
                 </div>);
               }
@@ -4763,7 +5470,7 @@ export default function App(){
           var active=i===current;
           var done=i<current;
           var dotBg=(active||done)?"#01236D":"#F1F3F5";
-          var dotFg=(active||done)?"#fff":"#7A93B8";
+          var dotFg=(active||done)?"#fff":"#5A6C7E";
           return (
             <button key={i} onClick={function(){setShowDirection(false);setStepAndSave(i);}}
               style={{flex:1,minWidth:66,border:"none",background:"none",cursor:"pointer",padding:0,fontFamily:"inherit",display:"flex",flexDirection:"column",alignItems:"center",gap:7}}>
@@ -4772,7 +5479,7 @@ export default function App(){
                 <div style={{width:30,height:30,borderRadius:"50%",background:dotBg,color:dotFg,fontSize:13,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:active?"0 0 0 4px rgba(1,35,109,0.12)":"none"}}>{done?"\u2713":(i+1)}</div>
                 <div style={{flex:1,height:3,borderRadius:2,background:i===stepDefs.length-1?"transparent":(active?"#D0B16F":done?"#01236D":"#E3E8F0")}}/>
               </div>
-              <span style={{fontSize:12,fontWeight:active?700:600,color:(active||done)?"#01236D":"#7A93B8",whiteSpace:"nowrap"}}>{names[i]||s.label}</span>
+              <span style={{fontSize:12,fontWeight:active?700:600,color:(active||done)?"#01236D":"#5A6C7E",whiteSpace:"nowrap"}}>{names[i]||s.label}</span>
             </button>
           );
         })}
@@ -4793,17 +5500,17 @@ export default function App(){
         <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:22,flexWrap:"wrap",background:"#fff",borderBottom:"2px solid #D0B16F",borderRadius:0,padding:"14px 4px 16px"}}>
           <img src={LOGO_SRC} style={{width:46,height:46,objectFit:"contain"}} alt="Logo"/>
           <span style={{fontWeight:800,color:"#01236D",fontSize:22,letterSpacing:"-0.01em",marginRight:8,borderBottom:"3px solid #D0B16F",paddingBottom:3,lineHeight:1.1}}>B-PlanDIY</span>
-          <span style={{display:"inline-flex",gap:8,paddingLeft:14,marginLeft:6,borderLeft:"1px solid #E3E8F0"}}>{BackupButtons()}</span>
+          <span style={{display:"inline-flex",gap:8,paddingLeft:14,marginLeft:6,borderLeft:"1px solid #E3E8F0"}}>{AiAccessPill()}{BackupButtons()}</span>
           <span style={{marginLeft:"auto"}}/>
           {[
             {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
             {label:"Cashflow",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
           ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, {background:"#01236D",color:"#fff",border:"1px solid #01236D"})}>{item.label}</button>;})}
         </div>
-        <BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
+        <BackupHelp/>{Intake()}{StorageWarnings()}
         <div style={cardStyle}>
           {StepNav(stepDefs.length)}
-          <div style={{fontSize:11,fontWeight:700,color:"#7A93B8",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:8}}>Summary</div>
+          <div style={{fontSize:11,fontWeight:700,color:"#5A6C7E",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:8}}>Summary</div>
           <div style={{fontSize:26,fontWeight:800,color:"#01236D",marginBottom:10,lineHeight:1.2,letterSpacing:"-0.01em"}}>Business Direction<div style={{width:56,height:3,background:"#D0B16F",borderRadius:2,marginTop:9}}/></div>
           <div style={{fontSize:15,color:"#5A6C7E",marginBottom:20,lineHeight:1.6}}>Here is a summary of the key information for your business.</div>
           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
@@ -4821,7 +5528,7 @@ export default function App(){
           ].map(function(item){return (
             <div key={item.label} style={{marginBottom:14}}>
               <div style={{fontSize:13,fontWeight:700,color:"#01236D",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:4}}>{item.label}</div>
-              <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:6,padding:"10px 12px",fontSize:15,color:item.val?"#29384A":"#7A93B8",minHeight:36,whiteSpace:"pre-wrap"}}>{item.val||"Not yet completed"}</div>
+              <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:6,padding:"10px 12px",fontSize:15,color:item.val?"#29384A":"#5A6C7E",minHeight:36,whiteSpace:"pre-wrap"}}>{item.val||"Not yet completed"}</div>
             </div>
           );})}
           <div style={{marginBottom:14}}>
@@ -4829,7 +5536,7 @@ export default function App(){
             <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:6,padding:"10px 12px",fontSize:15,color:"#29384A",minHeight:36}}>
               {Array.from({length:6},function(_,i){var g=f["goal"+(i+1)];return g?<div key={i} style={{marginBottom:4}}><strong>{i+1}.</strong> {g}</div>:null;}).filter(Boolean).length>0
                 ?Array.from({length:6},function(_,i){var g=f["goal"+(i+1)];return g?<div key={i} style={{marginBottom:4}}><strong>{i+1}.</strong> {g}</div>:null;})
-                :<span style={{color:"#7A93B8"}}>Not yet completed</span>}
+                :<span style={{color:"#5A6C7E"}}>Not yet completed</span>}
             </div>
           </div>
           <div style={{marginBottom:20}}>
@@ -4851,7 +5558,7 @@ export default function App(){
                     {r&&<div style={{marginLeft:12}}><span style={{color:"#5A6C7E"}}>Resources:</span> {r}</div>}
                   </div>:null;
                 })
-                :<span style={{color:"#7A93B8"}}>Not yet completed</span>}
+                :<span style={{color:"#5A6C7E"}}>Not yet completed</span>}
             </div>
           </div>
           <div style={{display:"flex",gap:10,alignItems:"center",marginTop:32,paddingTop:24,borderTop:"1px solid #E3E8F0"}}>
@@ -4870,9 +5577,9 @@ export default function App(){
         <div style={{display:"flex",gap:10,marginBottom:12}}>
           <button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={function(){setShowOutput(false);setStepAndSave(4);}}>← Edit</button>
           {!loading&&<button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){generateWordDoc();}}>Download Word (.docx)</button>}
-          <span style={{marginLeft:"auto"}}/>{BackupButtons()}
+          <span style={{marginLeft:"auto"}}/>{AiAccessPill()}{BackupButtons()}
         </div>
-        <BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
+        <BackupHelp/>{Intake()}{StorageWarnings()}
         {!loading&&!!planHtml&&BrandingPanel()}
         <div style={cardStyle}>
           {tab==="plan"&&(
@@ -4932,20 +5639,20 @@ export default function App(){
       <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:22,flexWrap:"wrap",background:"#fff",borderBottom:"2px solid #D0B16F",borderRadius:0,padding:"14px 4px 16px"}}>
         <img src={LOGO_SRC} style={{width:46,height:46,objectFit:"contain"}} alt="Logo"/>
         <span style={{fontWeight:800,color:"#01236D",fontSize:22,letterSpacing:"-0.01em",marginRight:8,borderBottom:"3px solid #D0B16F",paddingBottom:3,lineHeight:1.1}}>B-PlanDIY</span>
-          <span style={{display:"inline-flex",gap:8,paddingLeft:14,marginLeft:6,borderLeft:"1px solid #E3E8F0"}}>{BackupButtons()}</span>
+          <span style={{display:"inline-flex",gap:8,paddingLeft:14,marginLeft:6,borderLeft:"1px solid #E3E8F0"}}>{AiAccessPill()}{BackupButtons()}</span>
           <span style={{marginLeft:"auto"}}/>
         {[
           {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
           {label:"Cashflow",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
         ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, Object.assign({background:"#01236D",color:"#fff",border:"1px solid #01236D"},(item.label==="Summary"&&step===stepDefs.length-1)?{boxShadow:"0 0 0 3px rgba(208,177,111,0.55)"}:{}))}>{item.label}</button>;})}
       </div>
-      <BackupHelp/>{WelcomeScreen()}{FinancesIntro()}
+      <BackupHelp/>{Intake()}{StorageWarnings()}
       <div style={cardStyle}>
         {StepNav(step)}
-        <div style={{fontSize:11,fontWeight:700,color:"#7A93B8",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:8}}>{currentStep.label}</div>
+        <div style={{fontSize:11,fontWeight:700,color:"#5A6C7E",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:8}}>{currentStep.label}</div>
         <div style={{fontSize:26,fontWeight:800,color:"#01236D",marginBottom:10,lineHeight:1.2,letterSpacing:"-0.01em"}}>{currentStep.title}<div style={{width:56,height:3,background:"#D0B16F",borderRadius:2,marginTop:9}}/></div>
         <div style={{fontSize:15,color:"#5A6C7E",marginBottom:26,lineHeight:1.6}}>{currentStep.desc}</div>
-        {currentStep.render()}
+        <div key={"stepbody-"+step+"-"+formVer}>{currentStep.render()}</div>
         <div style={{display:"flex",gap:10,alignItems:"center",marginTop:32,paddingTop:24,borderTop:"1px solid #E3E8F0"}}>
           {step>0&&<button style={{fontFamily:"inherit",fontSize:15,fontWeight:600,padding:"13px 22px",borderRadius:10,border:"1px solid #E3E8F0",background:"#fff",color:"#29384A",cursor:"pointer"}} onClick={function(){setStepAndSave(step-1);}}>&larr; Back</button>}
           <button style={{fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"14px 34px",borderRadius:10,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:10}}

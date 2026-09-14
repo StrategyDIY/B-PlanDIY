@@ -57,7 +57,7 @@ a.nav-logo:hover span{color:var(--azure);}
 .nav-paid a{color:var(--navy);font-weight:600;text-decoration:underline;}
 .nav-paid a:hover{color:var(--azure);}
 @media(max-width:860px){.nav-paid{display:none;}}
-.nav-cta{background:var(--navy);color:#fff;padding:9px 22px;border-radius:6px;font-size:14px;font-weight:600;transition:opacity 0.15s;}
+.nav-cta{background:var(--navy);color:#fff;padding:9px 22px;border-radius:6px;font-size:14px;font-weight:600;transition:opacity 0.15s;white-space:nowrap;flex-shrink:0;}
 .nav-cta:hover{opacity:0.88;}
 
 
@@ -268,6 +268,18 @@ footer a{color:var(--navy);text-decoration:underline;}
    the right edge, and it is shown by an explicit [open] rule rather than by
    relying on how a browser hides a closed <details>. ---------------------- */
 .nav-links a{white-space:nowrap;}
+/* Between the 1150px mobile breakpoint and about 1340px the links and the
+   right-hand group ran flush into each other - "Blog & Stories" touching
+   "Already paid?" with no space at all, because justify-content:space-between
+   has nothing left to distribute. Tightening the gaps between links buys back
+   the room without hiding anything or moving the breakpoint.
+   Adding a gap to the nav element itself instead was tried and rejected: with
+   nothing left to shrink it pushed the row wider than the viewport and put a
+   horizontal scrollbar on the page between 1151 and 1200px. */
+@media(max-width:1340px){.nav-links{gap:16px;}}
+/* Below this the two groups meet again, so the "Already paid?" line steps
+   aside. It is not lost: the mobile menu panel carries it under 1150px. */
+@media(max-width:1340px){.nav-paid{display:none;}}
 .nav-menu{display:none;}
 .nav-menu-panel{display:none;}
 @media(max-width:1150px){
@@ -326,7 +338,7 @@ footer a{color:var(--navy);text-decoration:underline;}
   </details>
   <div class="nav-right">
     <span class="nav-paid">Already paid? <a href="https://b-plandiy.com/verify.html">Verify your email</a></span>
-    <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="nav-cta">Get Started</a>
+    <a href="app.html" class="nav-cta">Start free</a>
   </div>
 </nav>
 

@@ -25,17 +25,17 @@
 <meta property="og:locale" content="en_NZ"/>
 <meta property="og:url" content="https://b-plandiy.com/"/>
 <meta property="og:title" content="B-PlanDIY — Business Plan and Cashflow Generator"/>
-<meta property="og:description" content="Create a professional business plan and 12-month cashflow forecast in minutes. Built for startup founders."/>
+<meta property="og:description" content="Free business plan and cashflow forecast builder. Build your full 12-month forecast free - pay $29 only if you want the AI to write the plan."/>
 <meta property="og:image" content="https://b-plandiy.com/og-image.png"/>
 <meta property="og:image:width" content="1200"/>
 <meta property="og:image:height" content="630"/>
 <meta property="og:image:alt" content="B-PlanDIY - business plan and cashflow forecast in under an hour"/>
 <meta name="twitter:card" content="summary_large_image"/>
 <meta name="twitter:title" content="B-PlanDIY — Business Plan and Cashflow Generator"/>
-<meta name="twitter:description" content="Create a professional business plan and 12-month cashflow forecast in minutes. Built for startup founders."/>
+<meta name="twitter:description" content="Free business plan and cashflow forecast builder. Build your full 12-month forecast free - pay $29 only if you want the AI to write the plan."/>
 <meta name="twitter:image" content="https://b-plandiy.com/og-image.png"/>
 
-<meta name="description" content="Create a professional business plan and 12-month cashflow forecast in minutes. Built for startup founders."/>
+<meta name="description" content="Free business plan and cashflow forecast builder. Build your full 12-month forecast free - pay $29 only if you want the AI to write the plan."/>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
@@ -56,7 +56,11 @@ a.nav-logo:hover span{color:var(--azure);}
 .nav-paid{font-size:14px;color:var(--grey);white-space:nowrap;}
 .nav-paid a{color:var(--navy);font-weight:600;text-decoration:underline;}
 .nav-paid a:hover{color:var(--azure);}@media(max-width:860px){.nav-paid{display:none;}}
-.nav-cta{background:var(--navy);color:#fff;padding:9px 22px;border-radius:6px;font-size:14px;font-weight:600;transition:opacity 0.15s;}
+/* nowrap and no shrink for the same reason the nav links have it: the flex row
+   squeezes every child before it reaches the 1150px breakpoint, and a two-word
+   button is the first thing to fold onto a second line. Measured wrapping from
+   about 1390px down without this. */
+.nav-cta{background:var(--navy);color:#fff;padding:9px 22px;border-radius:6px;font-size:14px;font-weight:600;transition:opacity 0.15s;white-space:nowrap;flex-shrink:0;}
 .nav-cta:hover{opacity:0.88;}
 
 /* HERO */
@@ -279,6 +283,7 @@ a.nav-logo:hover span{color:var(--azure);}
 
 /* PRICING */
 .pricing{padding:80px 24px;background:var(--white);}
+.pricing .section-sub{max-width:620px;margin:10px auto 0;}
 .p-body-title{font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;
   color:var(--grey);margin-bottom:10px;}
 .pricing-card{max-width:960px;margin:0 auto;background:var(--ice);border-radius:18px;box-shadow:0 8px 40px rgba(1,35,109,0.12);overflow:hidden;display:grid;grid-template-columns:340px 1fr;}
@@ -317,6 +322,19 @@ footer a{color:var(--navy);text-decoration:underline;}
    the right edge, and it is shown by an explicit [open] rule rather than by
    relying on how a browser hides a closed <details>. ---------------------- */
 .nav-links a{white-space:nowrap;}
+/* Between the 1150px mobile breakpoint and about 1340px the links and the
+   right-hand group ran flush into each other - "Blog & Stories" touching
+   "Already paid?" with no space at all, because justify-content:space-between
+   has nothing left to distribute. Tightening the gaps between links buys back
+   the room without hiding anything or moving the breakpoint. */
+   Adding a gap to the nav element itself instead was tried and rejected: with
+   nothing left to shrink it pushed the row wider than the viewport and put a
+   horizontal scrollbar on the page between 1151 and 1200px. */
+@media(max-width:1340px){.nav-links{gap:16px;}}
+/* Below this the two groups meet again, so the "Already paid?" line steps
+   aside. It is not lost: the mobile menu panel carries it under 1150px, and
+   the hero has its own copy. */
+@media(max-width:1340px){.nav-paid{display:none;}}
 .nav-menu{display:none;}
 .nav-menu-panel{display:none;}
 @media(max-width:1150px){
@@ -376,7 +394,7 @@ footer a{color:var(--navy);text-decoration:underline;}
   </details>
   <div class="nav-right">
     <span class="nav-paid">Already paid? <a href="https://b-plandiy.com/verify.html">Verify your email</a></span>
-    <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="nav-cta">Get Started</a>
+    <a href="app.html" class="nav-cta">Start free</a>
   </div>
 </nav>
 
@@ -388,9 +406,9 @@ footer a{color:var(--navy);text-decoration:underline;}
         Smart plan. Better decisions. Positive cashflow.
       </div>
       <h1 class="hero-title">Create an integrated business plan and cashflow forecast in under an hour</h1>
-      <p class="hero-lede">The fast, simple way for small businesses and startups to plan, forecast, and grow with confidence.</p>
+      <p class="hero-lede">The fast, simple way for small businesses and startups to plan, forecast, and grow with confidence. The plan and forecast are free &mdash; pay only if you want the AI to write it for you.</p>
       <div class="hero-ctas">
-        <a class="primary" href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00">Get Started <span>&rarr;</span></a>
+        <a class="primary" href="app.html">Start free <span>&rarr;</span></a>
         <a class="hero-watch" href="#demo"><span><svg width="9" height="11" viewBox="0 0 9 11" fill="#01236D" aria-hidden="true"><path d="M0 0l9 5.5L0 11z"/></svg></span>Watch the 1-minute demo</a>
         <span class="hero-paid">Already paid? <a href="https://b-plandiy.com/verify.html">Verify your email</a></span>
       </div>
@@ -400,7 +418,7 @@ footer a{color:var(--navy);text-decoration:underline;}
         <div class="hero-fact"><span class="hero-fact-ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#1B4FA8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 15l2 2 4-4"/></svg></span><span>Simple process<br/>no complex templates</span></div>
       </div>
       <div class="hero-note">
-        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="#1B4FA8"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 14.5-4-4L8.4 11 11 13.6 15.6 9 17 10.4z"/></svg>3 months full access - only $29</span>
+        <span><svg width="15" height="15" viewBox="0 0 24 24" fill="#1B4FA8"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 14.5-4-4L8.4 11 11 13.6 15.6 9 17 10.4z"/></svg>Plan and forecast free - AI writing $29</span>
         <span><svg width="15" height="15" viewBox="0 0 24 24" fill="#1B4FA8"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 14.5-4-4L8.4 11 11 13.6 15.6 9 17 10.4z"/></svg>Download as Word</span>
         <span><svg width="15" height="15" viewBox="0 0 24 24" fill="#1B4FA8"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1 14.5-4-4L8.4 11 11 13.6 15.6 9 17 10.4z"/></svg>Saves on your device</span>
       </div>
@@ -527,26 +545,35 @@ footer a{color:var(--navy);text-decoration:underline;}
 <section class="pricing" id="pricing">
   <div class="section-header">
     <div class="eyebrow eyebrow-lg">Simple Pricing</div>
-    <h2 class="section-title section-title-sm">One price - no subscription - no hidden upgrade costs</h2>
+    <h2 class="section-title section-title-sm">The plan and the forecast are free &mdash; you pay only for the writing</h2>
+    <p class="section-sub">Build your whole 12-month forecast without paying anything, and try two of the AI suggestions free. The $29 is for the rest of the AI: help with every other question, and the finished plan written for you at the end.</p>
   </div>
   <div class="pricing-card">
     <div class="p-header">
-      <div class="p-badge">Full Access &mdash; 3 Months</div>
+      <div class="p-badge">AI Writing &mdash; 3 Months</div>
       <div class="p-price"><sup>$</sup>29</div>
-      <div class="p-period">One-time payment &bull; NZD &bull; less than $10 a month</div>
-      <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="p-cta">Get Started</a>
-      <p class="p-note">Secure payment &bull; Instant access</p>
+      <div class="p-period">One-time payment &bull; NZD &bull; no subscription</div>
+      <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="p-cta">Unlock the AI</a>
+      <p class="p-note">Secure payment &bull; Instant access<br/>
+        <a href="app.html" style="color:#fff;font-weight:700;">Or start free &rarr;</a> no card needed</p>
     </div>
     <div class="p-body">
-      <div class="p-body-title">Everything is included</div>
+      <div class="p-body-title">Free &mdash; no payment, no sign-up</div>
       <ul class="p-list">
         <li><span class="p-check">&#10003;</span> Simple 5-step business plan wizard</li>
         <li><span class="p-check">&#10003;</span> 12-month profit statement and cashflow forecast</li>
         <li><span class="p-check">&#10003;</span> Graphs and What If analysis</li>
         <li><span class="p-check">&#10003;</span> Download as Word document (.docx)</li>
-        <li><span class="p-check">&#10003;</span> Save and return anytime for 3 months</li>
+        <li><span class="p-check">&#10003;</span> Save and return whenever you like</li>
         <li><span class="p-check">&#10003;</span> Your information saves on your own device, not our servers</li>
         <li><span class="p-check">&#10003;</span> Export and import your data</li>
+        <li><span class="p-check">&#10003;</span> Two AI suggestions free to try &mdash; your target customer, and the size of your market</li>
+      </ul>
+      <div class="p-body-title" style="margin-top:26px;">What the $29 unlocks</div>
+      <ul class="p-list">
+        <li><span class="p-check">&#10003;</span> Suggest with AI on every other question in the plan</li>
+        <li><span class="p-check">&#10003;</span> Generate Plan &mdash; your full plan, written for you</li>
+        <li><span class="p-check">&#10003;</span> Three months of both, as many times as you need</li>
         <li><span class="p-check">&#10003;</span> Private WhatsApp community group</li>
         <li><span class="p-check">&#10003;</span> Free business planning seminars</li>
       </ul>
@@ -561,7 +588,7 @@ footer a{color:var(--navy);text-decoration:underline;}
     <div class="about-copy">
       <h2>Hi, I&rsquo;m Paula</h2>
       <p>After decades of working with businesses on planning and forecasts, filling out separate templates and complex spreadsheets, I thought there must be an easier way.</p>
-      <p>So I built B-PlanDIY: five simple steps, plain English, and an integrated business plan and cashflow forecast at the end of it. One payment, no subscription, and it takes less than an hour.</p>
+      <p>So I built B-PlanDIY: five simple steps, plain English, and an integrated business plan and cashflow forecast at the end of it. The plan and the forecast are free to use. If you would like the AI to help you write it, that is one payment of $29 &mdash; no subscription &mdash; and the whole thing takes less than an hour.</p>
       <p>I hope you enjoy B-PlanDIY and I wish you every success.</p>
       <div class="about-sign"><strong>Paula Savage</strong> CA CMInstD &middot; Founder, B-PlanDIY</div>
     </div>
@@ -570,9 +597,9 @@ footer a{color:var(--navy);text-decoration:underline;}
 
 <section class="community">
   <div class="section-header">
-    <div class="eyebrow eyebrow-lg">Included With Your Plan</div>
+    <div class="eyebrow eyebrow-lg">Included When You Unlock The AI</div>
     <h2 class="section-title">You're not on your own</h2>
-    <p class="section-sub">When you sign up to B-PlanDIY you get more than just software — you join a community of small business owners who are figuring it out together. And you get access to as many free online seminars as you need.</p>
+    <p class="section-sub">Unlock the AI and you get more than just software — you join a community of small business owners who are figuring it out together. And you get access to as many free online seminars as you need.</p>
   </div>
   <div class="community-grid">
     <div class="community-card">
@@ -593,8 +620,8 @@ footer a{color:var(--navy);text-decoration:underline;}
 <!-- FINAL CTA -->
 <section class="final">
   <h2>Ready to give your business clear direction?</h2>
-  <p>Stop putting it off. Most small business owners finish in under an hour - and you'll have a community of likeminded small business owners alongside you.</p>
-  <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="btn-primary">Get Started</a>
+  <p>Stop putting it off. Most small business owners finish in under an hour, and it costs nothing to start - open step 1, build your forecast, and try two of the AI suggestions free.</p>
+  <a href="app.html" class="btn-primary">Start free</a>
 </section>
 
 <footer>
@@ -653,6 +680,22 @@ footer a{color:var(--navy);text-decoration:underline;}
     sent[name] = true;
     try { gtag('event', name, params || {}); } catch (e) {}
   }
+
+  /* Entering the app. Since the app became free, every CTA except the pricing
+     card opens step 1 rather than Stripe, so this is now the top of the funnel
+     and checkout_click below is a much later, much rarer step. Tracking them
+     separately is the only way to see where people fall out between the two. */
+  document.querySelectorAll('a[href$="app.html"]').forEach(function(a){
+    a.addEventListener('click', function(){
+      var where = a.closest('section');
+      try {
+        gtag('event', 'app_start', {
+          location: a.className || 'link',
+          section: where ? (where.className || 'unknown') : 'nav'
+        });
+      } catch (e) {}
+    });
+  });
 
   /* Which CTA people actually press. The label matters: the hero button and
      the pricing button attract different levels of intent. */

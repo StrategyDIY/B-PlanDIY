@@ -41,22 +41,16 @@ else:
 if logo_data and not logo_data.startswith('data:image'):
     sys.exit("ERROR: extracted logo is not a data URI - aborting build")
 
-# --- Access gate injected at the top of App() ------------------------------
-access_check = """
-  var ACCESS_KEY='bpd_access_expiry';
-  try{
-    var expiry=localStorage.getItem(ACCESS_KEY);
-    if(!expiry||Date.now()>parseInt(expiry)){
-      return React.createElement('div',{style:{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',fontFamily:'system-ui',flexDirection:'column',gap:16,padding:24,textAlign:'center'}},
-        React.createElement('div',{style:{fontSize:22,fontWeight:700,color:'#01236d',marginBottom:8}},'Access Required'),
-        React.createElement('div',{style:{fontSize:15,color:'#6b7280',maxWidth:400,marginBottom:24}},expiry?'Your 3-month access has expired.':'No active subscription found.'),
-        React.createElement('a',{href:'https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00',style:{background:'#d0b16f',color:'white',padding:'14px 32px',borderRadius:8,fontWeight:700,fontSize:16,textDecoration:'none'}},'Get started for $29'),
-        React.createElement('div',{style:{marginTop:16,fontSize:14,color:'#6b7280'}},'Already paid? ',React.createElement('a',{href:'/verify.html',style:{color:'#01236d',fontWeight:600,textDecoration:'underline'}},'Verify your email to restore access'))
-      );
-    }
-  }catch(e){}
-"""
-app_code = app_code.replace('function App(){\n', 'function App(){\n' + access_check)
+# --- Access gate -----------------------------------------------------------
+# There used to be a full-page "Access Required" screen injected here, which
+# returned before App() rendered anything unless bpd_access_expiry held a future
+# timestamp. It is gone: the app and the cashflow forecast are free to everyone.
+#
+# Payment now gates only the AI features - Suggest with AI and Generate Plan.
+# That gate is enforced server-side in netlify/functions/anthropic.js, which
+# returns 402 without a valid signed token. The app's own check (aiAccess in
+# business-plan-generator.jsx) exists purely so the buttons can say so before
+# making a pointless round trip; it is not what keeps anyone out.
 
 html = """<!DOCTYPE html>
 <html lang="en">
@@ -73,7 +67,22 @@ html = """<!DOCTYPE html>
 </script>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-<title>B-PlanDIY - Business Plan Generator</title>
+<title>Free Business Plan &amp; Cashflow Forecast Builder | B-PlanDIY</title>
+<!-- The app is free to open and use, so it is a landing page in its own right
+     and should be indexed. It used to sit behind a payment wall, where an
+     indexed URL would only have shown searchers a locked door. -->
+<meta name="robots" content="index,follow"/>
+<meta name="description" content="Build a business plan and 12-month cashflow forecast free, in five steps. Pay $29 only if you want the AI to write the plan for you."/>
+<link rel="canonical" href="https://b-plandiy.com/app.html"/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="https://b-plandiy.com/app.html"/>
+<meta property="og:title" content="Free Business Plan &amp; Cashflow Forecast Builder | B-PlanDIY"/>
+<meta property="og:description" content="Build a business plan and 12-month cashflow forecast free, in five steps. Pay $29 only if you want the AI to write the plan for you."/>
+<meta property="og:image" content="https://b-plandiy.com/og-image.png"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="Free Business Plan &amp; Cashflow Forecast Builder | B-PlanDIY"/>
+<meta name="twitter:description" content="Build a business plan and 12-month cashflow forecast free, in five steps. Pay $29 only if you want the AI to write the plan for you."/>
+<meta name="twitter:image" content="https://b-plandiy.com/og-image.png"/>
 <link rel="icon" type="image/png" href="/favicon.png">
 <link rel="shortcut icon" href="/favicon.ico">
 <link rel="apple-touch-icon" href="/favicon-192.png">
@@ -100,6 +109,14 @@ input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus
   border-color:#1B4FA8 !important;
   box-shadow:0 0 0 3px rgba(42,157,159,0.20) !important;
   outline:none !important;
+}
+
+/* Touch targets. Measured at 28-32px on a phone against a 44px guideline, and
+   the month grids were the densest screen in the app at roughly 55x29px per
+   cell - the one place twelve months of figures get typed. */
+@media (pointer:coarse){
+  button, select, input[type=radio], input[type=checkbox]{min-height:44px;}
+  input[type=radio], input[type=checkbox]{min-width:24px;}
 }
 
 /* Buttons lift slightly and deepen on hover */
@@ -179,6 +196,27 @@ select{border-radius:10px !important;padding:13px 12px !important;}
 </head>
 <body>
 <div id="loading"><div class="spinner"></div><div>Loading B-PlanDIY...</div></div>
+<script>
+/* The app boots from ES modules on a CDN. If that host is unreachable - an
+   outage, a corporate proxy, a blocklist - the module never executes, so the
+   try/catch inside it is never entered and nothing clears this spinner. The
+   customer then sits on "Loading" forever with no idea their plan is safe,
+   and someone in that state who "reinstalls" by clearing site data destroys
+   it. This watchdog says so instead. It is cancelled the moment the app
+   mounts. */
+window.__bpdBooted = false;
+setTimeout(function(){
+  if (window.__bpdBooted) return;
+  var el = document.getElementById('loading');
+  if (!el) return;
+  el.innerHTML =
+    '<div style="max-width:460px;text-align:center;line-height:1.6">' +
+    '<div style="font-size:19px;font-weight:700;color:#01236d;margin-bottom:10px">B-PlanDIY could not load</div>' +
+    '<div style="font-size:15px;color:#29384A">The app could not be downloaded, which usually means a network or firewall problem rather than anything wrong with your plan.</div>' +
+    '<div style="font-size:15px;color:#29384A;margin-top:10px"><strong>Your plan is still saved on this device.</strong> Do not clear your browsing data. Reload the page in a few minutes and it should come back.</div>' +
+    '</div>';
+}, 10000);
+</script>
 <div id="root"></div>
 <script id="logo-data" type="text/plain">
 """ + logo_data + """
@@ -193,20 +231,21 @@ window.React = React;
 window.Recharts = Recharts;
 window.__LOGO_SRC__ = document.getElementById('logo-data').textContent.trim();
 
-const {useState,useRef,useCallback} = React;
+const {useState,useRef,useCallback,useEffect} = React;
 const {BarChart,Bar,Cell,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ReferenceLine,ResponsiveContainer} = Recharts;
 
 try {
   const code = document.getElementById('app-src').textContent;
   const compiled = Babel.transform(code, {presets:['react']}).code;
   const fn = new Function(
-    'React','useState','useRef','useCallback',
+    'React','useState','useRef','useCallback','useEffect',
     'BarChart','Bar','Cell','LineChart','Line','XAxis','YAxis',
     'CartesianGrid','Tooltip','Legend','ReferenceLine','ResponsiveContainer','Recharts',
     compiled + '\\nreturn App;'
   );
-  const App = fn(React,useState,useRef,useCallback,BarChart,Bar,Cell,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ReferenceLine,ResponsiveContainer,Recharts);
+  const App = fn(React,useState,useRef,useCallback,useEffect,BarChart,Bar,Cell,LineChart,Line,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ReferenceLine,ResponsiveContainer,Recharts);
   createRoot(document.getElementById('root')).render(React.createElement(App));
+  window.__bpdBooted = true;
   document.getElementById('loading').style.display='none';
 } catch(e) {
   document.getElementById('loading').innerHTML='<div style="color:red;padding:20px;max-width:600px">Error: '+e.message+'</div>';
