@@ -238,7 +238,7 @@ const txCats=[
   {id:"txLoan",l:"Loan transactions",ph:"e.g. 50000 loan received, -2000 monthly repayment"},
   {id:"txAsset",l:"Asset transactions",ph:"e.g. 4000 equipment sale, -15000 vehicle purchase"},
   {id:"txTaxColl",l:"Tax collected on sales",lfn:function(w){return w+" collected on sales";},auto:true},
-  {id:"txTaxCred",l:"Tax credit on purchases",lfn:function(w){return w+" credit on purchases";},auto:true},
+  {id:"txTaxCred",l:"Tax paid on purchases",lfn:function(w){return w+" paid on purchases";},auto:true},
   {id:"txTax",l:"Tax paid",lfn:function(w){return w+" paid";},auto:true},
   {id:"txTaxOther",l:"Tax payments other",ph:"e.g. 2000 income tax refund, -1000 withholding tax payment"},
   {id:"txOther",l:"Other transactions",ph:"e.g. 10000 owner investment, -500 drawings"}
@@ -1455,9 +1455,6 @@ function App(){
   var goalGridChecks=goalGridChecksState[0];var setGoalGridChecks=goalGridChecksState[1];
   var adminMsgState=useState(function(){try{return localStorage.getItem("bpg_admin_msg")||"";}catch(e){return"";}});
   var adminMsg=adminMsgState[0];
-  var showAdminState=useState(false);var showAdmin=showAdminState[0];var setShowAdmin=showAdminState[1];
-  var adminPwState=useState("");var adminPw=adminPwState[0];var setAdminPw=adminPwState[1];
-  var adminMsgInputState=useState("");var adminMsgInput=adminMsgInputState[0];var setAdminMsgInput=adminMsgInputState[1];
 
   var inp={width:"100%",fontFamily:"inherit",fontSize:16,color:"#29384A",background:"#fff",border:"1px solid #9AA8BC",borderRadius:10,padding:"14px 14px",outline:"none",boxSizing:"border-box"};
   var ta=function(r){return Object.assign({},inp,{resize:"vertical",lineHeight:1.6,minHeight:r*26});};
@@ -2503,7 +2500,10 @@ function App(){
             new ImageRun({data:Uint8Array.from(atob(b64),function(ch){return ch.charCodeAt(0);}),
               transformation:{width:dw,height:dh},type:(mt&&mt[1]==="jpeg")?"jpg":"png"})
           ]}));
-        }catch(logoErr2){}
+        }catch(logoErr2){
+          planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80},
+            children:[new TextRun({text:"(Your logo could not be added to this document \u2014 the plan itself is unaffected.)",italics:true,size:18,color:"7A5E18"})]}));
+        }
       }
       planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:160},children:[new TextRun(Object.assign({text:f.bizName||"Business Plan",font:FONT},OWN?{bold:true,size:48}:{bold:true,size:48,color:ACCENT}))]}));
       planChildren.push(new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80},children:[new TextRun(Object.assign({text:"Business Plan and Cashflow Forecast",size:32,font:FONT},OWN?{}:{color:"d0b16f"}))]}));
@@ -3375,25 +3375,37 @@ function App(){
   function BackupHelp(){
     var dlgRef=useDialog(showBackupHelp,function(){setShowBackupHelp(false);});
     if(!showBackupHelp)return null;
+    // A phone has no "Downloads folder", so telling someone to look in one
+    // sends them hunting for something that does not exist. Coarse pointer is
+    // the honest test here - it is about the device, not the screen width.
+    var onPhone=false;
+    try{ onPhone=window.matchMedia&&window.matchMedia("(pointer:coarse)").matches; }catch(e){}
     return (
       <div className="bpd-overlay" role="dialog" aria-modal="true" aria-label="Backup downloaded" style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:9999}} onClick={function(){setShowBackupHelp(false);}}>
         <div ref={dlgRef} style={{background:"#fff",borderRadius:12,maxWidth:520,width:"100%",padding:"24px 26px",boxShadow:"0 10px 40px rgba(0,0,0,0.25)"}} onClick={function(e){e.stopPropagation();}}>
           <div style={{fontSize:18,fontWeight:700,color:"#01236D",marginBottom:10}}>Backup downloaded</div>
           <div style={{fontSize:15,color:"#29384A",lineHeight:1.6,marginBottom:14}}>
-            Check your <strong>Downloads</strong> folder for:
+            {onPhone
+              ? <span>Your browser has saved a file. On an iPhone look in <strong>Files &rarr; Downloads</strong>; on Android look in <strong>Files</strong> or your browser&rsquo;s downloads list. It is called:</span>
+              : <span>Check your <strong>Downloads</strong> folder for:</span>}
             <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:6,padding:"8px 10px",margin:"8px 0",fontSize:13,wordBreak:"break-all",color:"#01236D"}}>{backupName}</div>
           </div>
           <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"12px 14px",marginBottom:16}}>
             <div style={{fontSize:15,fontWeight:700,color:"#01236D",marginBottom:6}}>Please don't try to open this file</div>
             <div style={{fontSize:13,color:"#29384A",lineHeight:1.6}}>
-              It isn't a document, so there is nothing to read in it. If you double-click it your computer may show a confusing "File Conversion" window - just close that window, the file is still fine.
+              {onPhone
+                ? <span>It isn&rsquo;t a document, so there is nothing to read in it. If you tap it your phone may say it cannot open the file &mdash; that is normal, and the file is still fine.</span>
+                : <span>It isn&rsquo;t a document, so there is nothing to read in it. If you double-click it your computer may show a confusing &ldquo;File Conversion&rdquo; window &mdash; just close that window, the file is still fine.</span>}
             </div>
           </div>
           <div style={{fontSize:15,color:"#29384A",lineHeight:1.6,marginBottom:6}}><strong>What to do with it</strong></div>
           <ul style={{margin:"0 0 18px 18px",padding:0,fontSize:13,color:"#29384A",lineHeight:1.7}}>
-            <li>Move it somewhere safe - a documents folder, cloud drive, or email it to yourself.</li>
+            {onPhone
+              ? <li>Move it somewhere safe &mdash; share it to your cloud drive, or email it to yourself. Files in Downloads can be cleared by the phone.</li>
+              : <li>Move it somewhere safe - a documents folder, cloud drive, or email it to yourself.</li>}
             <li>If you ever lose your plan, come back here and click <strong>Import data</strong> at the bottom of the screen, then choose this file.</li>
             <li>Save a fresh backup whenever you make significant changes.</li>
+            {onPhone&&<li><strong>Can&rsquo;t find it?</strong> Some apps open links in their own browser, which blocks downloads. Open b-plandiy.com in Safari or Chrome directly and try again.</li>}
           </ul>
           <div style={{borderTop:"1px solid #E3E8F0",marginTop:16,paddingTop:14,display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
             {/* "Clear everything from this device" used to sit here. Offering a
@@ -4986,7 +4998,7 @@ function App(){
         <button style={{fontFamily:"inherit",fontSize:13,color:"#5A6C7E",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={exportData}>Export data</button>
         <button style={{fontFamily:"inherit",fontSize:13,color:"#5A6C7E",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={importData}>Import data</button>
         <button style={{fontFamily:"inherit",fontSize:13,color:"#1B4FA8",background:"none",border:"none",cursor:"pointer",textDecoration:"underline"}} onClick={function(){setShowFeedback(true);}}>Give feedback</button>
-        <button style={{fontFamily:"inherit",fontSize:11,color:"#E3E8F0",background:"none",border:"none",cursor:"pointer"}} onClick={function(){setShowAdmin(true);}}>⚙</button>
+        
       </div>
     );
   }
@@ -5536,6 +5548,11 @@ function App(){
                     ? "US sales tax is charged on your sales, with no credit for tax paid on what you buy. Prices are entered as advertised, before tax is added."
                     : "GST, VAT and HST are charged on the value you add, with credit for tax paid on what you buy. Prices are entered without the tax. Naming yours here makes the rest of the app use the right word."}
                 </div>
+                {(!taxName&&taxReg)&&(
+                  <div style={{fontSize:13,lineHeight:1.55,color:"#7A5E18",background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:6,padding:"10px 12px",marginTop:-4,marginBottom:14,maxWidth:460}}>
+                    <strong>Please name your tax above.</strong> Until you do, the forecast treats it as a value-added tax like GST or VAT, with credit for tax paid on what you buy. If yours is US sales tax, that credit does not apply and the figures will understate what you owe.
+                  </div>
+                )}
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>{taxLabel()} rate (%)</div>
                 <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>e.g. 15 for New Zealand, 10 for Australia, 20 for the UK</span>
                 <input style={Object.assign({},inp,{width:120},taxReg?{}:{background:"#FCFCFA",cursor:"not-allowed"})} disabled={!taxReg} defaultValue={fdRef.current.taxRate||""} placeholder="e.g. 15" onChange={function(e){fdRef.current.taxRate=e.target.value;saveToStorage();refreshLive();}}/>
@@ -5611,7 +5628,7 @@ function App(){
                 var taxTotal=liveRows.reduce(function(s,r){return s+(r.txDetail&&r.txDetail[c.id]||0);},0);
                 if(!taxTotal)return null;
                 var how=c.id==="txTaxColl"?"Charged to customers on your tax-exclusive prices — held until your return is filed"
-                       :c.id==="txTaxCred"?"Paid to suppliers on your tax-exclusive costs — reclaimed through your return"
+                       :c.id==="txTaxCred"?"Paid to suppliers on your tax-exclusive costs — claimed back through your return"
                        :"From the Tax rate and payment months above";
                 return (<div key={c.id} style={{marginBottom:10}}>
                   <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{txLabel(c,taxLabel())}<span style={{fontSize:11,color:"#5A6C7E",marginLeft:8,fontWeight:400}}>Auto-calculated — not editable</span></div>
@@ -5855,17 +5872,10 @@ function App(){
       </div>
       <AppFooter/>
       {adminMsg&&<div style={{background:GREEN_LIGHT,border:"1px solid "+GREEN,borderRadius:6,padding:"10px 14px",marginTop:8,fontSize:13,color:GREEN_DARK}}>{adminMsg}</div>}
-      {showAdmin&&(<div style={{background:"#FCFCFA",borderRadius:6,padding:16,marginTop:8,border:"1px solid #E3E8F0"}}>
-        <div style={{fontSize:13,fontWeight:600,color:"#29384A",marginBottom:8}}>Admin</div>
-        <input style={inp} type="password" placeholder="Password" value={adminPw} onChange={function(e){setAdminPw(e.target.value);}}/>
-        {adminPw==="stratdiy2025"&&(<div style={{marginTop:8}}>
-          <textarea ref={growRef} onInput={growOn} style={ta(2)} placeholder="Broadcast message to all users (leave blank to clear)" value={adminMsgInput} onChange={function(e){setAdminMsgInput(e.target.value);}}/>
-          <div style={{display:"flex",gap:8,marginTop:8}}>
-            <button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={function(){try{localStorage.setItem("bpg_admin_msg",adminMsgInput);}catch(e){}setShowAdmin(false);setAdminPw("");}}>Save & broadcast</button>
-            <button style={btnSm} onClick={function(){setShowAdmin(false);setAdminPw("");}}>Cancel</button>
-          </div>
-        </div>)}
-      </div>)}
+      {/* The admin panel was removed. Its password sat in the page source,
+          and the "broadcast to all users" it guarded only ever wrote a
+          message into the browser of whoever typed it - so it looked like
+          a feature that reached customers and was not one. */}
       {showFeedback&&(
         <div className="bpd-overlay" style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:9998,overflowY:"auto"}}
           onClick={function(){setShowFeedback(false);}}>

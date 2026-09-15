@@ -79,14 +79,14 @@ footer{text-align:center;padding:24px;font-size:13px;color:#5A6C7E;margin-top:au
 
 <div class="card">
   <div class="card-header">
-    <h2>Enter your email to continue</h2>
+    <h2 id="cardTitle">Enter your email to continue</h2>
   </div>
   <div class="card-body">
     <div class="field">
       <label>Email address</label>
       <input type="email" id="emailInput" placeholder="e.g. sarah@yourbusiness.com" autocomplete="email"/>
     </div>
-    <button class="btn" id="verifyBtn" onclick="verifyAccess()">Verify and go to the app →</button>
+    <button class="btn" id="verifyBtn" onclick="verifyAccess()">Email me a link →</button>
     <div class="msg" id="msg"></div>
     <div class="buy-link">
       <p>Don't have an account? <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00">Get started for $29 →</a></p>
@@ -101,6 +101,46 @@ document.getElementById('emailInput').addEventListener('keydown', function(e){
   if(e.key==='Enter') verifyAccess();
 });
 
+/* Access is no longer handed out for typing an address.
+   An email address is not a secret - a colleague, a partner, anyone who has
+   seen a forwarded plan could type a customer's and be given ninety days of
+   their paid access. Now the address only asks for a one-time link, and
+   clicking that link is what proves the mailbox belongs to them. */
+function grant(data){
+  try{
+    localStorage.setItem('bpd_access_expiry', String(data.expiry));
+    if(data.token) localStorage.setItem('bpd_access_token', data.token);
+  }catch(e){}
+  showMsg('Access restored. Taking you to the app...','success');
+  setTimeout(function(){ window.location.href='/app.html'; }, 1200);
+}
+
+/* Arriving from the emailed link. */
+(async function redeemFromUrl(){
+  var t = new URLSearchParams(window.location.search).get('t');
+  if(!t) return;
+  var card = document.getElementById('cardTitle');
+  var btn = document.getElementById('verifyBtn');
+  if(card) card.textContent = 'Checking your link...';
+  if(btn) btn.disabled = true;
+  try{
+    var res = await fetch('/api/verify-user', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ t: t, email: new URLSearchParams(window.location.search).get('e') || '' })
+    });
+    var data = await res.json();
+    if(data.success){ grant(data); return; }
+    showMsg(data.message || 'That link could not be used. Enter your email below for a fresh one.','error');
+  }catch(e){
+    showMsg('We could not check that link. Please enter your email below for a fresh one.','error');
+  }
+  if(card) card.textContent = 'Enter your email to continue';
+  if(btn) btn.disabled = false;
+  /* Keep the token out of the address bar and out of the browser history. */
+  try{ history.replaceState({}, '', '/verify.html'); }catch(e){}
+})();
+
 async function verifyAccess(){
   var email = document.getElementById('emailInput').value.trim();
   var btn = document.getElementById('verifyBtn');
@@ -110,7 +150,7 @@ async function verifyAccess(){
   if(!email.includes('@')){ showMsg('Please enter a valid email address.','error'); return; }
 
   btn.disabled=true;
-  btn.textContent='Checking...';
+  btn.textContent='Sending...';
   msg.style.display='none';
 
   try{
@@ -121,20 +161,19 @@ async function verifyAccess(){
     });
     var data = await res.json();
 
-    if(data.success){
-      localStorage.setItem('bpd_access_expiry', String(data.expiry));
-      if(data.token)localStorage.setItem('bpd_access_token', data.token);
-      showMsg('Access verified! Redirecting to the app...','success');
-      setTimeout(function(){ window.location.href='/app.html'; }, 1500);
-    } else {
-      showMsg(data.message||'No active subscription found for this email. Please check your email or purchase access.','error');
-      btn.disabled=false;
-      btn.textContent='Verify and go to the app →';
+    if(data.sent){
+      showMsg(data.message||'If that address has access, we have emailed you a link to restore it. It expires in 20 minutes.','success');
+      btn.textContent='Link sent';
+      return;
     }
+    if(data.success){ grant(data); return; }
+    showMsg(data.message||'We could not check that address just now. Please try again in a moment.','error');
+    btn.disabled=false;
+    btn.textContent='Email me a link →';
   } catch(e) {
     showMsg('Something went wrong. Please try again.','error');
     btn.disabled=false;
-    btn.textContent='Verify and go to the app →';
+    btn.textContent='Email me a link →';
   }
 }
 
