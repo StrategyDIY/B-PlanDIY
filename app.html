@@ -1295,6 +1295,12 @@ function App(){
 
   function closeIntake(){
     try{ localStorage.setItem("bpd_intake_done","1"); }catch(e){}
+    // How many of the seven questions they answered before leaving. A low
+    // number here means the intake is the thing driving people away, not the
+    // form behind it.
+    track("intake_closed",{answered:INTAKE_Q.filter(function(q){
+      return String(fdRef.current[q.id==="position"?"posWho":q.id]||"").trim();
+    }).length,of:INTAKE_Q.length});
     setShowIntake(false);
     setFormVer(function(v){return v+1;});
   }
@@ -1604,7 +1610,7 @@ function App(){
   // The server has to agree - it is the actual gate - so a free call carries a
   // free_mode name that netlify/functions/anthropic.js allows without a token,
   // under a much tighter rate limit and a smaller token cap.
-  var FREE_MODES={targetCust:1,marketSize:1};
+  var FREE_MODES={targetCust:1,marketSize:1,startFigures:1};
 
   // Pulls {error:{message}} out of a response body, when there is one worth
   // showing. Returns "" rather than a half-parsed fragment.
@@ -1622,9 +1628,15 @@ function App(){
     // not at twenty call sites.
     if(freeMode&&FREE_MODES[freeMode]){
       payload=Object.assign({},payload,{free_mode:freeMode});
+      track("ai_suggest",{ai_kind:freeMode,ai_tier:"free"});
     }else if(!hasAi()){
+      // Someone reached for a paid feature and was stopped. This is the
+      // conversion moment, and the one event worth watching most closely.
       aiLockedNotice();
+      track("ai_locked",{ai_state:aiAccess()});
       throw new Error("ai locked");
+    }else{
+      track("ai_suggest",{ai_kind:"paid",ai_tier:"paid"});
     }
     var res;
     try{
@@ -1705,9 +1717,26 @@ function App(){
     }catch(e){}
   }
 
+  // Analytics.
+  //
+  // Counts and structure only - never a figure, a business name, an email or a
+  // word the customer typed. The site tells people their plan stays on their
+  // own device, and shipping their content to Google would make that untrue.
+  // Every call is wrapped: an ad-blocker removing gtag must never break the app.
+  var STEP_NAMES=["details","market","strategy","how","finances"];
+  function track(name,params){
+    try{
+      if(typeof gtag!=="function")return;
+      gtag("event",name,params||{});
+    }catch(e){}
+  }
+
   function setStepAndSave(n){
     setStep(n);
     try{localStorage.setItem("bpg_step",String(n));}catch(e){}
+    // The single most useful event in the app: how far down the five steps
+    // people actually get before they stop.
+    track("step_view",{step_number:n+1,step_name:STEP_NAMES[n]||("step"+(n+1))});
     window.scrollTo(0,0);
   }
 
@@ -2875,6 +2904,7 @@ function App(){
       });
       Packer.toBlob(doc).then(function(blob){
         var url=URL.createObjectURL(blob);
+        track("export_word",{});
         var a=document.createElement("a");a.href=url;a.download=(f.bizName||"business").replace(/[^a-z0-9]/gi,"-")+"-plan.docx";
         document.body.appendChild(a);a.click();
         setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
@@ -2918,6 +2948,7 @@ function App(){
     // then fail.
     if(!hasAi()){
       aiLockedNotice();
+      track("ai_locked",{ai_state:aiAccess(),ai_kind:"generate_plan"});
       return;
     }
     setLoading(true);
@@ -3230,7 +3261,11 @@ function App(){
       // Persisted, so a refresh, a back button or a phone backgrounding the tab
       // no longer throws away a generation the customer waited 90 seconds for.
       fdRef.current._planHtml=html;saveToStorage();
+      // Word count, not words. How long it took matters because the four calls
+      // run against Netlify's 26-second ceiling.
+      track("plan_generated",{words:genWords,seconds:Math.round((Date.now()-genStart)/1000)});
     }catch(e){
+      track("plan_failed",{reason:String(e&&e.message||"").slice(0,90)});
       // Flagged so downloadWord() refuses - otherwise the error text itself
       // was being written into the Word document as the plan body.
       setPlanFailed(true);
@@ -3312,6 +3347,7 @@ function App(){
       setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
       setBackupName(fname);
       setShowBackupHelp(true);
+      track("backup_saved",{});
     }catch(e){alert("Could not create the backup file. Please try again.");}
   }
 
@@ -3901,6 +3937,185 @@ function App(){
   // flat monthly figure for Team or Contractors - those two are built from
   // named people with start months, so they are suggested as rows for the
   // people helper instead.
+  // The health check.
+  //
+  // The AI writes the plan up and never once says "this does not add up". This
+  // is the part a chartered accountant would actually do: read the forecast and
+  // say what would worry them.
+  //
+  // Every figure it reasons from is computed here and handed over. The whole
+  // history of this generator is that wherever the prompt leaves a gap, the
+  // model fills it with something plausible - so it is given the drawings
+  // position, the unremitted tax, the tightest month and the goal costs as
+  // facts, and told to use nothing else.
+  var hcState=useState("");var hcText=hcState[0];var setHcText=hcState[1];
+  var hcLoadState=useState(false);var hcLoad=hcLoadState[0];var setHcLoad=hcLoadState[1];
+
+  function healthFacts(){
+    var rows=liveRows||[];
+    if(!rows.length)return null;
+    var f=fdRef.current;
+    function sum(k){return rows.reduce(function(a,r){return a+(r[k]||0);},0);}
+    function txSum(id){return rows.reduce(function(a,r){return a+((r.txDetail&&r.txDetail[id])||0);},0);}
+    var rev=sum("revenue"), cogs=sum("cogs"), exp=sum("totalExpenses"), prof=sum("netProfit");
+    var low=rows[0], lowI=0;
+    rows.forEach(function(r,i){ if((r.closingBalance||0)<(low.closingBalance||0)){low=r;lowI=i;} });
+    var neg=rows.filter(function(r){return (r.closingBalance||0)<0;});
+    var taxColl=txSum("txTaxColl"), taxCred=txSum("txTaxCred"), taxPaid=txSum("txTax");
+    var unremitted=taxColl+taxCred+taxPaid;      // cred and paid are negative
+    var drawings=txSum("txOther");
+    var wages=rows.reduce(function(a,r){return a+((r.expDetail&&r.expDetail.xTeam)||0);},0);
+    var goalUnits=parseFloat(f.goalSalesTotal)||0;
+    var goalExp=parseFloat(f.goalExpTotal)||0;
+    var goalExpApplied=f.goalExpApply==="1";
+    var mkt=rows.reduce(function(a,r){return a+((r.expDetail&&r.expDetail.xMkt)||0);},0);
+    var firstRev=rows[0].revenue||0, lastRev=rows[rows.length-1].revenue||0;
+    var growth=firstRev>0?Math.round(((lastRev/firstRev)-1)*100):0;
+    var monthlyFixed=rows.length?Math.round(exp/rows.length):0;
+    var gp=rev-cogs;
+    var gpPct=rev>0?Math.round(gp/rev*1000)/10:0;
+    var beUnits=null;
+    var price=rows[0].avgPrice||0, unitCost=rows[0].avgCost||0;
+    if(price>unitCost&&price>0)beUnits=Math.ceil(monthlyFixed/(price-unitCost));
+    return {
+      cur:CUR, rev:rev, cogs:cogs, exp:exp, prof:prof, gpPct:gpPct,
+      opening:rows[0].openingBalance||0, closing:rows[rows.length-1].closingBalance||0,
+      lowMonth:low.month, lowCash:low.closingBalance||0, lowIsFirst:lowI===0,
+      negMonths:neg.length, negFirst:neg.length?neg[0].month:"",
+      taxColl:taxColl, taxCred:Math.abs(taxCred), taxPaid:Math.abs(taxPaid), unremitted:unremitted,
+      drawings:drawings, wages:wages, mkt:mkt, growth:growth,
+      goalUnits:goalUnits, goalExp:goalExp, goalExpApplied:goalExpApplied,
+      beUnits:beUnits, monthlyFixed:monthlyFixed,
+      months:rows.length, taxName:taxLabel(), taxRate:activeTaxRate()
+    };
+  }
+
+  async function runHealthCheck(){
+    var h=healthFacts();
+    if(!h){ aiNotify("Enter your figures in the Details tab first, then run the check."); return; }
+    setHcLoad(true); setHcText("");
+    function m(n){ return h.cur+Math.round(n).toLocaleString(); }
+    var prompt="You are a chartered accountant reviewing a small business owner's own 12-month forecast, for them - not for a bank. Be useful, specific and blunt.\n\n"+
+      "THE FORECAST, AS CALCULATED (use these figures and no others):\n"+
+      "Revenue "+m(h.rev)+" | Cost of sales "+m(h.cogs)+" | Gross margin "+h.gpPct+"%\n"+
+      "Operating expenses "+m(h.exp)+" ("+m(h.monthlyFixed)+" a month) | Net profit "+m(h.prof)+"\n"+
+      "Opening cash "+m(h.opening)+" | Closing cash "+m(h.closing)+"\n"+
+      "Lowest cash: "+h.lowMonth+" at "+m(h.lowCash)+(h.lowIsFirst?" (the first month)":"")+"\n"+
+      (h.negMonths?("Cash goes NEGATIVE in "+h.negMonths+" month(s), first in "+h.negFirst+"\n"):"Cash never goes negative.\n")+
+      "Revenue in the final month is "+h.growth+"% above the first month.\n"+
+      (h.beUnits?("Break-even is about "+h.beUnits+" units a month at the current price and cost.\n"):"")+
+      (h.taxRate>0?(h.taxName+": "+m(h.taxColl)+" collected, "+m(h.taxCred)+" paid on purchases, "+m(h.taxPaid)+" remitted within the year. "+
+        m(h.unremitted)+" of "+h.taxName+" is still sitting in the bank at year end and will fall due after it.\n"):(h.taxName+" is not registered, so no tax is in the forecast.\n"))+
+      "Owner drawings in the forecast: "+(h.drawings<0?m(Math.abs(h.drawings))+" over the year":"NONE - the owner takes nothing out all year")+"\n"+
+      "Wages/salaries in the forecast: "+(h.wages>0?m(h.wages):"none")+"\n"+
+      "Marketing spend: "+(h.mkt>0?m(h.mkt)+" over the year":"none")+"\n"+
+      (h.goalUnits?("The plan's goals are assumed to add "+Math.round(h.goalUnits)+" extra units.\n"):"")+
+      (h.goalExp>0&&!h.goalExpApplied?("The goals carry about "+m(h.goalExp)+" of costs that are NOT included in the expenses above.\n"):"")+
+      "\nWrite a short review for the owner.\n\n"+
+      "Rules:\n"+
+      "- Open with one sentence saying what the forecast shows overall. Do not flatter.\n"+
+      "- Then give between three and five concerns, most serious first, as a numbered list. Each one: what the issue is, the figure that shows it, and what to do about it. Two to three sentences each.\n"+
+      "- Quote the figures above exactly. Never estimate, never invent a benchmark, never cite a statistic or a source.\n"+
+      "- Raise only what these figures support. If the forecast is genuinely sound, say so and give fewer concerns rather than padding the list.\n"+
+      "- Things worth checking if the figures show them: an owner paying themselves nothing; tax sitting in the bank that is owed; a thin or first-month cash buffer; growth assumed with no marketing behind it; costs the goals will bring that are not in the forecast; a margin that leaves no room for error; revenue depending on one customer or one location.\n"+
+      "- Plain English. No jargon, no headings, no preamble, no closing pep talk. Under 320 words in total.";
+    try{
+      var data=await aiFetch({max_tokens:900,messages:[{role:"user",content:prompt}]});
+      var text=(data.content||[]).map(function(x){return x.text||"";}).join("").trim();
+      setHcText(text);
+      track("health_check_run",{});
+      fdRef.current._healthCheck=text;
+      saveToStorage();
+    }catch(e){}
+    setHcLoad(false);
+  }
+
+  // Starting figures.
+  //
+  // Step 5 opens on an empty grid and asks for a price, a unit cost, a monthly
+  // volume and twelve expense categories before anything happens. Someone who
+  // has never built a forecast has no anchor for any of it, and a blank field
+  // with no anchor is where the tab gets closed.
+  //
+  // There were already separate helpers for price, cost and expenses, but none
+  // for volume - the hardest one to guess - and nothing made the three agree.
+  // Suggested independently they often did not: a price and a cost implying a
+  // margin no one in that trade earns, at a volume the operator could not
+  // physically serve. This asks for all four at once so they hang together,
+  // and shows its reasoning so the figures can be argued with.
+  var sfState=useState(null);var sfData=sfState[0];var setSfData=sfState[1];
+  var sfLoadState=useState(false);var sfLoad=sfLoadState[0];var setSfLoad=sfLoadState[1];
+
+  async function suggestStartingFigures(){
+    setSfLoad(true); setSfData(null);
+    var f=fdRef.current;
+    var prompt="You are helping a small business owner make a first estimate of the four figures that drive a 12-month cashflow forecast.\n\n"+
+      "Business: "+(f.bizName||"this business")+"\n"+
+      "What it does: "+(f.description||f.history||"not specified")+"\n"+
+      "Industry: "+(f.industry||"not specified")+"\n"+
+      "Location: "+(f.locations||"New Zealand")+"\n"+
+      "Stage: "+(f.stage||"not specified")+"\n"+
+      "Target customer: "+(f.targetCust||"not specified")+"\n"+
+      "Currency symbol in use: "+(f.currencySym||"$")+"\n"+
+      (activeTaxRate()>0?("Figures must EXCLUDE "+taxLabel()+", which is handled separately.\n"):"")+
+      "\nGive ONE figure for each of the four, for a business at this stage in "+bizLocation()+".\n\n"+
+      "Rules:\n"+
+      "- The four must be consistent with each other. Check before answering: does this price minus this cost leave a margin that is normal for this trade, and can one operator at this stage actually deliver this many units a month?\n"+
+      "- Units are whatever this business sells - cups, hours, jobs, subscriptions. Say which in the unit line.\n"+
+      "- Month 1 is the FIRST month of trading. For a business that has not started, that means a slow month, not a typical one.\n"+
+      "- Monthly growth is a percentage, compounding. Be conservative: most small businesses do not grow 10% a month for a year. A flat forecast is an acceptable answer.\n"+
+      "- Base these on what this kind of business in this place actually charges and sells. If you are unsure of a figure, still give your best estimate and say plainly in the note that it is a rough one to check.\n"+
+      "- Never invent a source, a survey or a statistic.\n\n"+
+      "Reply in EXACTLY this format and nothing else, four lines:\n"+
+      "PRICE: [number, digits only] | [max 14 words on what one unit is and why this price]\n"+
+      "COST: [number, digits only] | [max 14 words on what it costs to deliver one]\n"+
+      "UNITS: [number, digits only] | [max 14 words on the volume in month one]\n"+
+      "GROWTH: [number, digits only, percent a month] | [max 14 words on why]";
+    try{
+      var data=await aiFetch({max_tokens:500,messages:[{role:"user",content:prompt}]},"startFigures");
+      var text=(data.content||[]).map(function(x){return x.text||"";}).join("");
+      var out={};
+      text.split("\n").forEach(function(line){
+        var m=line.match(/^\s*(PRICE|COST|UNITS|GROWTH)\s*:\s*\$?\s*([0-9][0-9,]*\.?[0-9]*)\s*\|?\s*(.*)$/i);
+        if(!m)return;
+        var v=parseFloat(m[2].replace(/,/g,""));
+        if(isNaN(v))return;
+        out[m[1].toUpperCase()]={v:v,why:(m[3]||"").trim()};
+      });
+      if(!out.PRICE&&!out.COST&&!out.UNITS){
+        aiNotify("The suggestion came back in a form we could not read. Please try again.");
+      } else {
+        setSfData(out);
+      }
+    }catch(e){}
+    setSfLoad(false);
+  }
+
+  // Applied one field at a time, and only where the field is still empty.
+  // Overwriting a figure the owner has already typed - their own price, their
+  // own volume - would be the app second-guessing the one person who knows.
+  function applyStartingFigures(){
+    var f=fdRef.current;
+    var filled=[];
+    function put(key,val){
+      if(String(f[key]||"").trim())return;
+      f[key]=String(val);
+      filled.push(key);
+    }
+    if(sfData.PRICE)put("avgPrice",sfData.PRICE.v);
+    if(sfData.COST)put("avgCost",sfData.COST.v);
+    if(sfData.UNITS)put("month1Units",Math.round(sfData.UNITS.v));
+    if(sfData.GROWTH)put("unitGrowth",sfData.GROWTH.v);
+    saveToStorage();
+    refreshLive();
+    setFormVer(function(v){return v+1;});
+    setSfData(null);
+    track("starting_figures_used",{fields:filled.length});
+    if(!filled.length){
+      aiNotify("Those fields already have your own figures in them, so nothing was changed. Clear one first if you want to use a suggestion.");
+    }
+  }
+
   async function suggestExpenses(){
     setExpAiLoad(true);
     setExpAi(null);
@@ -4965,6 +5180,109 @@ function App(){
     </div>);
   }
 
+  // Deliberately not part of the plan document. The plan is what someone sends
+  // to a bank; this is what they would rather the bank did not read. Keeping it
+  // on screen, and out of the Word export, is what makes it safe to be honest.
+  function HealthCheck(){
+    var h=healthFacts();
+    var saved=hcText||fdRef.current._healthCheck||"";
+    var wrap={background:"#fff",border:"1px solid #E3E8F0",borderRadius:12,padding:"22px 24px"};
+    if(!h){
+      return (<div style={wrap}><div style={{fontSize:14.5,color:"#5A6C7E",lineHeight:1.6}}>
+        Enter your figures in the <strong>Details</strong> tab first. The check reads your forecast, so it needs one to read.
+      </div></div>);
+    }
+    return (<div style={wrap}>
+      <div style={{fontSize:18,fontWeight:700,color:"#01236D",marginBottom:6}}>What would an accountant ask?</div>
+      <div style={{fontSize:14,color:"#5A6C7E",lineHeight:1.6,marginBottom:16,maxWidth:"62ch"}}>
+        A review of your own figures &mdash; where the forecast looks thin, what it leaves out, and what to do about it.
+        This is for you. It is not part of the plan you download, and nobody else sees it.
+      </div>
+      <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap",marginBottom:saved?18:0}}>
+        <button style={hcLoad?suggestBtnBusy:Object.assign({},suggestBtn,{background:"#01236D",fontSize:15,padding:"11px 22px"})}
+          disabled={hcLoad} onClick={function(){runHealthCheck();}}>
+          {hcLoad?busyLabel("Reading your forecast\u2026"):(saved?"Check it again":"Check my plan")}
+        </button>
+        {!hasAi()&&<span style={{fontSize:12.5,color:"#5A6C7E"}}>Included with AI access</span>}
+      </div>
+      {saved&&(
+        <div style={{borderTop:"1px solid #E3E8F0",paddingTop:16}}>
+          {saved.split("\n").map(function(ln,i){
+            var t=ln.trim();
+            if(!t)return null;
+            var num=t.match(/^(\d+)[.)]\s*(.*)$/);
+            if(num){
+              return (<div key={i} style={{display:"flex",gap:12,marginBottom:12,alignItems:"flex-start"}}>
+                <span style={{flexShrink:0,width:24,height:24,borderRadius:"50%",background:"#FBF4E6",border:"1px solid #E8D6AC",
+                  color:"#7A5E18",fontSize:12.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{num[1]}</span>
+                <span style={{fontSize:14.5,color:"#29384A",lineHeight:1.65,maxWidth:"62ch"}}>{num[2]}</span>
+              </div>);
+            }
+            return <p key={i} style={{fontSize:14.5,color:"#29384A",lineHeight:1.65,margin:"0 0 12px",maxWidth:"62ch"}}>{t}</p>;
+          })}
+          <div style={{fontSize:12.5,color:"#5A6C7E",borderTop:"1px solid #E3E8F0",paddingTop:12,marginTop:4,lineHeight:1.55}}>
+            Based only on the figures in your forecast. It cannot know your market, your contracts or your circumstances &mdash; treat it as a second opinion, not advice.
+          </div>
+        </div>
+      )}
+    </div>);
+  }
+
+  // Shown only while the four drivers are still empty - once someone has their
+  // own figures in, an offer to estimate them is noise.
+  function StartingFigures(){
+    var f=fdRef.current;
+    var anyEntered=["avgPrice","avgCost","month1Units"].some(function(k){return String(f[k]||"").trim();});
+    if(anyEntered&&!sfData&&!sfLoad)return null;
+    var box={background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:10,padding:"16px 18px",marginBottom:18};
+    var rowS={display:"flex",alignItems:"baseline",gap:10,padding:"9px 0",borderBottom:"1px solid #EFE2C6",flexWrap:"wrap"};
+    var lab={fontSize:12.5,color:"#7A5E18",minWidth:132,fontWeight:600};
+    var val={fontSize:17,fontWeight:700,color:"#01236D",fontVariantNumeric:"tabular-nums"};
+    var why={fontSize:12.5,color:"#5A6C7E",flex:"1 1 220px",lineHeight:1.5};
+    var cur=fdRef.current.currencySym||"$";
+    function row(k,label,prefix,suffix){
+      var d=sfData[k]; if(!d)return null;
+      return (<div key={k} style={rowS}>
+        <span style={lab}>{label}</span>
+        <span style={val}>{(prefix||"")+d.v+(suffix||"")}</span>
+        <span style={why}>{d.why}</span>
+      </div>);
+    }
+    return (<div style={box}>
+      {!sfData?(
+        <div style={{display:"flex",alignItems:"flex-start",gap:14,flexWrap:"wrap"}}>
+          <div style={{flex:"1 1 320px"}}>
+            <div style={{fontSize:15,fontWeight:700,color:"#7A5E18",marginBottom:4}}>Not sure where to start?</div>
+            <div style={{fontSize:13.5,color:"#5A6C7E",lineHeight:1.55}}>
+              The forecast runs on four figures: what you charge, what it costs you, how many you sell in month one, and how fast that grows.
+              We can suggest a starting set for a business like yours to correct, rather than leaving you a blank page.
+            </div>
+          </div>
+          <button style={sfLoad?suggestBtnBusy:suggestBtn} disabled={sfLoad} onClick={function(){suggestStartingFigures();}}>
+            {sfLoad?busyLabel("Working on it\u2026"):"Suggest starting figures"}
+          </button>
+          {FreeTag()}
+        </div>
+      ):(
+        <div>
+          <div style={{fontSize:15,fontWeight:700,color:"#7A5E18",marginBottom:2}}>A starting point &mdash; not a forecast</div>
+          <div style={{fontSize:13,color:"#5A6C7E",lineHeight:1.55,marginBottom:10}}>
+            These are estimates for a business like yours, and the AI does not know your suppliers, your prices or your patch. Replace any of them with your own figures &mdash; that is what makes the forecast yours.
+          </div>
+          {row("PRICE","Price per unit",cur)}
+          {row("COST","Cost per unit",cur)}
+          {row("UNITS","Units in month 1")}
+          {row("GROWTH","Growth a month","","%")}
+          <div style={{display:"flex",gap:12,alignItems:"center",marginTop:14,flexWrap:"wrap"}}>
+            <button style={Object.assign({},suggestBtn,{background:"#01236D"})} onClick={applyStartingFigures}>Use these figures</button>
+            <button style={{fontFamily:"inherit",fontSize:13.5,color:"#5A6C7E",background:"none",border:"none",cursor:"pointer",textDecoration:"underline",padding:0}}
+              onClick={function(){setSfData(null);}}>No thanks, I will enter my own</button>
+          </div>
+        </div>
+      )}
+    </div>);
+  }
+
   function BackupButtons(){
     var wrap={position:"relative",display:"inline-flex"};
     // Deliberately not shaped like the navy navigation buttons: pill rather than
@@ -5367,8 +5685,8 @@ function App(){
       );}},
     {label:"Step 5 of 5 - Financial Information",title:"Tell us about your business finances",desc:<span>These numbers will determine your 12-month cashflow forecast.</span>,
       render:function(){
-        var s5tabs=["Details","Cashflow","Graphs","What If"];
-        var s5key=["details","cashflow","graphs","whatif"].indexOf(previewTab)>=0?previewTab:"details";
+        var s5tabs=["Details","Cashflow","Graphs","What If","Health check"];
+        var s5key=["details","cashflow","graphs","whatif","healthcheck"].indexOf(previewTab)>=0?previewTab:"details";
         return (<>
           <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",marginBottom:20}}>
           <div style={{display:"inline-flex",gap:4,background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:12,padding:4,maxWidth:"100%",overflowX:"auto"}}>
@@ -5392,6 +5710,7 @@ function App(){
           </button>
           </div>
           {s5key==="details"&&(<>
+            {StartingFigures()}
             {FinSummary()}
             <FinSection open={finOpen.start} onToggle={function(){toggleFin("start");}} title="1. Starting position" hint="where you are today">
             <div style={{marginBottom:14}}>
@@ -5659,6 +5978,7 @@ function App(){
             <CfTable rows={liveRows}/>
           </div>}
           {s5key==="graphs"&&<CfCharts rows={liveRows} expCatsData={expCats}/>}
+          {s5key==="healthcheck"&&HealthCheck()}
           {s5key==="whatif"&&<WhatIf liveRows={liveRows} wiRev={wiRev} wiExp={wiExp} wiCos={wiCos} setWiRev={setWiRev} setWiExp={setWiExp} setWiCos={setWiCos} onBreakeven={suggestBreakeven} bkLoading={bkLoading} bkText={bkText} onClearBreakeven={function(){setBkText("");}} suggestBtn={suggestBtn} suggestBtnBusy={suggestBtnBusy} busyLabel={busyLabel} enteredPrice={enteredAvg("avgPrice")} enteredCost={enteredAvg("avgCost")}/>}
         </>
       );}},
