@@ -53,9 +53,6 @@ a.nav-logo:hover span{color:var(--azure);}
 .nav-links{display:flex;gap:28px;font-size:15px;color:var(--navy);font-weight:700;}
 .nav-links a:hover{color:var(--azure);}
 .nav-right{display:flex;align-items:center;gap:18px;}
-.nav-paid{font-size:14px;color:var(--grey);white-space:nowrap;}
-.nav-paid a{color:var(--navy);font-weight:600;text-decoration:underline;}
-.nav-paid a:hover{color:var(--azure);}@media(max-width:860px){.nav-paid{display:none;}}
 /* nowrap and no shrink for the same reason the nav links have it: the flex row
    squeezes every child before it reaches the 1150px breakpoint, and a two-word
    button is the first thing to fold onto a second line. Measured wrapping from
@@ -76,18 +73,14 @@ a.nav-logo:hover span{color:var(--azure);}
 .hero-title{font-size:28px;font-weight:800;color:var(--navy);line-height:1.25;letter-spacing:-0.01em;margin-bottom:20px;}
 .hero-lede{font-size:clamp(16px,1.4vw,19px);color:var(--grey);line-height:1.6;margin-bottom:30px;max-width:520px;}
 .hero-ctas{display:flex;gap:20px;flex-wrap:wrap;align-items:center;margin-bottom:36px;}
-/* Direct children only. A bare `.hero-ctas a` also caught the "Verify your
-   email" link nested inside .hero-paid, giving it the button's 15px/28px
-   padding - which is what opened the gap after "Already paid?". */
+/* Direct children only, kept from when a second link sat in .hero-ctas: a
+   bare `.hero-ctas a` gave that link the button's 15px/28px padding. */
 .hero-ctas > a.primary{display:inline-flex;align-items:center;gap:10px;font-size:16px;font-weight:700;padding:15px 28px;border-radius:8px;text-decoration:none;}
 .hero-ctas .primary{background:var(--navy);color:#fff;}
 /* Three supporting points in one white card */
 .hero-note{display:flex;gap:18px;flex-wrap:wrap;margin-top:24px;font-size:13px;font-weight:600;color:var(--slate);}
 .hero-note span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
 .hero-note svg{flex-shrink:0;}@media(max-width:900px){.hero-note{justify-content:center;}}
-.hero-paid{font-size:15px;color:var(--grey);}
-.hero-paid a{color:var(--navy);font-weight:600;text-decoration:underline;}
-.hero-paid a:hover{color:var(--azure);}@media(max-width:900px){.hero-paid{text-align:center;}}
 .hero-facts{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 6px 24px rgba(41,56,74,0.07);
   display:flex;flex-wrap:wrap;padding:6px;max-width:620px;}
 .hero-fact{flex:1 1 170px;display:flex;align-items:center;gap:12px;padding:16px 14px;}
@@ -316,8 +309,7 @@ footer a{color:var(--navy);text-decoration:underline;}
 /* --- Mobile navigation -----------------------------------------------------
    Below 600px .nav-links is hidden, and until now nothing replaced it: Sample
    output, Partners, Resources and the Blog were simply unreachable from a
-   phone. This disclosure menu carries the same links (plus the verify link,
-   which .nav-paid also hides on small screens) and needs no JavaScript.
+   phone. This disclosure menu carries the same links and needs no JavaScript.
    The panel is anchored to the nav rather than the button so it cannot run off
    the right edge, and it is shown by an explicit [open] rule rather than by
    relying on how a browser hides a closed <details>. ---------------------- */
@@ -331,10 +323,6 @@ footer a{color:var(--navy);text-decoration:underline;}
    nothing left to shrink it pushed the row wider than the viewport and put a
    horizontal scrollbar on the page between 1151 and 1200px. */
 @media(max-width:1340px){.nav-links{gap:16px;}}
-/* Below this the two groups meet again, so the "Already paid?" line steps
-   aside. It is not lost: the mobile menu panel carries it under 1150px, and
-   the hero has its own copy. */
-@media(max-width:1340px){.nav-paid{display:none;}}
 .nav-menu{display:none;}
 .nav-menu-panel{display:none;}
 @media(max-width:1150px){
@@ -349,7 +337,6 @@ footer a{color:var(--navy);text-decoration:underline;}
     box-shadow:0 10px 30px rgba(1,35,109,0.16);padding:6px;z-index:200;}
   .nav-menu-panel a{padding:13px 14px;border-radius:8px;font-size:15px;font-weight:700;color:#01236D;}
   .nav-menu-panel a:hover{background:#EAF0F9;}
-  .nav-menu-verify{border-top:1px solid #E3E8F0;margin-top:4px;font-weight:600 !important;font-size:14px !important;}
 }
 
 /* The nav row is tight at 375px, and adding the Menu button pushed the
@@ -389,12 +376,10 @@ footer a{color:var(--navy);text-decoration:underline;}
     <a href="resources.html">Resources</a>
     <a href="blog/index.html">Blog &amp; Stories</a>
   
-      <a class="nav-menu-verify" href="/verify.html">Already paid? Verify your email</a>
     </div>
   </details>
   <div class="nav-right">
-    <span class="nav-paid">Already paid? <a href="https://b-plandiy.com/verify.html">Verify your email</a></span>
-    <a href="app.html" class="nav-cta">Start free</a>
+    <a href="app.html" class="nav-cta">Open the app</a>
   </div>
 </nav>
 
@@ -410,7 +395,6 @@ footer a{color:var(--navy);text-decoration:underline;}
       <div class="hero-ctas">
         <a class="primary" href="app.html">Start free <span>&rarr;</span></a>
         <a class="hero-watch" href="#demo"><span><svg width="9" height="11" viewBox="0 0 9 11" fill="#01236D" aria-hidden="true"><path d="M0 0l9 5.5L0 11z"/></svg></span>Watch the 1-minute demo</a>
-        <span class="hero-paid">Already paid? <a href="https://b-plandiy.com/verify.html">Verify your email</a></span>
       </div>
       <div class="hero-facts">
         <div class="hero-fact"><span class="hero-fact-ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#1B4FA8" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-1.5-5H4.5L3 9zM4 9v11h16V9M9 20v-6h6v6"/></svg></span><span>For small businesses<br/>and startups</span></div>
@@ -547,14 +531,14 @@ footer a{color:var(--navy);text-decoration:underline;}
   <div class="section-header">
     <div class="eyebrow eyebrow-lg">Simple Pricing</div>
     <h2 class="section-title section-title-sm">The plan and the forecast are free &mdash; you pay only for the writing</h2>
-    <p class="section-sub">Build your whole 12-month forecast without paying anything, and try two of the AI suggestions free. The $29 is for the rest of the AI: help with every other question, and the finished plan written for you at the end.</p>
+    <p class="section-sub">Build your whole 12-month forecast without paying anything, and try three of the AI suggestions free. The $29 unlocks the full AI: help with every other question, and the finished plan written for you at the end.</p>
   </div>
   <div class="pricing-card">
     <div class="p-header">
       <div class="p-badge">AI Writing &mdash; 3 Months</div>
       <div class="p-price"><sup>$</sup>29</div>
       <div class="p-period">One-time payment &bull; NZD &bull; no subscription</div>
-      <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="p-cta">Unlock the AI</a>
+      <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00" class="p-cta">Unlock the full AI</a>
       <p class="p-note">Secure payment &bull; Instant access<br/>
         <a href="app.html" style="color:#fff;font-weight:700;">Or start free &rarr;</a> no card needed</p>
     </div>
@@ -568,9 +552,9 @@ footer a{color:var(--navy);text-decoration:underline;}
         <li><span class="p-check">&#10003;</span> Save and return whenever you like</li>
         <li><span class="p-check">&#10003;</span> Your information saves on your own device, not our servers</li>
         <li><span class="p-check">&#10003;</span> Export and import your data</li>
-        <li><span class="p-check">&#10003;</span> Two AI suggestions free to try &mdash; your target customer, and the size of your market</li>
+        <li><span class="p-check">&#10003;</span> Three AI suggestions free to try &mdash; your target customer, the size of your market, and a starting set of figures for the forecast</li>
       </ul>
-      <div class="p-body-title" style="margin-top:26px;">What the $29 unlocks</div>
+      <div class="p-body-title" style="margin-top:26px;">What the full AI adds for $29</div>
       <ul class="p-list">
         <li><span class="p-check">&#10003;</span> Suggest with AI on every other question in the plan</li>
         <li><span class="p-check">&#10003;</span> Generate Plan &mdash; your full plan, written for you</li>
@@ -598,9 +582,9 @@ footer a{color:var(--navy);text-decoration:underline;}
 
 <section class="community">
   <div class="section-header">
-    <div class="eyebrow eyebrow-lg">Included When You Unlock The AI</div>
+    <div class="eyebrow eyebrow-lg">Included When You Unlock The Full AI</div>
     <h2 class="section-title">You're not on your own</h2>
-    <p class="section-sub">Unlock the AI and you get more than just software — you join a community of small business owners who are figuring it out together. And you get access to as many free online seminars as you need.</p>
+    <p class="section-sub">Unlock the full AI and you get more than just software — you join a community of small business owners who are figuring it out together. And you get access to as many free online seminars as you need.</p>
   </div>
   <div class="community-grid">
     <div class="community-card">
@@ -621,13 +605,13 @@ footer a{color:var(--navy);text-decoration:underline;}
 <!-- FINAL CTA -->
 <section class="final">
   <h2>Ready to give your business clear direction?</h2>
-  <p>Stop putting it off. Most small business owners finish in under an hour, and it costs nothing to start - open step 1, build your forecast, and try two of the AI suggestions free.</p>
+  <p>Stop putting it off. Most small business owners finish in under an hour, and it costs nothing to start - open step 1, build your forecast, and try three of the AI suggestions free.</p>
   <a href="app.html" class="btn-primary">Start free</a>
 </section>
 
 <footer>
   <p class="user-count" id="userCount"></p>
-  <p>&copy; 2025 B-PlanDIY &bull; <a href="mailto:support@b-plandiy.com">support@b-plandiy.com</a> &bull; <a href="./privacy-policy.html">Privacy Policy</a> &bull; <a href="./terms.html">Terms</a></p>
+  <p>&copy; 2026 B-PlanDIY &bull; <a href="mailto:support@b-plandiy.com">support@b-plandiy.com</a> &bull; <a href="./privacy-policy.html">Privacy Policy</a> &bull; <a href="./terms.html">Terms</a></p>
 </footer>
 
 <script>

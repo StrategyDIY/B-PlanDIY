@@ -15,23 +15,23 @@
 
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Verify Access | B-PlanDIY</title>
+<title>Restore your full AI | B-PlanDIY</title>
 <link rel="canonical" href="https://b-plandiy.com/verify.html"/>
 <meta name="robots" content="noindex,follow"/>
-<meta name="description" content="Restore your B-PlanDIY access on another device."/>
+<meta name="description" content="Already paid for the full AI? Switch it back on in another device or browser."/>
 <meta property="og:type" content="website"/>
 <meta property="og:site_name" content="B-PlanDIY"/>
 <meta property="og:locale" content="en_NZ"/>
 <meta property="og:url" content="https://b-plandiy.com/verify.html"/>
-<meta property="og:title" content="Verify Access | B-PlanDIY"/>
-<meta property="og:description" content="Restore your B-PlanDIY access on another device."/>
+<meta property="og:title" content="Restore your full AI | B-PlanDIY"/>
+<meta property="og:description" content="Already paid for the full AI? Switch it back on in another device or browser."/>
 <meta property="og:image" content="https://b-plandiy.com/og-image.png"/>
 <meta property="og:image:width" content="1200"/>
 <meta property="og:image:height" content="630"/>
 <meta property="og:image:alt" content="B-PlanDIY - business plan and cashflow forecast in under an hour"/>
 <meta name="twitter:card" content="summary_large_image"/>
-<meta name="twitter:title" content="Verify Access | B-PlanDIY"/>
-<meta name="twitter:description" content="Restore your B-PlanDIY access on another device."/>
+<meta name="twitter:title" content="Restore your full AI | B-PlanDIY"/>
+<meta name="twitter:description" content="Already paid for the full AI? Switch it back on in another device or browser."/>
 <meta name="twitter:image" content="https://b-plandiy.com/og-image.png"/>
 
 <link rel="icon" type="image/png" href="/favicon.png">
@@ -59,7 +59,9 @@ nav span{font-size:18px;font-weight:700;color:#01236D;}
 .msg.success{background:#EAF0F9;color:#1F7A7C;border:1px solid #E3E8F0;}
 .msg.error{background:#FDEEEB;color:#B14A38;border:1px solid #F2CFC7;}
 .buy-link{text-align:center;margin-top:20px;font-size:14px;color:#5A6C7E;}
-.buy-link a{color:#01236d;font-weight:600;text-decoration:underline;}
+.buy-link a{color:#01236d;font-weight:600;text-decoration:underline;white-space:nowrap;}
+.buy-link .free-line{margin-top:8px;font-size:13px;}
+.buy-link p{line-height:1.7;}
 footer{text-align:center;padding:24px;font-size:13px;color:#5A6C7E;margin-top:auto;}
 @media(max-width:640px){
   .hero,.sample-intro{height:auto;min-height:0;padding:40px 20px 18px;}
@@ -73,13 +75,13 @@ footer{text-align:center;padding:24px;font-size:13px;color:#5A6C7E;margin-top:au
 </nav>
 
 <div class="hero">
-  <h1>Verify Your Access</h1>
-  <p>Enter the email address you used when you signed up and we'll restore your access.</p>
+  <h1>Already paid?</h1>
+  <p>Enter the email you paid with and we&rsquo;ll send a link that switches your full AI back on in this browser. The plan builder, the forecast and the three free AI suggestions don&rsquo;t need it &mdash; they work without signing in at all.</p>
 </div>
 
 <div class="card">
   <div class="card-header">
-    <h2 id="cardTitle">Enter your email to continue</h2>
+    <h2 id="cardTitle">Enter the email you paid with</h2>
   </div>
   <div class="card-body">
     <div class="field">
@@ -89,12 +91,13 @@ footer{text-align:center;padding:24px;font-size:13px;color:#5A6C7E;margin-top:au
     <button class="btn" id="verifyBtn" onclick="verifyAccess()">Email me a link →</button>
     <div class="msg" id="msg"></div>
     <div class="buy-link">
-      <p>Don't have an account? <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00">Get started for $29 →</a></p>
+      <p>Haven't unlocked the full AI yet? <a href="https://buy.stripe.com/7sY5kE6Jo1vP0s9cxcabK00">Unlock it for $29 →</a></p>
+      <p class="free-line">Only want the free plan builder? <a href="./app.html">Open the app →</a></p>
     </div>
   </div>
 </div>
 
-<footer>&copy; 2025 B-PlanDIY &bull; <a href="./privacy-policy.html">Privacy Policy</a> &bull; <a href="./terms.html">Terms</a></footer>
+<footer>&copy; 2026 B-PlanDIY &bull; <a href="./privacy-policy.html">Privacy Policy</a> &bull; <a href="./terms.html">Terms</a></footer>
 
 <script>
 document.getElementById('emailInput').addEventListener('keydown', function(e){
@@ -111,7 +114,7 @@ function grant(data){
     localStorage.setItem('bpd_access_expiry', String(data.expiry));
     if(data.token) localStorage.setItem('bpd_access_token', data.token);
   }catch(e){}
-  showMsg('Access restored. Taking you to the app...','success');
+  showMsg('Full AI switched on. Taking you to the app...','success');
   setTimeout(function(){ window.location.href='/app.html'; }, 1200);
 }
 
@@ -135,7 +138,7 @@ function grant(data){
   }catch(e){
     showMsg('We could not check that link. Please enter your email below for a fresh one.','error');
   }
-  if(card) card.textContent = 'Enter your email to continue';
+  if(card) card.textContent = 'Enter the email you paid with';
   if(btn) btn.disabled = false;
   /* Keep the token out of the address bar and out of the browser history. */
   try{ history.replaceState({}, '', '/verify.html'); }catch(e){}
@@ -162,7 +165,7 @@ async function verifyAccess(){
     var data = await res.json();
 
     if(data.sent){
-      showMsg(data.message||'If that address has access, we have emailed you a link to restore it. It expires in 20 minutes.','success');
+      showMsg(data.message||'If that address has unlocked the full AI, we have emailed a link to switch it back on. It expires in 20 minutes.','success');
       btn.textContent='Link sent';
       return;
     }
