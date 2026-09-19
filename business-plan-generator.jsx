@@ -4904,7 +4904,35 @@ export default function App(){
   // is a poor way to find out what something costs.
   function AiAccessPill(){
     var state=aiAccess();
-    if(state==="ok")return null;
+    // A customer who has paid used to get an empty space here, which reads as
+    // "did it work?" rather than as reassurance. This is the quiet other half
+    // of the pill: the same slot, no price, no link, and the date their three
+    // months run out - the one fact they cannot get anywhere else in the app.
+    if(state==="ok"){
+      var until="";
+      try{
+        var exp=parseInt(localStorage.getItem("bpd_access_expiry")||"0",10)||0;
+        if(exp){
+          var d=new Date(exp);
+          var mo=["January","February","March","April","May","June","July","August","September","October","November","December"];
+          until=d.getDate()+" "+mo[d.getMonth()]+" "+d.getFullYear();
+        }
+      }catch(e){}
+      var onTag={fontFamily:"inherit",fontSize:12.5,fontWeight:700,padding:"7px 13px",borderRadius:999,
+        whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:6,
+        background:"#E6F2F1",border:"1px solid #BFDEDA",color:"#1C6E70"};
+      return (
+        <span className="bpd-tip" style={{position:"relative",display:"inline-flex"}}>
+          <span style={onTag} aria-describedby="bpd-tip-on">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M20 6 9 17l-5-5"/></svg>
+            Full AI active
+          </span>
+          <span className="bpd-tip-msg" role="tooltip" id="bpd-tip-on">
+            Every Suggest button and Generate Plan are switched on in this browser{until?(", until "+until):""}.
+          </span>
+        </span>
+      );
+    }
     var pill={fontFamily:"inherit",fontSize:13,fontWeight:700,padding:"9px 15px",borderRadius:999,
       cursor:"pointer",whiteSpace:"nowrap",display:"inline-flex",alignItems:"center",gap:7,
       background:"#FBF4E6",border:"1px solid #E8D6AC",color:"#8A6A1F",textDecoration:"none"};
