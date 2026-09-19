@@ -682,11 +682,25 @@ footer a{color:var(--navy);text-decoration:underline;}
     try { gtag('event', name, params || {}); } catch (e) {}
   }
 
+  /* Match links by where they actually GO, not by how the href is spelled.
+     This block first used a[href$="app.html"] and recorded nothing, because
+     Netlify's pretty-URL rewriting serves the page with href="/app". The
+     source says app.html, the browser sees /app, and the selector matched
+     neither the rewritten form nor the blog pages' "../app.html". Resolving
+     through a.href and testing the pathname matches all three spellings and
+     survives the next rewrite rule too. */
+  function linksTo(re){
+    return [].filter.call(document.querySelectorAll('a[href]'), function(a){
+      try { return re.test(new URL(a.href, location.href).pathname); }
+      catch (e) { return false; }
+    });
+  }
+
   /* Entering the app. Since the app became free, every CTA except the pricing
      card opens step 1 rather than Stripe, so this is now the top of the funnel
      and checkout_click below is a much later, much rarer step. Tracking them
      separately is the only way to see where people fall out between the two. */
-  document.querySelectorAll('a[href$="app.html"]').forEach(function(a){
+  linksTo(/\/app(\.html)?$/i).forEach(function(a){
     a.addEventListener('click', function(){
       var where = a.closest('section');
       try {
@@ -725,10 +739,10 @@ footer a{color:var(--navy);text-decoration:underline;}
   }
 
   /* The sceptics who want to read a whole plan before paying. */
-  document.querySelectorAll('a[href*="sample-plan"]').forEach(function(a){
+  linksTo(/\/sample-plan(\.html)?$/i).forEach(function(a){
     a.addEventListener('click', function(){ track('sample_plan_click'); });
   });
-  document.querySelectorAll('a[href*="verify.html"]').forEach(function(a){
+  linksTo(/\/verify(\.html)?$/i).forEach(function(a){
     a.addEventListener('click', function(){ track('verify_click'); });
   });
 
