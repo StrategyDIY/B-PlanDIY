@@ -365,7 +365,6 @@ footer a{color:var(--navy);text-decoration:underline;}
 </style>
 </head>
 <body>
-<!-- sync-probe-0915A -->
 
 <nav>
   <a class="nav-logo" href="index.html">
@@ -692,7 +691,7 @@ footer a{color:var(--navy);text-decoration:underline;}
       var where = a.closest('section');
       try {
         gtag('event', 'app_start', {
-          location: a.className || 'link',
+          cta_location: a.className || 'link',
           section: where ? (where.className || 'unknown') : 'nav'
         });
       } catch (e) {}
@@ -707,7 +706,7 @@ footer a{color:var(--navy);text-decoration:underline;}
       // Allowed to fire more than once - a second click is a real signal.
       try {
         gtag('event', 'checkout_click', {
-          location: a.className || 'link',
+          cta_location: a.className || 'link',
           section: where ? (where.className || 'unknown') : 'nav'
         });
       } catch (e) {}
