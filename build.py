@@ -117,6 +117,13 @@ input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus
 @media (pointer:coarse){
   button, select, input[type=radio], input[type=checkbox]{min-height:44px;}
   input[type=radio], input[type=checkbox]{min-width:24px;}
+  /* iOS Safari zooms the whole page in when a field smaller than 16px takes
+     focus, and does not zoom back out afterwards. The base input style is
+     16px, but seventeen fields override it down to 13 or 15 - the month
+     grids, the actual-vs-forecast boxes, the currency picker. Measured in the
+     narrow month grid, the densest screen in the app: at 390px a column is
+     97px and 16px digits still fit, so this costs nothing but the zoom. */
+  input:not([type=radio]):not([type=checkbox]), select, textarea{font-size:16px !important;}
 }
 
 /* Buttons lift slightly and deepen on hover */

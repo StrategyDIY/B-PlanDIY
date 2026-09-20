@@ -1004,9 +1004,9 @@ export default function App(){
     {id:"bizName",kind:"text",q:"What is your business called?",
      help:"However you write it on an invoice or a sign.",
      ph:"e.g. Rolling Beans"},
-    {id:"description",kind:"area",rows:3,q:"In a sentence or two, what does it do and who for?",
-     help:"This one matters most. Nearly every AI suggestion later is built from this answer, so a little detail here pays for itself.",
-     ph:"e.g. A mobile coffee cart selling barista-made espresso to shoppers at weekend markets around Whangarei."},
+    {id:"industry",kind:"text",q:"What industry or sector is it in?",
+     help:"A couple of words. The AI reads this before almost anything else, and it is what keeps a suggestion about a cafe from reading like one about a software company.",
+     ph:"e.g. Hospitality, food and beverage"},
     {id:"locations",kind:"text",q:"Where does it operate?",
      help:"Town, region or country. It decides which competitors are real and keeps the plan to a sensible scale.",
      ph:"e.g. Whangarei, Northland"},
@@ -1033,8 +1033,21 @@ export default function App(){
      help:"Four short phrases, a few words each and your position statement writes itself."}
   ];
 
-  var INTAKE_LABEL={bizName:"Name",description:"What it does",locations:"Where",
+  var INTAKE_LABEL={bizName:"Name",industry:"Industry",locations:"Where",
     stage:"Stage",bizType:"Set up as",history:"Why you started",position:"Position statement"};
+
+  // The four blanks, defined once. They are offered in the intake and again
+  // in Step 1, and the placeholders have to teach the same thing in both.
+  var POS_ROWS=[
+    {k:"posWho",lead:"For",ph:"shoppers at weekend markets"},
+    {k:"posNeed",lead:"who",ph:"want a proper coffee without losing their spot"},
+    // Just "is a", not "<business name> is a". A long name made this label
+    // wider than the other three, so its input started further right on
+    // desktop and wrapped onto its own line on a phone. The name still
+    // appears, in the live preview below.
+    {k:"posWhat",lead:"is a",ph:"mobile espresso cart"},
+    {k:"posBenefit",lead:"that will",ph:"bring cafe-quality coffee straight to them"}
+  ];
 
   // Built from whichever parts are present, so a half-finished answer still
   // produces a grammatical sentence rather than one with holes in it.
@@ -1064,6 +1077,38 @@ export default function App(){
     return s.replace(/\.+$/,"")+".";
   }
 
+  // Saving the statement, and keeping "what the business does" in step with
+  // it.
+  //
+  // The intake used to ask "what does it do and who for?" as its own question,
+  // immediately before asking for the position statement - whose first and
+  // third blanks are who it is for and what it is. Two of the four blanks were
+  // therefore a retype of the question before. The description question is
+  // gone, and description is now derived from the sentence.
+  //
+  // Only ever overwritten while it still matches what we last derived, so a
+  // description typed by hand, or restored from a backup, is never clobbered
+  // by someone tweaking a blank.
+  // Returns true when it actually rewrote the statement, so a caller can
+  // refresh the box showing it.
+  function writePosition(){
+    var built=assemblePosition();
+    if(!built)return false;
+    var f=fdRef.current;
+    // Step 1 shows the finished sentence in an editable box under the blanks.
+    // Someone who rewrites it there has said what they want in their own
+    // words, and filling in another blank afterwards must not undo that.
+    if(String(f.position||"").trim() && f.position!==f.posAuto)return false;
+    f.position=built;
+    f.posAuto=built;
+    if(!String(f.description||"").trim() || f.description===f.descAuto){
+      f.description=built;
+      f.descAuto=built;
+    }
+    saveToStorage();
+    return true;
+  }
+
   // Shown only for a genuinely empty plan. Someone who has typed anything, or
   // imported a backup, is not a new user and should never see this.
   // Any real content anywhere means this is not a new user.
@@ -1075,7 +1120,7 @@ export default function App(){
   function planLooksEmpty(){
     var f=fdRef.current||{};
     // Seeded automatically rather than typed, so their presence proves nothing.
-    var auto={taxRegistered:1,currencySym:1,taxName:1,taxRate:1,_rev:1,_planHtml:1};
+    var auto={taxRegistered:1,currencySym:1,taxName:1,taxRate:1,_rev:1,_planHtml:1,descAuto:1,posAuto:1};
     var keys=Object.keys(f);
     for(var i=0;i<keys.length;i++){
       if(auto[keys[i]])continue;
@@ -1423,7 +1468,26 @@ export default function App(){
     }catch(e){ return ""; }
   }
 
+  // Only the starting-figures prompt ever told the model which currency the
+  // business trades in. Every other prompt left it to guess, and it guessed:
+  // a New Zealand business came back with its resources costed in pounds.
+  // Stating it here rather than in twenty prompts means a prompt written
+  // later cannot forget to, and the plan generator below uses it too.
+  function withCurrency(payload){
+    var sym=fdRef.current.currencySym||"$";
+    var msgs=payload&&payload.messages;
+    if(!msgs||!msgs.length)return payload;
+    var last=msgs[msgs.length-1];
+    if(!last||typeof last.content!=="string")return payload;
+    var out=msgs.slice();
+    out[out.length-1]=Object.assign({},last,{content:last.content+
+      "\n\nCURRENCY: this business trades in "+sym+". Write every money amount with the "+sym+
+      " symbol. Never use any other currency symbol, and do not name a different currency."});
+    return Object.assign({},payload,{messages:out});
+  }
+
   async function aiFetch(payload,freeMode){
+    payload=withCurrency(payload);
     // Stop here rather than spending a round trip to be told 402. Every Suggest
     // button funnels through this one function, so the check belongs here and
     // not at twenty call sites.
@@ -2961,8 +3025,8 @@ export default function App(){
       // earns. Annual net profit was simply absent. "Use the totals for
       // revenue, profit and price" tells it which figures to use if it uses
       // them; it does not require it to. This does.
-      "- MANDATORY: state the annual net profit figure in dollars, and say whether monthly net profit rises, falls or holds steady across the year. A financial section that never states the profit is incomplete, however well it covers revenue and cash.\n"+
-      "- MANDATORY: state the annual revenue figure and the closing cash figure in dollars.\n"+
+      "- MANDATORY: state the annual net profit figure as an amount of money, and say whether monthly net profit rises, falls or holds steady across the year. A financial section that never states the profit is incomplete, however well it covers revenue and cash.\n"+
+      "- MANDATORY: state the annual revenue figure and the closing cash figure as amounts of money.\n"+
       "- If Other transactions are listed above, describe each one in the direction given (cash in or cash out). Do not describe money coming into the business as an outflow, or money leaving it as an inflow.\n"+
       "- Do not refer to goals by number and do not invent a goal. Sections 3 and 4 are written separately; only the goals listed above exist.\n"+
       SHARED_FORMAT+
@@ -2976,7 +3040,8 @@ export default function App(){
         return fetch("/api/anthropic",{
           method:"POST",
           headers:aiHeaders(),
-          body:JSON.stringify({max_tokens:tokens||1200,messages:[{role:"user",content:p}]})
+          // Its own path to the endpoint, so it needs the currency line too.
+          body:JSON.stringify(withCurrency({max_tokens:tokens||1200,messages:[{role:"user",content:p}]}))
         }).then(function(res){
           return res.text().then(function(rawText){
             // Status first. The old order only reached these checks when the
@@ -4772,9 +4837,18 @@ export default function App(){
       border:"none",background:"#01236D",color:"#fff",cursor:"pointer"};
     var quiet={fontFamily:"inherit",fontSize:13.5,color:"#5A6C7E",background:"none",border:"none",
       cursor:"pointer",textDecoration:"underline",padding:0};
+    var second={fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 22px",borderRadius:6,
+      border:"1px solid #01236D",background:"#fff",color:"#01236D",cursor:"pointer"};
 
     function go(n){ setIntakeIdx(Math.max(0,Math.min(total,n))); }
-    function finish(){ closeIntake(); setStepAndSave(1); }
+    // Two ways out, because the right one depends on who is standing there.
+    // The intake answers land in Step 1, and the rest of that form - date
+    // established, contact, team, online presence, legal obligations, IP - is
+    // never asked anywhere else, so somebody who means to finish a plan
+    // should go there. Somebody still deciding whether this is worth their
+    // afternoon should be allowed to go and see the AI work first; Step 1 is
+    // two clicks away and its fields keep.
+    function finish(step){ closeIntake(); setStepAndSave(step); try{window.scrollTo(0,0);}catch(e){} }
 
     if(done){
       var filled=INTAKE_Q.filter(function(x){return String(fdRef.current[x.id]||"").trim();});
@@ -4783,8 +4857,10 @@ export default function App(){
           <div style={card} ref={dlgRef}>
             <div style={{fontSize:20,fontWeight:800,color:"#01236D",marginBottom:8}}>That's the hard part done</div>
             <div style={{fontSize:14.5,color:"#29384A",lineHeight:1.6,marginBottom:16}}>
-              {filled.length} {filled.length===1?"answer has":"answers have"} gone into Step 1. You can change any of them there at any time.
-              Next is Market &amp; Customers, where the first two AI suggestions are free to try &mdash; they will use what you have just told us.
+              {filled.length} {filled.length===1?"answer has":"answers have"} gone into Step 1, and you can change any of them there.
+              A few details are still to add &mdash; the rest of Step 1 takes a minute, and the more it has, the better
+              every suggestion reads. Or go straight to Market &amp; Customers and try the two free AI suggestions first.
+              Step 1 will be waiting.
             </div>
             <ul style={{listStyle:"none",margin:"0 0 20px",padding:0,borderTop:"1px solid #E3E8F0"}}>
               {filled.map(function(x){
@@ -4796,7 +4872,8 @@ export default function App(){
               })}
             </ul>
             <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
-              <button style={primary} onClick={finish}>See my free AI suggestions &rarr;</button>
+              <button style={primary} onClick={function(){finish(0);}}>Finish my details &rarr;</button>
+              <button style={second} onClick={function(){finish(1);}}>See my free AI suggestions &rarr;</button>
               <button style={quiet} onClick={function(){go(total-1);}}>Back</button>
             </div>
           </div>
@@ -4818,16 +4895,7 @@ export default function App(){
 
           {q.kind==="position"
             ? (function(){
-                var rows=[
-                  {k:"posWho",lead:"For",ph:"shoppers at weekend markets"},
-                  {k:"posNeed",lead:"who",ph:"want a proper coffee without losing their spot"},
-                  // Just "is a", not "<business name> is a". A long name made
-                  // this label wider than the other three, so its input started
-                  // further right on desktop and wrapped onto its own line on a
-                  // phone. The name still appears, in the live preview below.
-                  {k:"posWhat",lead:"is a",ph:"mobile espresso cart"},
-                  {k:"posBenefit",lead:"that will",ph:"bring cafe-quality coffee straight to them"}
-                ];
+                var rows=POS_ROWS;
                 var preview=assemblePosition();
                 return (<div style={{marginBottom:20}}>
                   {rows.map(function(r){
@@ -4837,12 +4905,12 @@ export default function App(){
                         value={intakeAns[r.k]!==undefined?intakeAns[r.k]:(fdRef.current[r.k]||"")}
                         onChange={function(e){
                           setIntakeAnswer(r.k,e.target.value);
-                          // Only write a sentence we actually have. assemble
-                          // returns "" until both the who and the what blanks
-                          // are filled, and writing that blanked an existing
-                          // statement on the first keystroke.
-                          var built=assemblePosition();
-                          if(built){fdRef.current.position=built;saveToStorage();}
+                          // writePosition only writes a sentence we actually
+                          // have. assemble returns "" until both the who and
+                          // the what blanks are filled, and writing that
+                          // blanked an existing statement on the first
+                          // keystroke.
+                          writePosition();
                         }}/>
                     </div>);
                   })}
@@ -4909,13 +4977,14 @@ export default function App(){
     // of the pill: the same slot, no price, no link, and the date their three
     // months run out - the one fact they cannot get anywhere else in the app.
     if(state==="ok"){
-      var until="";
+      var until="",shortUntil="";
       try{
         var exp=parseInt(localStorage.getItem("bpd_access_expiry")||"0",10)||0;
         if(exp){
           var d=new Date(exp);
           var mo=["January","February","March","April","May","June","July","August","September","October","November","December"];
           until=d.getDate()+" "+mo[d.getMonth()]+" "+d.getFullYear();
+          shortUntil=d.getDate()+" "+mo[d.getMonth()].slice(0,3)+" "+d.getFullYear();
         }
       }catch(e){}
       var onTag={fontFamily:"inherit",fontSize:12.5,fontWeight:700,padding:"7px 13px",borderRadius:999,
@@ -4925,7 +4994,7 @@ export default function App(){
         <span className="bpd-tip" style={{position:"relative",display:"inline-flex"}}>
           <span style={onTag} aria-describedby="bpd-tip-on">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}><path d="M20 6 9 17l-5-5"/></svg>
-            Full AI active
+            {shortUntil?("Full AI until "+shortUntil):"Full AI active"}
           </span>
           <span className="bpd-tip-msg" role="tooltip" id="bpd-tip-on">
             Every Suggest button and Generate Plan are switched on in this browser{until?(", until "+until):""}.
@@ -5290,8 +5359,25 @@ export default function App(){
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Business history / origin</div>
           {RT("history","e.g. I spotted a gap in the market when...",3)}
           <div style={{marginBottom:14}}/>
+          {/* The same four blanks the first-run intake uses, so someone who
+              skipped the intake meets the field in the form it was designed
+              for rather than as a blank box asking for a composed sentence.
+              The statement itself stays below, editable: fill the blanks and
+              it writes itself, or ignore them and write your own. */}
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Position Statement</div>
-          <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>For (customer) who (needs), (your business) is a (product/service) that will (benefit).</span>
+          <span style={{fontSize:13,color:"#29384A",marginBottom:8,display:"block"}}>Four short phrases, a few words each, and the statement writes itself. Most of the AI suggestions later are built from it.</span>
+          {POS_ROWS.map(function(r){
+            return (<div key={r.k} style={{display:"flex",alignItems:"center",gap:10,marginBottom:9,flexWrap:"wrap"}}>
+              <span style={{fontSize:14,color:"#5A6C7E",minWidth:76,flexShrink:0,textAlign:"right"}}>{r.lead}</span>
+              <input style={Object.assign({},inp,{flex:"1 1 200px",minWidth:0})} placeholder={r.ph}
+                aria-label={"Position statement: "+r.lead}
+                defaultValue={fdRef.current[r.k]||""}
+                onChange={function(e){
+                  fdRef.current[r.k]=e.target.value;
+                  if(writePosition())setVoiceVer(function(v){var n=Object.assign({},v);n.position=(n.position||0)+1;return n;});
+                }}/>
+            </div>);
+          })}
           {RT("position","e.g. For sole traders who need accurate financials, Flowly is accounting software that will take the complexity out of keeping your accounts up to date.",3)}
           <div style={{marginBottom:14}}/>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Business team</div>
@@ -5868,7 +5954,7 @@ export default function App(){
         <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:22,flexWrap:"wrap",background:"#fff",borderBottom:"2px solid #D0B16F",borderRadius:0,padding:"14px 4px 16px"}}>
           <img src={LOGO_SRC} style={{width:46,height:46,objectFit:"contain"}} alt="Logo"/>
           <span style={{fontWeight:800,color:"#01236D",fontSize:22,letterSpacing:"-0.01em",marginRight:8,borderBottom:"3px solid #D0B16F",paddingBottom:3,lineHeight:1.1}}>B-PlanDIY</span>
-          <span style={{display:"inline-flex",gap:8,paddingLeft:14,marginLeft:6,borderLeft:"1px solid #E3E8F0"}}>{AiAccessPill()}{BackupButtons()}</span>
+          <span style={{display:"inline-flex",flexWrap:"wrap",gap:8,rowGap:8,paddingLeft:14,marginLeft:6,borderLeft:"1px solid #E3E8F0"}}>{AiAccessPill()}{BackupButtons()}</span>
           <span style={{marginLeft:"auto"}}/>
           {[
             {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},
@@ -5942,7 +6028,7 @@ export default function App(){
   if(showOutput){
     return (
       <div style={appStyle}>
-        <div style={{display:"flex",gap:10,marginBottom:12}}>
+        <div style={{display:"flex",flexWrap:"wrap",gap:10,rowGap:10,marginBottom:12}}>
           <button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={function(){setShowOutput(false);setStepAndSave(4);}}>← Edit</button>
           {!loading&&<button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){generateWordDoc();}}>Download Word (.docx)</button>}
           <span style={{marginLeft:"auto"}}/>{AiAccessPill()}{BackupButtons()}
@@ -6007,7 +6093,7 @@ export default function App(){
       <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:22,flexWrap:"wrap",background:"#fff",borderBottom:"2px solid #D0B16F",borderRadius:0,padding:"14px 4px 16px"}}>
         <img src={LOGO_SRC} style={{width:46,height:46,objectFit:"contain"}} alt="Logo"/>
         <span style={{fontWeight:800,color:"#01236D",fontSize:22,letterSpacing:"-0.01em",marginRight:8,borderBottom:"3px solid #D0B16F",paddingBottom:3,lineHeight:1.1}}>B-PlanDIY</span>
-          <span style={{display:"inline-flex",gap:8,paddingLeft:14,marginLeft:6,borderLeft:"1px solid #E3E8F0"}}>{AiAccessPill()}{BackupButtons()}</span>
+          <span style={{display:"inline-flex",flexWrap:"wrap",gap:8,rowGap:8,paddingLeft:14,marginLeft:6,borderLeft:"1px solid #E3E8F0"}}>{AiAccessPill()}{BackupButtons()}</span>
           <span style={{marginLeft:"auto"}}/>
         {[
           {label:"Summary",action:function(){setShowDirection(true);setShowOutput(false);}},

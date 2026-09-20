@@ -134,6 +134,17 @@ footer a{color:#01236d;}
         <label>Full name *</label>
         <input type="text" name="name" placeholder="e.g. Sarah Johnson" required/>
       </div>
+      <!-- Added because Apple Pay and Google Pay hand Stripe a private relay
+           address (fillet-helps7s@icloud.com and the like). That was the only
+           address we held, so it was the one the customer had to type to
+           switch the AI on in another browser - an address they had never
+           seen and could not guess. This box is where they state one they
+           recognise, and it becomes the address their access is filed under. -->
+      <div class="field">
+        <label>Email address *</label>
+        <input type="email" name="email" placeholder="e.g. sarah@yourbusiness.com" autocomplete="email" required/>
+        <p style="font-size:13px;color:#5A6C7E;margin-top:6px;line-height:1.5;">Your receipt goes here, and this is the address to enter if you ever need to switch your full AI on in another browser or device. Please check it before you continue.</p>
+      </div>
       <div class="field">
         <label>Mobile number *</label>
         <div style="display:flex;gap:8px;">
@@ -266,7 +277,7 @@ function showSuccessState(registeredEmail){
     if (registeredEmail) {
       re.innerHTML = 'Your full AI is registered to <strong>' +
         String(registeredEmail).replace(/</g, '&lt;') + '</strong>. ' +
-        'That is the address your receipt was sent to, and the one to enter at ' +
+        'That is the address you just gave us. Your receipt goes there, and it is the one to enter at ' +
         '<a href="/verify.html" style="color:#01236d;font-weight:600;">verify.html</a> ' +
         'if you ever need to switch it back on in another browser or device. ' +
         'Email support@b-plandiy.com if you would like it changed.';
@@ -313,17 +324,25 @@ document.getElementById('welcomeForm').addEventListener('submit', function(e) {
 
   // Validate required fields
   var name = this.querySelector('[name="name"]').value.trim();
+  var email = this.querySelector('[name="email"]').value.trim();
   var dial = this.querySelector('[name="dialcode"]').value;
   var localNum = this.querySelector('[name="phone"]').value.trim();
   // Drop a leading 0, which is a domestic prefix and is not used with a country code
   localNum = localNum.replace(/^0+/, '');
   var phone = (dial === '+other' ? '' : dial + ' ') + localNum;
 
-  if(!name || !phone) {
+  if(!name || !email || !phone) {
     var missing = [];
     if(!name) missing.push('Full name');
+    if(!email) missing.push('Email address');
     if(!phone) missing.push('Mobile number');
     alert('Please fill in: ' + missing.join(', '));
+    return;
+  }
+  // Caught here as well as by the input type, because a wrong address is now
+  // the address their access is filed under.
+  if(!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(email)) {
+    alert('That email address does not look right. Please check it - it is the address you will use to restore your access.');
     return;
   }
 
