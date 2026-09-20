@@ -1,5 +1,21 @@
 const { issueToken } = require('./access-token');
 
+
+// Airtable formula safety.
+//
+// Escaping only the single quote left a gap: a value ending in a backslash
+// turns the escaped quote into a literal backslash followed by a real closing
+// quote, and everything after it is parsed as formula rather than as data.
+// An address is either a plausible email or it is not worth querying for, so
+// this validates rather than sanitises.
+function safeEmail(v){
+  const e = String(v == null ? '' : v).trim().toLowerCase();
+  if (e.length > 254) return '';
+  if (/[\\'"`\r\n]/.test(e)) return '';
+  if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(e)) return '';
+  return e;
+}
+
 const TABLE = 'Users';
 
 const ALLOWED_HOSTS = ['b-plandiy.com', 'www.b-plandiy.com'];
@@ -160,11 +176,22 @@ exports.handler = async (event) => {
   let data = {};
 
   try {
-    // The email comes from Stripe, not from the form. A customer who mistypes
-    // it here used to end up with an unreachable record they could never
-    // verify against, sitting beside the webhook's row under the real address.
+    // The address the customer typed on this page wins, and Stripe's is the
+    // fallback.
+    //
+    // It used to be the other way round, to stop a mistyped address creating a
+    // record nobody could verify against. But Apple Pay and Google Pay hand
+    // Stripe a private relay address - fillet-helps7s@icloud.com and the like -
+    // so for those customers the "safe" address was one they had never seen,
+    // could not guess, and would never type at verify.html. The box on this
+    // page is the only place a wallet customer states an address they
+    // recognise, so that is the one their access is filed under.
+    //
+    // Validated rather than trusted: something that is not a plausible address
+    // falls back to Stripe's rather than being written as the record key.
+    const typedEmail = safeEmail(form.email);
     data = {
-      email: paid.email || String(form.email || '').trim(),
+      email: typedEmail || paid.email || '',
       name: String(form.name || '').trim() || paid.name || '',
       phone: String(form.phone || '').trim() || paid.phone || '',
       referral: String(form.referral || '').trim()
@@ -177,13 +204,22 @@ exports.handler = async (event) => {
     // is submitted. Without this lookup both of them write, and everyone who
     // completes the form lands in Airtable twice - two renewal reminders each,
     // and a homepage counter reading roughly double.
-    const lookupEmail = String(data.email || '').toLowerCase().trim();
+    // Both addresses have to be searched for, not just the one we are about to
+    // store. The webhook has already written its row under Stripe's address; if
+    // we only looked for the typed one we would never find that row, insert a
+    // second, and reintroduce the duplicate this lookup exists to prevent.
+    // Finding it means the PATCH below moves that row onto the typed address.
+    const lookupEmails = [];
+    [data.email, paid.email].forEach(function (e) {
+      const safe = safeEmail(e);
+      if (safe && lookupEmails.indexOf(safe) === -1) lookupEmails.push(safe);
+    });
     let existing = null;
-    if (lookupEmail) {
+    for (let i = 0; i < lookupEmails.length && !existing; i++) {
       try {
         const lookup = await fetch(
           `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${TABLE}` +
-          `?filterByFormula=${encodeURIComponent(`LOWER({Email})='${lookupEmail.replace(/'/g, "\\'")}'`)}&maxRecords=1`,
+          `?filterByFormula=${encodeURIComponent(`LOWER({Email})='${lookupEmails[i]}'`)}&maxRecords=1`,
           { headers: { 'Authorization': `Bearer ${process.env.AIRTABLE_TOKEN}` } }
         );
         const found = await lookup.json().catch(function () { return {}; });
