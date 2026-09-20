@@ -3912,9 +3912,20 @@ export default function App(){
   var sfState=useState(null);var sfData=sfState[0];var setSfData=sfState[1];
   var sfLoadState=useState(false);var sfLoad=sfLoadState[0];var setSfLoad=sfLoadState[1];
 
+  // Step 4 lets the owner estimate extra sales units against each goal, and
+  // Step 5 adds those on top of the base units rather than into them. Nothing
+  // said so. The helper was asked for "units in month 1" with no statement of
+  // which of the two it meant, and the owner was shown an annual total larger
+  // than the figure they had typed with no explanation - the shape of a
+  // double count, whether or not one had happened.
+  function goalUnitsYear(){
+    return Math.round(parseFloat(fdRef.current.goalSalesTotal)||0);
+  }
+
   async function suggestStartingFigures(){
     setSfLoad(true); setSfData(null);
     var f=fdRef.current;
+    var goalUnits=goalUnitsYear();
     var prompt="You are helping a small business owner make a first estimate of the four figures that drive a 12-month cashflow forecast.\n\n"+
       "Business: "+(f.bizName||"this business")+"\n"+
       "What it does: "+(f.description||f.history||"not specified")+"\n"+
@@ -3923,9 +3934,20 @@ export default function App(){
       "Stage: "+(f.stage||"not specified")+"\n"+
       "Target customer: "+(f.targetCust||"not specified")+"\n"+
       "Currency symbol in use: "+(f.currencySym||"$")+"\n"+
-      (activeTaxRate()>0?("Figures must EXCLUDE "+taxLabel()+", which is handled separately.\n"):"")+
+      // This panel sits at the top of Step 5, above section 3 where the
+      // registration question lives, so for a new user activeTaxRate() is
+      // still 0 here and the instruction used to be dropped entirely -
+      // suggestions could come back tax-inclusive. Every amount in the
+      // forecast is meant to be tax-exclusive whether or not the business is
+      // registered, so the rule is stated unconditionally and the label is
+      // used only once we know it.
+      ("Figures must EXCLUDE "+(activeTaxRate()>0?taxLabel():"any sales tax such as GST or VAT")+
+       ", which the forecast handles separately.\n")+
+      (goalUnits>0?("The owner has already estimated about "+goalUnits.toLocaleString()+
+        " extra units a year from the goals in their plan. The forecast adds those on top of your figure, so leave them out of it.\n"):"")+
       "\nGive ONE figure for each of the four, for a business at this stage in "+bizLocation()+".\n\n"+
       "Rules:\n"+
+      "- Give the BASE trading level: what this business sells without the growth initiatives in its plan. Extra units from those goals are added separately.\n"+
       "- The four must be consistent with each other. Check before answering: does this price minus this cost leave a margin that is normal for this trade, and can one operator at this stage actually deliver this many units a month?\n"+
       "- Units are whatever this business sells - cups, hours, jobs, subscriptions. Say which in the unit line.\n"+
       "- Month 1 is the FIRST month of trading. For a business that has not started, that means a slow month, not a typical one.\n"+
@@ -5164,6 +5186,8 @@ export default function App(){
             <div style={{fontSize:13.5,color:"#5A6C7E",lineHeight:1.55}}>
               The forecast runs on four figures: what you charge, what it costs you, how many you sell in month one, and how fast that grows.
               We can suggest a starting set for a business like yours to correct, rather than leaving you a blank page.
+              Prices and costs exclude {taxLabel()} &mdash; the forecast adds it separately if you are registered, which you tell us in section 3.
+              {goalUnitsYear()>0?(" Your Step 4 goals estimate about "+goalUnitsYear().toLocaleString()+" extra units a year. These four figures are your base trading level, and those goal units are added on top where you switch them on below."):""}
             </div>
           </div>
           <button style={sfLoad?suggestBtnBusy:suggestBtn} disabled={sfLoad} onClick={function(){suggestStartingFigures();}}>
@@ -5177,6 +5201,10 @@ export default function App(){
           <div style={{fontSize:13,color:"#5A6C7E",lineHeight:1.55,marginBottom:10}}>
             These are estimates for a business like yours, and the AI does not know your suppliers, your prices or your patch. Replace any of them with your own figures &mdash; that is what makes the forecast yours.
           </div>
+          <div style={{fontSize:12.5,color:"#7A5E18",background:"#FDF8EE",border:"1px solid #EFE2C6",borderRadius:6,padding:"7px 10px",marginBottom:10,lineHeight:1.5}}>
+            The price and cost below exclude {taxLabel()}. If the figure you have in mind includes it, take it off before comparing.
+            {goalUnitsYear()>0?(" The units figure is your base trading level: the "+goalUnitsYear().toLocaleString()+" extra units a year from your goals are added on top, not included here."):""}
+          </div>
           {row("PRICE","Price per unit",cur)}
           {row("COST","Cost per unit",cur)}
           {row("UNITS","Units in month 1")}
@@ -5189,6 +5217,29 @@ export default function App(){
         </div>
       )}
     </div>);
+  }
+
+  // Monthly increase rows for the simple (non-grid) path.
+  //
+  // calcCashflow has always compounded f.unitGrowth, f.priceInc and f.costInc
+  // month on month, but none of the three had an input anywhere in the app -
+  // the only "Apply growth %" box lives inside the monthly grids, where these
+  // three keys are ignored. So a rising price or a supplier increase could not
+  // be expressed at all without switching to a twelve-cell grid.
+  //
+  // Only rendered on the simple path, because the engine ignores these the
+  // moment a monthly grid is in use.
+  function IncreaseRow(key,label,help){
+    return (
+      <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10,flexWrap:"wrap"}}>
+        <span style={{fontSize:13,color:"#29384A",flexShrink:0}}>{label}</span>
+        <input key={key+"-"+avgSalesVer} aria-label={label}
+          style={Object.assign({},inp,{width:78,textAlign:"right"})}
+          defaultValue={fdRef.current[key]||""} placeholder="e.g. 5"
+          onChange={function(e){fdRef.current[key]=e.target.value;saveToStorage();refreshLive();}}/>
+        <span style={{fontSize:13,color:"#5A6C7E",flex:"1 1 200px",lineHeight:1.5}}>{help}</span>
+      </div>
+    );
   }
 
   function BackupButtons(){
@@ -5736,7 +5787,17 @@ export default function App(){
                   setAvgSalesVer(function(v){return v+1;});
                 }}>Apply growth %</button>
               </div>
-            </div>):<input style={inp} defaultValue={fdRef.current.month1Units||""} placeholder="e.g. 50" onChange={function(e){fdRef.current.month1Units=e.target.value;saveToStorage();refreshLive();}}/>}
+            </div>):(<div>
+              <input key={"month1Units-"+avgSalesVer} style={inp} defaultValue={fdRef.current.month1Units||""} placeholder="e.g. 50" onChange={function(e){fdRef.current.month1Units=e.target.value;saveToStorage();refreshLive();}}/>
+              {/* The forecast has always compounded unit growth on this path -
+                  calcCashflow reads f.unitGrowth and multiplies month on month -
+                  but there was nowhere to type it. "Apply growth %" lives inside
+                  the monthly grid above, and on that path unitGrowth is ignored
+                  entirely, so on the simple path growth could only ever be set
+                  by the starting-figures helper: invisible once applied, and
+                  impossible to change afterwards. */}
+              {IncreaseRow("unitGrowth","Growth per month","% a month, compounding. Leave it blank for a flat forecast.")}
+            </div>)}
             {AnnualTotal({plain:true, value:sumLive(function(r){return r.units;})})}
             <FinWarn show={!!liveRows.length&&sumLive(function(r){return r.units;})===0}>
               No sales have been entered yet, so the forecast shows no revenue. Add your expected monthly sales units above.
@@ -5747,13 +5808,19 @@ export default function App(){
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Average sale price ($)</div>
             {AvgPriceHelper()}
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgPrice" checked={!!gridChecks["avgPrice"]} onChange={function(){toggleGrid("avgPrice");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgPrice" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
-            {gridChecks["avgPrice"]?<div key={"avgPriceGrid-"+avgSalesVer}><MonthGrid keyPrefix={"avgPriceM"} storeKey={"avgPrice"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input key={"avgPrice-"+avgSalesVer} style={inp} defaultValue={fdRef.current.avgPrice||""} placeholder="e.g. 49" onChange={function(e){fdRef.current.avgPrice=e.target.value;saveToStorage();refreshLive();}}/>}
+            {gridChecks["avgPrice"]?<div key={"avgPriceGrid-"+avgSalesVer}><MonthGrid keyPrefix={"avgPriceM"} storeKey={"avgPrice"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:(<div>
+              <input key={"avgPrice-"+avgSalesVer} style={inp} defaultValue={fdRef.current.avgPrice||""} placeholder="e.g. 49" onChange={function(e){fdRef.current.avgPrice=e.target.value;saveToStorage();refreshLive();}}/>
+              {IncreaseRow("priceInc","Price increase per month","% a month, compounding. Leave it blank to hold your price all year.")}
+            </div>)}
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Average cost per unit ($)</div>
             <div style={{fontSize:13,color:"#29384A",background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, your average cost per unit may be zero.</div>
             {AvgCostHelper()}
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgCost" checked={!!gridChecks["avgCost"]} onChange={function(){toggleGrid("avgCost");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgCost" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
-            {gridChecks["avgCost"]?<div key={"avgCostGrid-"+avgSalesVer}><MonthGrid keyPrefix={"avgCostM"} storeKey={"avgCost"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input key={"avgCost-"+avgSalesVer} style={inp} defaultValue={fdRef.current.avgCost||""} placeholder="e.g. 12" onChange={function(e){fdRef.current.avgCost=e.target.value;saveToStorage();refreshLive();}}/>}
+            {gridChecks["avgCost"]?<div key={"avgCostGrid-"+avgSalesVer}><MonthGrid keyPrefix={"avgCostM"} storeKey={"avgCost"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:(<div>
+              <input key={"avgCost-"+avgSalesVer} style={inp} defaultValue={fdRef.current.avgCost||""} placeholder="e.g. 12" onChange={function(e){fdRef.current.avgCost=e.target.value;saveToStorage();refreshLive();}}/>
+              {IncreaseRow("costInc","Cost increase per month","% a month, compounding. Leave it blank if your supplier prices hold.")}
+            </div>)}
             <FinWarn show={lossMakingMonths().length>0}>
               Your cost per unit is the same as or higher than your sale price{lossMakingMonths().length<12?" in "+lossMakingMonths().length+" of the 12 months":""}, so each sale loses money before any expenses. Check the two figures above.
             </FinWarn>
