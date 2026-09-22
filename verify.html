@@ -118,6 +118,49 @@ function grant(data){
   setTimeout(function(){ window.location.href='/app.html'; }, 1200);
 }
 
+/* Cross-browser sign-in, from this side.
+   A magic link lets in whoever opens it, and that is often not the browser
+   the plan is in: people ask from a laptop and open the email on a phone.
+   So this browser makes a nonce, sends it with the request, and then waits.
+   Opening the link anywhere approves that nonce, and the wait ends here. */
+var POLL_MS = 4000;
+var POLL_FOR_MS = 20 * 60 * 1000;      /* the link's own lifetime */
+var pollTimer = null, pollUntil = 0;
+
+function makeNonce(){
+  try{
+    var a = new Uint8Array(16);           /* 128 bits - it has to be unguessable */
+    crypto.getRandomValues(a);
+    return Array.from(a).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }catch(e){ return ''; }
+}
+
+function stopWaiting(){ if(pollTimer){ clearInterval(pollTimer); pollTimer = null; } }
+
+async function pollOnce(nonce){
+  try{
+    var res = await fetch('/api/verify-user', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ poll: nonce })
+    });
+    var data = await res.json();
+    if(data && data.success){ stopWaiting(); grant(data); return true; }
+  }catch(e){ /* keep waiting - a dropped poll is not a failure */ }
+  if(Date.now() > pollUntil){
+    stopWaiting();
+    showMsg('That link has expired. Enter your email for a fresh one.','error');
+    var b = document.getElementById('verifyBtn');
+    if(b){ b.disabled = false; b.textContent = 'Email me a link \u2192'; }
+  }
+  return false;
+}
+
+function startWaiting(nonce){
+  stopWaiting();
+  pollUntil = Date.now() + POLL_FOR_MS;
+  pollTimer = setInterval(function(){ pollOnce(nonce); }, POLL_MS);
+}
+
 /* Arriving from the emailed link. */
 (async function redeemFromUrl(){
   var t = new URLSearchParams(window.location.search).get('t');
@@ -130,7 +173,12 @@ function grant(data){
     var res = await fetch('/api/verify-user', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ t: t, email: new URLSearchParams(window.location.search).get('e') || '' })
+      /* n releases the browser that asked for this link, wherever it is. */
+      body: JSON.stringify({
+        t: t,
+        email: new URLSearchParams(window.location.search).get('e') || '',
+        n: new URLSearchParams(window.location.search).get('n') || ''
+      })
     });
     var data = await res.json();
     if(data.success){ grant(data); return; }
@@ -156,17 +204,20 @@ async function verifyAccess(){
   btn.textContent='Sending...';
   msg.style.display='none';
 
+  var nonce = makeNonce();
   try{
     var res = await fetch('/api/verify-user', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({email: email})
+      body: JSON.stringify({email: email, n: nonce})
     });
     var data = await res.json();
 
     if(data.sent){
-      showMsg(data.message||'If that address has unlocked the full AI, we have emailed a link to switch it back on. It expires in 20 minutes.','success');
-      btn.textContent='Link sent';
+      showMsg((data.message||'If that address has unlocked the full AI, we have emailed a link to switch it back on. It expires in 20 minutes.')
+        + (nonce ? ' You can open it on any device \u2014 this browser is waiting, and will switch the AI on here as soon as you do.' : ''),'success');
+      btn.textContent = nonce ? 'Waiting for you to open the link\u2026' : 'Link sent';
+      if(nonce) startWaiting(nonce);
       return;
     }
     if(data.success){ grant(data); return; }
