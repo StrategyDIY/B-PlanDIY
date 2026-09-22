@@ -58,4 +58,44 @@ function verifyToken(token) {
   return { ok: true, expiry: expiry };
 }
 
-module.exports = { issueToken, verifyToken };
+// Magic-link tokens.
+//
+// Deliberately a different shape from an access token: the payload carries an
+// "L." prefix, so a login token pasted into browser storage is not a valid
+// access token and buys nothing. Short-lived, single purpose, and it proves
+// only one thing - that whoever holds it can read that mailbox.
+const LOGIN_TTL_MS = 20 * 60 * 1000;
+
+function issueLoginToken(email) {
+  if (!secret()) return '';
+  const who = b64url(crypto.createHash('sha256').update(String(email || '').toLowerCase().trim()).digest()).slice(0, 16);
+  const payload = 'L.' + who + '.' + String(Date.now() + LOGIN_TTL_MS);
+  return payload + '.' + sign(payload);
+}
+
+// Returns the email hash on success, so the caller can confirm the token was
+// issued for the address it is about to grant access to.
+function verifyLoginToken(token) {
+  if (!secret()) return { ok: false, reason: 'not configured' };
+  if (!token || typeof token !== 'string') return { ok: false, reason: 'missing' };
+  const parts = token.split('.');
+  if (parts.length !== 4 || parts[0] !== 'L') return { ok: false, reason: 'malformed' };
+
+  const payload = parts[0] + '.' + parts[1] + '.' + parts[2];
+  const expected = sign(payload);
+  const a = Buffer.from(parts[3]);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+    return { ok: false, reason: 'bad signature' };
+  }
+  const expiry = parseInt(parts[2], 10);
+  if (!expiry || Date.now() > expiry) return { ok: false, reason: 'expired' };
+  return { ok: true, who: parts[1] };
+}
+
+// Same hash the tokens use, so a caller can match a token to a record.
+function emailHash(email) {
+  return b64url(crypto.createHash('sha256').update(String(email || '').toLowerCase().trim()).digest()).slice(0, 16);
+}
+
+module.exports = { issueToken, verifyToken, issueLoginToken, verifyLoginToken, emailHash, LOGIN_TTL_MS };
