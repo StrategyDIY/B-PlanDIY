@@ -20,6 +20,84 @@ function safeEmail(v){
 
 const TABLE = 'Users';
 
+// Cross-browser sign-in.
+//
+// A magic link grants access to whoever OPENS it, because opening it is the
+// only proof that somebody can read the mailbox. That is sound, and it is also
+// the wrong browser surprisingly often: the request comes from the laptop the
+// plan is being written on, and the email is opened on a phone. The person
+// ends up with their work in one browser and their access in another.
+//
+// So the requesting browser now makes a nonce, keeps it, and waits. Opening
+// the link approves that nonce server-side, and the waiting browser collects
+// the access. This is the pattern a TV uses to sign in from a phone.
+//
+// The store is a second Airtable table. If it does not exist - which it will
+// not until it is created - every call here fails quietly and the link keeps
+// working exactly as it does today for the browser that opens it.
+const PENDING_TABLE = 'PendingLogins';
+const PENDING_TTL_MS = 20 * 60 * 1000;   // matches the link's own lifetime
+
+// A nonce is the only thing standing between a stranger and somebody else's
+// approved access, so it has to be unguessable rather than merely unique.
+// 32 hex characters is 128 bits; anything shorter or lower-entropy is refused
+// rather than quietly accepted.
+function safeNonce(v){
+  const n = String(v == null ? '' : v).trim().toLowerCase();
+  return /^[a-f0-9]{32,64}$/.test(n) ? n : '';
+}
+
+function airtableUrl(table, query){
+  return `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(table)}` + (query || '');
+}
+function airtableHeaders(){
+  return { 'Authorization': `Bearer ${process.env.AIRTABLE_TOKEN}`, 'Content-Type': 'application/json' };
+}
+
+// Every one of these is best effort. A missing table, a revoked token or an
+// Airtable outage must never stop somebody signing in the ordinary way.
+async function pendingCreate(nonce, email){
+  try{
+    await fetch(airtableUrl(PENDING_TABLE), {
+      method: 'POST',
+      headers: airtableHeaders(),
+      body: JSON.stringify({ fields: {
+        Nonce: nonce, Email: email, Expiry: Date.now() + PENDING_TTL_MS, Approved: false
+      } })
+    });
+  }catch(e){ /* the link still works for whoever opens it */ }
+}
+
+async function pendingFind(nonce){
+  try{
+    const res = await fetch(
+      airtableUrl(PENDING_TABLE, `?filterByFormula=${encodeURIComponent(`{Nonce}='${nonce}'`)}&maxRecords=1`),
+      { headers: airtableHeaders() }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data.records && data.records[0]) || null;
+  }catch(e){ return null; }
+}
+
+async function pendingApprove(recordId, accessExpiry){
+  try{
+    await fetch(airtableUrl(PENDING_TABLE, '/' + recordId), {
+      method: 'PATCH',
+      headers: airtableHeaders(),
+      body: JSON.stringify({ fields: { Approved: true, AccessExpiry: accessExpiry } })
+    });
+  }catch(e){ /* the browser that opened the link still gets in */ }
+}
+
+// Consumed once collected, so a nonce cannot be replayed and the table does
+// not grow without limit.
+async function pendingDelete(recordId){
+  try{
+    await fetch(airtableUrl(PENDING_TABLE, '/' + recordId), { method: 'DELETE', headers: airtableHeaders() });
+  }catch(e){}
+}
+
 const ALLOWED_HOSTS = ['b-plandiy.com', 'www.b-plandiy.com'];
 
 function hostOf(url) {
@@ -47,17 +125,28 @@ const WINDOW_MS = 60 * 1000;
 const MAX_PER_WINDOW = 6;
 const hits = new Map();
 
-function tooManyRequests(ip) {
+// Polls are a different kind of request and need their own budget: a browser
+// waiting for a link checks every few seconds, which would burn the six-a-
+// minute allowance meant for people typing an address. A poll reveals nothing
+// - an unknown nonce and an unapproved one get the same answer - so it can be
+// far more generous.
+const MAX_POLLS_PER_WINDOW = 40;
+const pollHits = new Map();
+
+function overLimit(map, ip, max) {
   const now = Date.now();
-  const rec = hits.get(ip);
+  const rec = map.get(ip);
   if (!rec || now - rec.start > WINDOW_MS) {
-    hits.set(ip, { start: now, count: 1 });
-    if (hits.size > 5000) hits.clear();
+    map.set(ip, { start: now, count: 1 });
+    if (map.size > 5000) map.clear();
     return false;
   }
   rec.count += 1;
-  return rec.count > MAX_PER_WINDOW;
+  return rec.count > max;
 }
+
+function tooManyRequests(ip) { return overLimit(hits, ip, MAX_PER_WINDOW); }
+function tooManyPolls(ip) { return overLimit(pollHits, ip, MAX_POLLS_PER_WINDOW); }
 
 exports.handler = async (event) => {
   const headers = event.headers || {};
@@ -72,6 +161,40 @@ exports.handler = async (event) => {
 
   const ip = headers['x-nf-client-connection-ip'] || headers['client-ip'] ||
              (headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+
+  // A poll asks one question: has the link for my nonce been opened yet? It
+  // carries no address and is answered before the address-based rate limit,
+  // which is sized for a different kind of request.
+  let pollNonce = '';
+  try { pollNonce = safeNonce(JSON.parse(event.body || '{}').poll); } catch (e) {}
+  if (pollNonce) {
+    if (tooManyPolls(ip)) {
+      return { statusCode: 429, headers: cors, body: JSON.stringify({ pending: true, slowDown: true }) };
+    }
+    try {
+      const row = await pendingFind(pollNonce);
+      const f = (row && row.fields) || {};
+      // Same answer for an unknown nonce, an unapproved one and an expired
+      // one. Nothing here should help anyone work out whether a nonce is real.
+      if (!row || f.Approved !== true || !f.Email || (f.Expiry || 0) < Date.now()) {
+        return { statusCode: 200, headers: cors, body: JSON.stringify({ pending: true }) };
+      }
+      const grantedExpiry = f.AccessExpiry || 0;
+      if (grantedExpiry <= Date.now()) {
+        return { statusCode: 200, headers: cors, body: JSON.stringify({ pending: true }) };
+      }
+      // Collected once. The row goes, so the nonce cannot be replayed.
+      await pendingDelete(row.id);
+      return {
+        statusCode: 200,
+        headers: cors,
+        body: JSON.stringify({ success: true, expiry: grantedExpiry, token: issueToken(f.Email, grantedExpiry) })
+      };
+    } catch (e) {
+      return { statusCode: 200, headers: cors, body: JSON.stringify({ pending: true }) };
+    }
+  }
+
   if (tooManyRequests(ip)) {
     return {
       statusCode: 429,
@@ -84,6 +207,9 @@ exports.handler = async (event) => {
     const body = JSON.parse(event.body || '{}');
     const email = body.email;
     const loginToken = typeof body.t === 'string' ? body.t : '';
+    // Set when a browser is waiting to be let in; absent for anyone who just
+    // wants the link to work where they open it.
+    const nonce = safeNonce(body.n || body.nonce);
 
     // Two ways in. Without a token this is a request for a magic link; with
     // one, it is that link being redeemed.
@@ -209,6 +335,19 @@ exports.handler = async (event) => {
             // Deliberately swallowed - see above.
           }
         }
+        // Release the browser that asked, if one is waiting. The nonce came
+        // back in the link, so it is only ever approved by somebody who could
+        // read the mailbox - opening the link is still the proof. The email on
+        // the pending row has to match the one being granted, so a tampered
+        // nonce cannot be used to approve a waiting browser for a different
+        // address.
+        if (nonce) {
+          const row = await pendingFind(nonce);
+          const rf = (row && row.fields) || {};
+          if (row && safeEmail(rf.Email) === safe && (rf.Expiry || 0) > Date.now()) {
+            await pendingApprove(row.id, expiry);
+          }
+        }
         return {
           statusCode: 200,
           headers: cors,
@@ -219,7 +358,12 @@ exports.handler = async (event) => {
       // Otherwise this is a request for a link. Access is NOT granted yet -
       // an email address is not a secret, and until today typing one was
       // enough to be handed ninety days of someone else's paid access.
-      const link = `${SITE}/verify.html?t=${encodeURIComponent(issueLoginToken(safe))}&e=${encodeURIComponent(safe)}`;
+      // Written before the email goes out, so the row is there whenever the
+      // link is opened - including the case where somebody opens it within a
+      // second or two on the same device.
+      if (nonce) await pendingCreate(nonce, safe);
+      const link = `${SITE}/verify.html?t=${encodeURIComponent(issueLoginToken(safe))}&e=${encodeURIComponent(safe)}` +
+        (nonce ? `&n=${encodeURIComponent(nonce)}` : '');
       if (process.env.RESEND_API_KEY) {
         try {
           await fetch('https://api.resend.com/emails', {
@@ -235,7 +379,7 @@ exports.handler = async (event) => {
               html: `<div style="font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:15px;line-height:1.6;color:#29384A">
                 <p>Here is your link to switch the AI features back on:</p>
                 <p><a href="${link}" style="display:inline-block;background:#01236D;color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;font-weight:700">Restore my access</a></p>
-                <p style="color:#5A6C7E;font-size:13.5px">The link works once and expires in 20 minutes. If you did not ask for it, you can ignore this email &mdash; nothing has changed on your account.</p>
+                <p style="color:#5A6C7E;font-size:13.5px">The link expires in 20 minutes, and it switches the AI on in the browser you asked from as well as the one you open it in. If you did not ask for it, you can ignore this email &mdash; nothing has changed on your account.</p>
               </div>`
             })
           });
