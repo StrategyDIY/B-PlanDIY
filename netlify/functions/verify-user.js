@@ -56,16 +56,29 @@ function airtableHeaders(){
 
 // Every one of these is best effort. A missing table, a revoked token or an
 // Airtable outage must never stop somebody signing in the ordinary way.
+// Reports why it failed rather than only that it did. A silent best-effort
+// write is right for the customer - a broken store must never stop a sign-in -
+// but it left nothing to diagnose when the store was misconfigured. Airtable's
+// error TYPE (UNKNOWN_FIELD_NAME, NOT_FOUND, INVALID_PERMISSIONS) names the
+// misconfiguration without exposing any data.
 async function pendingCreate(nonce, email){
   try{
-    await fetch(airtableUrl(PENDING_TABLE), {
+    const res = await fetch(airtableUrl(PENDING_TABLE), {
       method: 'POST',
       headers: airtableHeaders(),
       body: JSON.stringify({ fields: {
         Nonce: nonce, Email: email, Expiry: Date.now() + PENDING_TTL_MS, Approved: false
       } })
     });
-  }catch(e){ /* the link still works for whoever opens it */ }
+    if (res.ok) return { ok: true };
+    const body = await res.json().catch(function(){ return {}; });
+    const type = (body && body.error && (body.error.type || body.error)) || ('HTTP_' + res.status);
+    console.error('PendingLogins write failed:', res.status, JSON.stringify(body).slice(0, 300));
+    return { ok: false, type: String(type).slice(0, 60) };
+  }catch(e){
+    console.error('PendingLogins write threw:', (e && e.message) || e);
+    return { ok: false, type: 'FETCH_FAILED' };
+  }
 }
 
 async function pendingFind(nonce){
@@ -361,7 +374,8 @@ exports.handler = async (event) => {
       // Written before the email goes out, so the row is there whenever the
       // link is opened - including the case where somebody opens it within a
       // second or two on the same device.
-      if (nonce) await pendingCreate(nonce, safe);
+      let pending = null;
+      if (nonce) pending = await pendingCreate(nonce, safe);
       const link = `${SITE}/verify.html?t=${encodeURIComponent(issueLoginToken(safe))}&e=${encodeURIComponent(safe)}` +
         (nonce ? `&n=${encodeURIComponent(nonce)}` : '');
       if (process.env.RESEND_API_KEY) {
@@ -384,6 +398,21 @@ exports.handler = async (event) => {
             })
           });
         } catch (e) { /* the generic reply below is returned either way */ }
+      }
+      // Whether the waiting browser was registered. A boolean and an error
+      // type, never any data - enough to tell a working setup from a
+      // misconfigured one without saying who is on file.
+      if (pending) {
+        return {
+          statusCode: 200,
+          headers: cors,
+          body: JSON.stringify({
+            sent: true,
+            message: 'If that address has access, we have emailed you a link to restore it. It expires in 20 minutes.',
+            waiting: pending.ok === true,
+            pendingError: pending.ok ? undefined : pending.type
+          })
+        };
       }
       return SENT;
     }
