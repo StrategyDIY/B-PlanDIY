@@ -255,10 +255,20 @@ exports.handler = async (event) => {
     };
 
   } catch (err) {
+    // This catch used to swallow the error whole: the one reply that means
+    // "we do not know what happened" left nothing behind to look at, in the
+    // logs or anywhere else. Now it logs the stack for Netlify to keep, and
+    // returns a short reason alongside the friendly message so a failure can
+    // be diagnosed from the response instead of guessed at.
+    console.error('verify-user failed:', (err && err.stack) || err);
     return {
       statusCode: 500,
       headers: cors,
-      body: JSON.stringify({ success: false, message: 'Something went wrong. Please try again.' })
+      body: JSON.stringify({
+        success: false,
+        message: 'Something went wrong. Please try again.',
+        reason: (err && err.message) ? String(err.message).slice(0, 160) : 'unknown'
+      })
     };
   }
 };
