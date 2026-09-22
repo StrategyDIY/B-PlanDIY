@@ -99,6 +99,20 @@ input[type=checkbox]:hover{transform:scale(1.12);}
 /* Softer, warmer page background so white cards read as raised */
 body{background:#FCFCFA;}
 
+/* The page itself should never be draggable sideways on a phone.
+   Everything in the app that is legitimately wider than a small screen - the
+   cashflow table, the step bar, the plan preview - scrolls inside its own
+   box, so if the PAGE can be panned then something has escaped its container.
+   The usual culprit is an unbroken string with nowhere to wrap: a long email
+   address in Main contact, a URL in Online presence, a business name typed
+   without spaces, or a long word in an AI suggestion.
+   overflow-x:clip rather than hidden, because clip does not turn the body
+   into a scroll container and so leaves position:sticky (the live figures
+   bar) working. */
+html,body{max-width:100%;overflow-x:clip;}
+body{overflow-wrap:break-word;}
+input,select,textarea{max-width:100%;}
+
 /* Links */
 a{transition:color .15s ease;}
 
@@ -125,7 +139,11 @@ select{border-radius:10px !important;padding:13px 12px !important;}
    Shown on focus as well as hover, so the keyboard reaches them too. */
 .bpd-tip{position:relative;display:inline-flex;}
 .bpd-tip-msg{
-  position:absolute;top:calc(100% + 10px);right:0;width:290px;max-width:78vw;
+  /* box-sizing, because the page has no universal border-box reset: width:290
+     plus 28px of padding measured 318 and helped push the page past the
+     screen edge. */
+  box-sizing:border-box;
+  position:absolute;top:calc(100% + 10px);right:0;width:290px;max-width:calc(100vw - 24px);
   background:#01236D;color:#fff;font-size:13px;line-height:1.55;font-weight:500;
   padding:12px 14px;border-radius:10px;text-align:left;
   box-shadow:0 10px 28px rgba(1,35,109,0.30);
@@ -138,9 +156,17 @@ select{border-radius:10px !important;padding:13px 12px !important;}
 }
 .bpd-tip:hover .bpd-tip-msg,
 .bpd-tip:focus-within .bpd-tip-msg{opacity:1;visibility:visible;transform:translateY(0);}
+/* On a phone these were the reason the whole app could be dragged sideways.
+   A tooltip is hidden with visibility:hidden, which still takes part in
+   layout, and left:0 anchored it to a button sitting well right of centre:
+   measured on the live site, the "Clear plan" tooltip reached 515px inside a
+   375px screen and the page could be panned by exactly that much. Pinning
+   them to the viewport instead of to the button costs the little arrow,
+   which is why it is hidden here, and makes them readable rather than
+   half off-screen. */
 @media(max-width:640px){
-  .bpd-tip-msg{right:auto;left:0;width:min(290px,86vw);}
-  .bpd-tip-msg::before{right:auto;left:24px;}
+  .bpd-tip-msg{position:fixed;left:12px;right:12px;width:auto;max-width:none;}
+  .bpd-tip-msg::before{display:none;}
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js" onerror="console.warn('docx CDN failed')"></script>
