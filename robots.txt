@@ -7,4 +7,8 @@ Disallow: /thankyou.html
 Disallow: /downloads/
 Disallow: /blog/_TEMPLATE.html
 
+# Function endpoints. These answer POST only, so a crawler's GET gets a 4xx.
+Disallow: /api/
+Disallow: /.netlify/
+
 Sitemap: https://b-plandiy.com/sitemap.xml
