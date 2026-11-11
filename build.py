@@ -188,7 +188,11 @@ input:not([type=checkbox]):not([type=radio]):focus, select:focus, textarea:focus
   border-color:#1B4FA8 !important;
   box-shadow:0 0 0 3px rgba(42,157,159,0.18) !important;
 }
-select{border-radius:10px !important;padding:13px 12px !important;}
+/* Selects ignore line-height, so their height comes from padding alone.
+   14px lands them on the same 52px as every other full-size field.
+   This rule is !important and so beats the inline style - keep the two
+   in step if the field height changes. */
+select{border-radius:10px !important;padding:14px 14px !important;}
 /* Hover explanations for the banner's Save a backup / Clear plan buttons.
    Shown on focus as well as hover, so the keyboard reaches them too. */
 .bpd-tip{position:relative;display:inline-flex;}

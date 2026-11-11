@@ -20,6 +20,15 @@ const expCats=[
   {id:"xTeam",l:"Team",ph:"e.g. 5000 (salaries, wages, PAYE)"},
   {id:"xTravel",l:"Travel",ph:"e.g. 300 (flights, accommodation)"},
   {id:"xVeh",l:"Vehicle",ph:"e.g. 600 (lease, fuel, maintenance)"},
+  // Non-cash. It belongs in the profit statement, because a bank reading a
+  // plan with no depreciation is reading an overstated profit - but it must
+  // never leave the bank, and it carries no tax to reclaim.
+  {id:"xDepn",l:"Depreciation",ph:"e.g. 500 (non-cash)"},
+  // Like depreciation, this reduces profit without leaving the bank a second
+  // time - the money already went out inside the loan repayment in Other
+  // transactions. Putting it here is what stops a plan with debt showing no
+  // finance cost at all.
+  {id:"xInterest",l:"Interest and finance costs",ph:"e.g. 300 (already inside your loan repayment)"},
   {id:"xOtherExp",l:"Other expenses",ph:"e.g. 200 (anything not covered above)"}
 ];
 // The three tax rows carry `lfn` rather than a fixed label, so they read in
@@ -42,6 +51,8 @@ const txCats=[
   {id:"txTaxCred",l:"Tax paid on purchases",lfn:function(w){return w+" paid on purchases";},auto:true},
   {id:"txTax",l:"Tax paid",lfn:function(w){return w+" paid";},auto:true},
   {id:"txTaxOther",l:"Tax payments other",ph:"e.g. 2000 income tax refund, -1000 withholding tax payment"},
+  {id:"txNeedCap",l:"Funding to start or grow",auto:true},
+  {id:"txDraw",l:"Drawings to the owner",auto:true},
   {id:"txOther",l:"Other transactions",ph:"e.g. 10000 owner investment, -500 drawings"}
 ];
 // What this business calls its tax. Mirrors taxLabel() inside the component,
@@ -187,6 +198,52 @@ function repairMonthGrids(d){
   return d;
 }
 
+// What the owner typed into the two "how much do you need" boxes, turned into
+// money the forecast can use. Both are free text on purpose - "60,000 a year"
+// and "$5,000 per month" are how people answer - so the period is read out of
+// the words. No period stated means a year, because that is how people quote
+// what they need to earn.
+function parseNeed(v){
+  var s=String(v==null?"":v).toLowerCase().replace(/,/g,"").trim();
+  if(!s)return null;
+  var m=s.match(/-?\d+(?:\.\d+)?/);
+  if(!m)return null;
+  var n=parseFloat(m[0]);
+  if(!isFinite(n)||n<=0)return null;
+  if(/\dk\b|\bk\b/.test(s)&&n<1000)n=n*1000;
+  var per="year";
+  if(/month|\bpm\b|\bmth\b/.test(s))per="month";
+  else if(/week|\bpw\b/.test(s))per="week";
+  return {n:n,per:per};
+}
+function needMonthly(v){
+  var p=parseNeed(v); if(!p)return 0;
+  if(p.per==="month")return p.n;
+  if(p.per==="week")return p.n*52/12;
+  return p.n/12;
+}
+function needOneOff(v){ var p=parseNeed(v); return p?p.n:0; }
+
+// How long the money takes to arrive, and to leave. Whole months, because the
+// forecast is monthly - "47 days" would promise a precision the model does not
+// have. 0 is the old behaviour, so a plan that never answers is unchanged.
+// "split" is half now, half next month, for a business with mixed terms.
+function lagOf(v){
+  var k=String(v||"0");
+  if(k==="1")return {now:0,next:1,later:0};
+  if(k==="2")return {now:0,next:0,later:1};
+  if(k==="split")return {now:0.5,next:0.5,later:0};
+  return {now:1,next:0,later:0};
+}
+// Money from a stream of monthly amounts, as it actually lands in month i.
+function cashIn(hist,i,lag){
+  var L=lagOf(lag);
+  var a=(hist[i]||0)*L.now;
+  var b=i>=1?(hist[i-1]||0)*L.next:0;
+  var c=i>=2?(hist[i-2]||0)*L.later:0;
+  return a+b+c;
+}
+
 function calcCashflow(f){
   // cleanNum, not a bare parseFloat: "5,000" read as 5 and "$5,000" as 0,
   // while the Debt field right beside it suggests exactly that format.
@@ -283,6 +340,28 @@ function calcCashflow(f){
 
   let bal=open;
   const rows=[];
+  // What each month earned and spent, kept so a later month can collect it.
+  const revHist=[], revProdHist=[], cogsHist=[], expTermHist=[], purchHist=[];
+  // Stock held, in months of cover, and what is already on the shelf.
+  // Straight line on what is owned: the opening value, plus anything bought
+  // and less anything sold, as it happens. Asset transactions are already a
+  // monthly series where a purchase is negative and a sale positive, so the
+  // base is just the opening value less the running total of that row.
+  // An amortising loan: interest is this month's balance times the rate, the
+  // rest of the repayment is principal, and the balance falls by it. That is
+  // why the interest declines across the year rather than sitting flat.
+  const intAuto=String(f.intAuto||"")==="1";
+  const intRate=parseFloat(f.loanRate||0)||0;
+  let loanBal=needOneOff(f.openLoan);
+  const depnAuto=String(f.depnAuto||"")==="1";
+  const depnRate=parseFloat(f.depnRate||0)||0;
+  let assetBase=needOneOff(f.openAssets);
+  const stockMonths=parseFloat(f.stockMonths||0)||0;
+  const openStock=needOneOff(f.openStock);
+  let prevCogs=0;
+  // Already earned, or already owed, before month 1 - they settle in month 1.
+  const openDebtors=needOneOff(f.openDebtors);
+  const openCreditors=needOneOff(f.openCreditors);
 
   for(let i=0;i<12;i++){
     // Revenue
@@ -309,24 +388,78 @@ function calcCashflow(f){
     const revProducts=Math.round(units*price);
     const revOther=Math.round(parseMonthly(f.otherRevenue,0)[i]);
     const revenue=revProducts+revOther;
+    revHist.push(revenue); revProdHist.push(revProducts);
 
     // COGS
     let cost=avgCost[i]||parseFloat(cleanNum(f.avgCost))||0;
     if(!hasMonthlyCost){for(let j=0;j<i;j++) cost=cost*(1+(costInc[j]||0)/100);}
     const cogs=Math.round(units*cost);
+    cogsHist.push(cogs);
+
+    // Cost of sales is what was SOLD. What leaves the bank is what was BOUGHT,
+    // and with stock on the shelf those are different numbers.
+    //
+    // Holding N months of cover means the stock balance has to be N times the
+    // current run rate, so as sales grow you buy what you sell PLUS the
+    // increase in cover. Expressed this way it needs only this month and the
+    // last, never a month that has not been forecast yet.
+    //
+    // Month 1 also has to get the shelf stocked in the first place - less
+    // whatever the business already holds, which is why that is asked.
+    const stockBuild=i===0
+      ? Math.max(0,Math.round(stockMonths*cogs-openStock))
+      : Math.round(stockMonths*(cogs-prevCogs));
+    const purch=Math.max(0,cogs+stockBuild);
+    prevCogs=cogs;
+    purchHist.push(purch);
 
     const grossProfit=revenue-cogs;
 
     // Expenses
     const expDetail={};
     let totalExpenses=0;
+    // Assets bought this month start depreciating this month; assets sold
+    // stop. Done before the expense loop so the figure is current.
+    assetBase=Math.max(0,assetBase-Math.round((txArr["txAsset"]||[])[i]||0));
+    const autoDepn=depnAuto?Math.max(0,Math.round(assetBase*depnRate/100/12)):null;
+
+    // Loan movements this month: a drawdown is positive, a repayment negative.
+    const loanFlow=Math.round((txArr["txLoan"]||[])[i]||0);
+    if(loanFlow>0)loanBal+=loanFlow;                       // money borrowed
+    const autoInt=intAuto?Math.max(0,Math.round(loanBal*intRate/100/12)):null;
+    if(loanFlow<0){
+      // The repayment covers the interest first; whatever is left reduces what
+      // is owed. A repayment smaller than the interest pays off no principal.
+      const principal=Math.max(0,(-loanFlow)-(autoInt||0));
+      loanBal=Math.max(0,loanBal-principal);
+    }
+
     expCats.forEach(c=>{
-      const v=Math.round(expArr[c.id][i]+goalExpFor(c.id,i));
+      const v=(c.id==="xDepn"&&autoDepn!==null) ? autoDepn
+        : (c.id==="xInterest"&&autoInt!==null) ? autoInt
+        : Math.round(expArr[c.id][i]+goalExpFor(c.id,i));
       expDetail[c.id]=v;
       totalExpenses+=v;
     });
 
     const netProfit=grossProfit-totalExpenses;
+
+    // People are paid when they work, whatever the supplier terms say, so Team
+    // and Contractors never go on terms. Everything else can, if asked.
+    // Depreciation is an expense that is never paid to anybody, so it reduces
+    // profit and nothing else. Taking it out here keeps it out of the bank
+    // balance, out of the supplier terms and out of the tax credit at once.
+    const depn=(expDetail["xDepn"]||0);
+    // The interest has already left the bank inside the loan repayment, so it
+    // comes out of the cash side here or it would be paid twice.
+    const interest=(expDetail["xInterest"]||0);
+    const expCash=totalExpenses-depn-interest;
+    const expNowAlways=(expDetail["xTeam"]||0)+(expDetail["xCon"]||0);
+    const expOnTerms=String(f.payLagExp||"")==="1";
+    const expTermable=expCash-expNowAlways;
+    expTermHist.push(expOnTerms?expTermable:0);
+    const expPaidNow=expOnTerms?expNowAlways:expCash;
+    const expPaidLagged=expOnTerms?cashIn(expTermHist,i,f.payLag):0;
 
     // Two tax systems, which behave differently enough to need different sums.
     //
@@ -352,8 +485,20 @@ function calcCashflow(f){
     // The sales side is revProducts, not revenue: grants, interest and rental
     // income in "other revenue" are not taxable sales. Basing it on net profit,
     // as this did, quietly taxed them.
-    const taxOnSales=Math.round(revProducts*taxRate/100);
-    const taxOnInputs=salesTaxMode?0:Math.round((cogs+totalExpenses-teamExp)*taxRate/100);
+    // On a payments basis the return follows the money, so the lag moves the
+    // tax with it. On an invoice basis it is due when the invoice is raised,
+    // whatever the customer does. Most New Zealand businesses under $2m may
+    // choose payments, so the choice is asked rather than assumed.
+    const onPayments=String(f.gstBasis||"payments")!=="invoice";
+    const taxSalesBase=onPayments?cashIn(revProdHist,i,f.recvLag):revProducts;
+    // The credit arises on the purchase, not on the sale - so with stock held
+    // it is claimed before the goods are sold, on either basis.
+    const taxCogsBase =onPayments?cashIn(purchHist,i,f.payLag):purch;
+    // On a payments basis the credit is claimed when the supplier is paid, so
+    // it follows the same terms. Wages carry no credit either way.
+    const taxExpBase=onPayments?(expPaidNow+expPaidLagged-teamExp):(expCash-teamExp);
+    const taxOnSales=Math.round(taxSalesBase*taxRate/100);
+    const taxOnInputs=salesTaxMode?0:Math.round((taxCogsBase+taxExpBase)*taxRate/100);
     // Netted from the two rounded components, so the three rows always foot.
     const monthTax=taxOnSales-taxOnInputs;
     const isTaxPayMonth=!!f["taxPayM"+(i+1)]||!Array.from({length:12},function(_,n){return f["taxPayM"+(n+1)];}).some(Boolean);
@@ -375,6 +520,16 @@ function calcCashflow(f){
         // Paid to suppliers on top of the tax-exclusive costs entered, so it
         // leaves the bank when they are paid and is reclaimed via the return.
         v=-taxOnInputs;
+      } else if(c.id==="txNeedCap"){
+        // What they said they need to start or grow, treated as funding put
+        // in at the start. Month one only - it is capital, not income.
+        v=i===0?Math.round(needOneOff(f.needCapital)):0;
+      } else if(c.id==="txDraw"){
+        // What they said they need to earn, taken out every month. Drawings
+        // are not an expense, so they never touch profit - this is the only
+        // place in the forecast they appear, and the reason a plan that
+        // looks profitable can still run the account dry.
+        v=-Math.round(needMonthly(f.needIncome));
       } else if(c.id==="txTax"){
         // The net remittance, in the payment months only. Always auto-
         // calculated from the Tax rate - not user editable.
@@ -386,7 +541,16 @@ function calcCashflow(f){
       otherTx+=v;
     });
 
-    const netCashflow=netProfit+otherTx;
+    // Accrual to cash. Profit above is unchanged - that is the P&L - and only
+    // what reaches or leaves the bank is shifted by the terms.
+    //
+    // Opening debtors and creditors settle in month 1: money already earned or
+    // already owed before the forecast starts.
+    // Running costs (rent, wages, insurance) are not lagged - the supplier
+    // terms question is about what you buy to sell, which is cost of sales.
+    const cashSales=Math.round(cashIn(revHist,i,f.recvLag)+(i===0?openDebtors:0));
+    const cashCogs =Math.round(cashIn(purchHist,i,f.payLag)+(i===0?openCreditors:0));
+    const netCashflow=Math.round(cashSales-cashCogs-expPaidNow-expPaidLagged)+otherTx;
     const openBal=bal;
     bal=bal+netCashflow;
 
@@ -399,6 +563,22 @@ function calcCashflow(f){
       cogs,grossProfit,
       expDetail,totalExpenses,
       netProfit,
+      // Profit to cash, line by line. Each is the amount to ADD to profit:
+      //   depreciation      an expense nobody was paid, so add it back
+      //   rcDebtors         sales made but not yet collected (negative), or
+      //                     earlier sales collected now (positive)
+      //   rcStockCred       cost of sales less what was actually bought and
+      //                     paid for - stock movement and supplier terms
+      //   rcExpTiming       running costs incurred less those actually paid
+      // netProfit + these four = cash from trading, and + otherTx = the bank.
+      depreciation:depn,
+      interestNonCash:interest,
+      loanBalance:Math.round(loanBal),
+      assetBase:Math.round(assetBase),
+      rcDebtors:Math.round(cashSales-revenue),
+      rcStockCred:Math.round(cogs-cashCogs),
+      rcExpTiming:Math.round(expCash-expPaidNow-expPaidLagged),
+      cashFromTrading:Math.round(cashSales-cashCogs-expPaidNow-expPaidLagged),
       txDetail,otherTx,
       netCashflow,
       openingBalance:openBal,
@@ -482,6 +662,35 @@ function CfTable({rows}){
             {rows.map(function(r){return <td key={r.month} style={r.netProfit<0?hlR:hlG}>{fmt(r.netProfit)}</td>;})}
             <td style={Object.assign({},totals("netProfit")<0?hlR:hlG,totB)}>{fmt(totals("netProfit"))}</td>
           </tr>
+          {/* Profit to cash. Without these four the table simply does not add
+              up any more: profit is accrual and the bank movement is cash, and
+              depreciation, stock, debtors and supplier terms all sit between
+              them. Each row appears only when it is doing something, so a
+              plan that answers none of those questions looks exactly as it
+              always did. */}
+          {(function(){
+            var recon=[
+              {k:"depreciation",l:"Add back depreciation (not paid to anyone)"},
+              {k:"interestNonCash",l:"Add back interest (already in your loan repayment)"},
+              {k:"rcDebtors",   l:"Timing: sales not yet collected"},
+              {k:"rcStockCred", l:"Timing: stock bought and suppliers paid"},
+              {k:"rcExpTiming", l:"Timing: running costs not yet paid"}
+            ].filter(function(x){return rows.some(function(r){return (r[x.k]||0)!==0;});});
+            if(!recon.length)return null;
+            return (<>
+              <tr><td style={hdr} colSpan={rows.length+2}>Profit to Cash</td></tr>
+              {recon.map(function(x){return (<tr key={x.k}>
+                <td style={tdF}>{x.l}</td>
+                {rows.map(function(r){return <td key={r.month} style={td}>{fmt(r[x.k]||0)}</td>;})}
+                <td style={Object.assign({},tot,totB)}>{fmt(totals(x.k))}</td>
+              </tr>);})}
+              <tr>
+                <td style={totF}>Cash from trading</td>
+                {rows.map(function(r){return <td key={r.month} style={tot}>{fmt(r.cashFromTrading||0)}</td>;})}
+                <td style={Object.assign({},tot,totB)}>{fmt(totals("cashFromTrading"))}</td>
+              </tr>
+            </>);
+          })()}
           <tr><td style={hdr} colSpan={rows.length+2}>Other Transactions</td></tr>
           {txCats.map(function(cat){if(cat.auto&&!rows.some(function(r){return (r.txDetail&&r.txDetail[cat.id])||0;}))return null;return (<tr key={cat.id}><td style={tdF}>{txLabel(cat,rows[0]&&rows[0].taxWord)}</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.txDetail&&r.txDetail[cat.id]||0)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(txTotals[cat.id])}</td></tr>);})}
           <tr><td style={hdr} colSpan={rows.length+2}>Cashflow</td></tr>
@@ -584,7 +793,7 @@ function CfCharts({rows,expCatsData}){
   );
 }
 
-function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakeven,bkLoading,bkText,onClearBreakeven,suggestBtn,suggestBtnBusy,busyLabel,enteredPrice,enteredCost}){
+function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakeven,bkLoading,bkText,onClearBreakeven,suggestBtn,suggestBtnBusy,busyLabel,enteredPrice,enteredCost,unitOne=function(){return "unit";}}){
   if(!liveRows||!liveRows.length)return null;
   var wiUnitsState=useState(0);var wiUnits=wiUnitsState[0];var setWiUnits=wiUnitsState[1];
   var wiPriceState=useState(0);var wiPrice=wiPriceState[0];var setWiPrice=wiPriceState[1];
@@ -682,8 +891,8 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
 
   var sliders=[
     {label:"Units Sold",sub:"% change in volume",val:wiUnits,set:setWiUnits,posColor:GREEN_DARK,negColor:RED,base:baseValues.units,isUnits:true,min:-50,max:50,step:1},
-    {label:"Average Price",sub:"$ per unit",val:wiPrice,set:setWiPrice,posColor:GREEN_DARK,negColor:RED,base:baseValues.price,isDollar:true,min:-rPrice.max,max:rPrice.max,step:rPrice.step},
-    {label:"Average Cost",sub:"$ per unit",val:wiCostU,set:setWiCostU,posColor:RED,negColor:GREEN_DARK,base:baseValues.cost,isDollar:true,min:-rCost.max,max:rCost.max,step:rCost.step},
+    {label:"Average Price",sub:"$ per "+unitOne(),val:wiPrice,set:setWiPrice,posColor:GREEN_DARK,negColor:RED,base:baseValues.price,isDollar:true,min:-rPrice.max,max:rPrice.max,step:rPrice.step},
+    {label:"Average Cost",sub:"$ per "+unitOne(),val:wiCostU,set:setWiCostU,posColor:RED,negColor:GREEN_DARK,base:baseValues.cost,isDollar:true,min:-rCost.max,max:rCost.max,step:rCost.step},
     {label:"Total Expenses",sub:"$ per month",val:wiTotalExp,set:setWiTotalExp,posColor:RED,negColor:GREEN_DARK,base:baseValues.totalExp,isDollar:true,min:-rTotal.max,max:rTotal.max,step:rTotal.step},
   ];
 
@@ -762,7 +971,7 @@ function WhatIf({liveRows,wiRev,wiExp,wiCos,setWiRev,setWiExp,setWiCos,onBreakev
               onChange={function(e){var a=wiHires.slice();a[hi]=Object.assign({},a[hi],{name:e.target.value});setWiHires(a);}}/>
             <input style={Object.assign({},inp,{flex:"0 0 115px",textAlign:"right",fontSize:13})} placeholder="Annual $" value={h.amt}
               onChange={function(e){var a=wiHires.slice();a[hi]=Object.assign({},a[hi],{amt:e.target.value.replace(/[^0-9.-]/g,"")});setWiHires(a);}}/>
-            <select style={Object.assign({},sel,{flex:"0 0 138px",fontSize:13})} value={h.start||""}
+            <select style={Object.assign({},sel,{flex:"0 0 138px",fontSize:13,padding:"14px 14px"})} value={h.start||""}
               onChange={function(e){var a=wiHires.slice();a[hi]=Object.assign({},a[hi],{start:e.target.value});setWiHires(a);}}>
               <option value="">From {wiMonthLabel(1)}</option>
               {Array.from({length:11},function(_,k){var m=k+2;return <option key={m} value={String(m)}>From {wiMonthLabel(m)}</option>;})}
@@ -859,7 +1068,7 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
           var locked=m<start;
           return (<div key={m+"-"+ver}>
               <label style={{fontSize:11,color:locked?"#E3E8F0":"#5A6C7E",marginBottom:2,display:"block",textAlign:"center"}}>{monthLabel(m)}</label>
-              <input style={Object.assign({},inp,{textAlign:"right",padding:"6px 8px",fontSize:13},locked?{background:"#FCFCFA",color:"#E3E8F0",cursor:"not-allowed"}:{})} defaultValue={locked?"":fdRef.current[key]||""} placeholder={locked?"-":"0"} readOnly={locked} onChange={locked?undefined:function(e){
+              <input style={Object.assign({},inp,{textAlign:"right",padding:"6px 8px",fontSize:13,lineHeight:"normal"},locked?{background:"#FCFCFA",color:"#E3E8F0",cursor:"not-allowed"}:{})} defaultValue={locked?"":fdRef.current[key]||""} placeholder={locked?"-":"0"} readOnly={locked} onChange={locked?undefined:function(e){
                 fdRef.current[key]=e.target.value;
                 var parts=Array.from({length:12},function(_,n){return n<start?"0":fdRef.current[mKey(n)]||"0";});
                 fdRef.current[storeKey]=parts.map(function(v,n){return "M"+(n+1)+":"+v;}).join(",");
@@ -900,13 +1109,14 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
 // remounts its whole subtree - which wiped the month grids' internal state.
 function FinSection(props){
   var open=!!props.open;
+  var title=props.plainTitle?String(props.title).replace(/^\d+\.\s*/,""):props.title;
   return (
     <div style={{border:"1px solid #E3E8F0",borderRadius:12,marginBottom:12,overflow:"hidden"}}>
       <button
         onClick={props.onToggle}
         style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 14px",background:open?"#FCFCFA":"#fff",border:"none",borderBottom:open?"1px solid #E3E8F0":"none",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
         <span style={{fontSize:13,color:"#5A6C7E",transform:open?"rotate(90deg)":"none",transition:"transform 0.15s",display:"inline-block"}}>▶</span>
-        <span style={{fontSize:15,fontWeight:700,color:"#01236D",flex:1}}>{props.title}</span>
+        <span style={{fontSize:15,fontWeight:700,color:"#01236D",flex:1}}>{title}</span>
         {props.hint&&<span style={{fontSize:11,color:props.hintColor||"#5A6C7E",fontWeight:props.hintColor?700:400}}>{props.hint}</span>}
       </button>
       {open&&<div style={{padding:"14px"}}>{props.children}</div>}
@@ -942,7 +1152,7 @@ export default function App(){
   });
   var step=stepState[0];var setStep=stepState[1];
   var tabState=useState("plan");var tab=tabState[0];var setTab=tabState[1];
-  var previewTabState=useState("details");var previewTab=previewTabState[0];var setPreviewTab=previewTabState[1];
+  var previewTabState=useState("inputs");var previewTab=previewTabState[0];var setPreviewTab=previewTabState[1];
   var cfStartState=useState(fdRef.current.cfStartDate||"");var cfStart=cfStartState[0];var setCfStart=cfStartState[1];
   // Held in state, not just in fdRef, because ticking it reveals a note about
   // how amounts should be entered - that needs a re-render to appear.
@@ -987,57 +1197,9 @@ export default function App(){
   // different value sits in the plan and goes into every AI prompt.
   var formVerState=useState(0);var formVer=formVerState[0];var setFormVer=formVerState[1];
 
-  // Opening questions for a brand new plan.
-  //
-  // Seven questions, and only seven. Each one is something the AI cannot work out
-  // for itself and the owner can answer from memory in seconds. Everything else
-  // in steps 2 and 3 - target customer, market size, competitors, advantage,
-  // SWOT, vision, position, values, goals - is derivable from these answers,
-  // which is why asking for any of it here would be asking twice.
-  //
-  // Deliberately left out: industry (inferable from the description), and every
-  // financial figure. Price, unit cost and opening balance are owner-only facts
-  // the AI genuinely cannot supply, but they need looking up, and someone three
-  // minutes into a free app has not yet decided they care. They stay in step 5,
-  // where people arrive expecting to need numbers.
-  var INTAKE_Q=[
-    {id:"bizName",kind:"text",q:"What is your business called?",
-     help:"However you write it on an invoice or a sign.",
-     ph:"e.g. Rolling Beans"},
-    {id:"industry",kind:"text",q:"What industry or sector is it in?",
-     help:"A couple of words. The AI reads this before almost anything else, and it is what keeps a suggestion about a cafe from reading like one about a software company.",
-     ph:"e.g. Hospitality, food and beverage"},
-    {id:"locations",kind:"text",q:"Where does it operate?",
-     help:"Town, region or country. It decides which competitors are real and keeps the plan to a sensible scale.",
-     ph:"e.g. Whangarei, Northland"},
-    {id:"stage",kind:"choice",q:"What stage is it at?",
-     help:"",
-     opts:["Great idea (thinking about going into business)","Early stage (business started and getting traction)","Established business (been in business awhile)"]},
-    {id:"bizType",kind:"choice",q:"How is the business set up?",
-     help:"",
-     opts:["Sole Trader","Company (Ltd)","Partnership","Trust","Other"]},
-    {id:"history",kind:"area",rows:3,q:"What made you start it? What gap did you spot?",
-     help:"Worth a moment. This is the one part of a plan nobody else can write for you, and it usually turns into the best paragraph in the finished document.",
-     ph:"e.g. I was at the growers market and realised hundreds of people walked past every weekend with nowhere to buy a decent coffee."},
-    // Last, and built differently from the rest.
-    //
-    // The position statement is read by seven separate AI prompts - target
-    // customer, SWOT, goals, per-goal execution and others - so leaving it
-    // blank weakens most of what the app generates. It is also the hardest
-    // field in the whole app, because it asks for a composed sentence rather
-    // than a fact, which is why it sits alone in Step 1 with no AI help.
-    //
-    // Four short blanks turn that composition back into recall. Nobody has to
-    // write the sentence; they fill in four phrases and watch it assemble.
-    {id:"position",kind:"position",q:"Last one. Finish this sentence about your business.",
-     help:"Four short phrases, a few words each and your position statement writes itself."}
-  ];
-
-  var INTAKE_LABEL={bizName:"Name",industry:"Industry",locations:"Where",
-    stage:"Stage",bizType:"Set up as",history:"Why you started",position:"Position statement"};
-
-  // The four blanks, defined once. They are offered in the intake and again
-  // in Step 1, and the placeholders have to teach the same thing in both.
+  // The four blanks that assemble the position statement. The hardest field
+  // in the app - it asks for a composed sentence, not a fact - so Step 1 asks
+  // for four short phrases instead and writes the sentence from them.
   var POS_ROWS=[
     {k:"posWho",lead:"For",ph:"shoppers at weekend markets"},
     {k:"posNeed",lead:"who",ph:"want a proper coffee without losing their spot"},
@@ -1109,6 +1271,125 @@ export default function App(){
     return true;
   }
 
+  // Drawings leave the bank without touching profit, which is the point of
+  // the row - but it means the tax does not move either, and the forecast
+  // carries no income tax line at all. Someone drawing more than the business
+  // earns needs telling that the tax bill is still calculated on the profit,
+  // and is not in these figures. What is true depends on how they are set up.
+  function drawingsTaxNote(){
+    var t=String((fdRef.current||{}).bizType||"");
+    var common=" Income tax is not included anywhere in this forecast, so allow for it separately.";
+    if(t==="Company (Ltd)"){
+      return "Money out of a company is either a shareholder salary - a business expense, so it belongs under Team in Money out - or drawings against your current account, which are not an expense and do not reduce the company\u2019s profit or its tax."+common;
+    }
+    if(t==="Trust"){
+      return "Distributions are not a business expense and do not reduce the profit the trust is taxed on."+common;
+    }
+    // Sole Trader, Partnership, Other, or not yet answered.
+    return "Drawings are not a business expense, so they do not reduce your profit or your tax. You are taxed on what the business earns, whatever you take out."+common;
+  }
+
+  var SELLS_OPTS=[{k:"products",l:"Products"},{k:"services",l:"Services"},{k:"both",l:"Both"}];
+  var TERM_OPTS=[
+    {k:"0",l:"In the month of the sale"},
+    {k:"1",l:"The month after"},
+    {k:"2",l:"Two months after"},
+    {k:"split",l:"Half then, half the month after"}
+  ];
+  // Defaults to "0", which is how the forecast has always behaved, so an
+  // existing plan that never answers these keeps exactly the figures it had.
+  function TermsRow(props){
+    return (<div style={{marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>{props.label}</div>
+      {props.help&&<span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>{props.help}</span>}
+      <select style={Object.assign({},sel,{maxWidth:340})} value={fdRef.current[props.k]||"0"}
+        onChange={function(e){fdRef.current[props.k]=e.target.value;saveToStorage();refreshLive();}}>
+        {TERM_OPTS.map(function(o){return <option key={o.k} value={o.k}>{o.l}</option>;})}
+      </select>
+    </div>);
+  }
+
+  // What this business actually sells, in its own word.
+  //
+  // The whole forecast is units x price, and "units" is the right word for a
+  // coffee cart and the wrong one for a consultant, a plumber or a clinic.
+  // Asking someone for their "average cost per unit" makes them translate
+  // before they can answer, and that translation is where a service business
+  // decides the tool is not for them.
+  //
+  // Only the labels change. Nothing here touches the arithmetic.
+  //
+  // Read off the industry, which is free text, so this matches keywords and
+  // falls back to units rather than guessing. bizType is no use - it is the
+  // legal structure, not the trade.
+  var UNIT_WORDS=[
+    {one:"job",      many:"jobs",      re:/plumb|electric|build|construct|carpent|roof|paint|landscap|garden|mechanic|repair|trade|contractor|install|clean|handy/},
+    {one:"client",   many:"clients",   re:/consult|advis|coach|account|bookkeep|legal|law|architect|financial|therap|counsel|salon|barber|physio|chiro|dent|vet|tutor/},
+    {one:"project",  many:"projects",  re:/design|photograph|video|film|writ|marketing|agency|develop|creative|architect|freelanc/},
+    {one:"booking",  many:"bookings",  re:/tour|travel|accommodat|hotel|motel|bnb|venue|event|hire|rental/},
+    {one:"subscriber",many:"subscribers",re:/saas|software|subscription|app\b|platform|membership/},
+    {one:"sale",     many:"sales",     re:/cafe|caf\u00e9|coffee|restaurant|food|beverage|hospitality|retail|shop|store|bar\b|bakery|grocer|market/}
+  ];
+  function unitWords(){
+    var f=fdRef.current||{};
+    var ind=String(f.industry||"").toLowerCase();
+    // Industry first, because "plumbing" is more specific than "services".
+    for(var i=0;i<UNIT_WORDS.length;i++){
+      if(UNIT_WORDS[i].re.test(ind))return UNIT_WORDS[i];
+    }
+    // Then the answer to what they sell, which beats guessing "units" at a
+    // consultant. Only reached when the industry text matched nothing.
+    if(f.sells==="services")return {one:"job",many:"jobs"};
+    if(f.sells==="both")return {one:"sale",many:"sales"};
+    return {one:"unit",many:"units"};
+  }
+  function cap(w){ return String(w||"").charAt(0).toUpperCase()+String(w||"").slice(1); }
+  function unitOne(){ return unitWords().one; }
+  function unitMany(){ return unitWords().many; }
+
+  // The sentence needs the "For" and the "is a" blanks: with either missing,
+  // assemblePosition returns "" by design, because half a statement reads
+  // worse than none. Nothing said so, so a half-filled set of blanks simply
+  // did nothing and looked broken. Returns the blanks still needed.
+  function positionBlanksNeeded(){
+    var f=fdRef.current;
+    function has(k){ return !!String(f[k]||"").trim(); }
+    if(assemblePosition())return [];
+    if(!has("posWho")&&!has("posNeed")&&!has("posWhat")&&!has("posBenefit"))return [];
+    var need=[];
+    if(!has("posWho"))need.push("For");
+    if(!has("posWhat"))need.push("is a");
+    return need;
+  }
+
+  // True when the blanks have a sentence to offer but writePosition is
+  // refusing to write it, because the statement box holds something that did
+  // not come from them.
+  //
+  // Two ways in. One is intended: you rewrote the sentence yourself, and
+  // filling another blank must not wipe your words. The other is not - any
+  // plan saved before posAuto existed has a position and no posAuto, so the
+  // two can never match and the blanks are dead on arrival. Both looked
+  // identical from the outside: you type in a blank and nothing happens, with
+  // nothing on screen to say why.
+  function positionHeldByUser(){
+    var f=fdRef.current;
+    if(!assemblePosition())return false;
+    return !!String(f.position||"").trim() && f.position!==f.posAuto;
+  }
+
+  // Hands control back to the blanks: overwrite the statement with what they
+  // currently assemble, and record it as theirs so they keep writing.
+  function releasePositionToBlanks(){
+    var built=assemblePosition();
+    if(!built)return;
+    var f=fdRef.current;
+    f.position=built;
+    f.posAuto=built;
+    saveToStorage();
+    bumpVoice("position");
+  }
+
   // Shown only for a genuinely empty plan. Someone who has typed anything, or
   // imported a backup, is not a new user and should never see this.
   // Any real content anywhere means this is not a new user.
@@ -1130,33 +1411,6 @@ export default function App(){
       if(String(v).trim())return false;
     }
     return true;
-  }
-  var showIntakeState=useState(function(){
-    try{ if(localStorage.getItem("bpd_intake_done")==="1")return false; }catch(e){ return false; }
-    return planLooksEmpty();
-  });
-  var showIntake=showIntakeState[0];var setShowIntake=showIntakeState[1];
-  var intakeIdxState=useState(0);var intakeIdx=intakeIdxState[0];var setIntakeIdx=intakeIdxState[1];
-  var intakeAnsState=useState({});var intakeAns=intakeAnsState[0];var setIntakeAns=intakeAnsState[1];
-
-  function closeIntake(){
-    try{ localStorage.setItem("bpd_intake_done","1"); }catch(e){}
-    // How many of the seven questions they answered before leaving. A low
-    // number here means the intake is the thing driving people away, not the
-    // form behind it.
-    track("intake_closed",{answered:INTAKE_Q.filter(function(q){
-      return String(fdRef.current[q.id==="position"?"posWho":q.id]||"").trim();
-    }).length,of:INTAKE_Q.length});
-    setShowIntake(false);
-    setFormVer(function(v){return v+1;});
-  }
-  // Answers are written to the plan as they are given, not held to the end, so
-  // a closed tab halfway through still leaves the person better off than when
-  // they arrived.
-  function setIntakeAnswer(id,val){
-    fdRef.current[id]=val;
-    saveToStorage();
-    setIntakeAns(function(a){var n=Object.assign({},a);n[id]=val;return n;});
   }
   // The first-visit welcome overlay and the first-time Finances overlay were
   // removed. Both were full-screen modals shown before the user had done
@@ -1220,9 +1474,136 @@ export default function App(){
   var bkTextState=useState("");var bkText=bkTextState[0];var setBkText=bkTextState[1];
   // Finances step: sections collapse so the tab is not one long scroll, and
   // rarely-used expense categories stay hidden until asked for.
-  var finOpenState=useState({start:true,sales:true,tax:false,other:true,tx:false,notes:false});
+  var finOpenState=useState({start:false,sales:true,tax:false,other:false,tx:false,notes:false});
   var finOpen=finOpenState[0];var setFinOpen=finOpenState[1];
   function toggleFin(id){setFinOpen(function(p){var n=Object.assign({},p);n[id]=!p[id];return n;});}
+  // Six of Starting position's twelve field groups only exist for a business
+  // that is already trading - what it is owed, what it owes, stock and gear on
+  // hand, and what the owner needs out of it. A startup answering them gets
+  // twelve questions where it needed six.
+  var finDetailState=useState(function(){
+    try{ return localStorage.getItem("bpd_fin_detail")==="1"; }catch(e){ return false; }
+  });
+  var finDetail=finDetailState[0];var setFinDetail=finDetailState[1];
+  function chooseFinDetail(v){
+    setFinDetail(v);
+    try{ localStorage.setItem("bpd_fin_detail",v?"1":""); }catch(e){}
+    // The extra questions sit in the middle of the flow, so landing back on
+    // the same numbered step after the flow changes length would move you
+    // somewhere you did not ask to be. Stay on the question you are looking at.
+    var here=finFlowFor(finDetail)[Math.min(finStep,finFlowFor(finDetail).length-1)];
+    var next=finFlowFor(v);
+    for(var i=0;i<next.length;i++){ if(here&&next[i].id===here.id){ setFinStep(i); return; } }
+    setFinStep(Math.min(finStep,next.length-1));
+  }
+  // Guided mode is one question at a time; "all" is the whole page, for
+  // somebody returning to change a single figure. The choice is remembered.
+  var finModeState=useState(function(){
+    try{ return localStorage.getItem("bpd_fin_mode")||"guided"; }catch(e){ return "guided"; }
+  });
+  var finMode=finModeState[0];var setFinMode=finModeState[1];
+  function chooseFinMode(m){
+    setFinMode(m);
+    try{ localStorage.setItem("bpd_fin_mode",m); }catch(e){}
+  }
+  var finStepState=useState(0);
+  var finStep=finStepState[0];var setFinStep=finStepState[1];
+
+  // Steps 1-4 get the same one-question-at-a-time treatment as Step 5, and
+  // the same switch governs all five: somebody who wants the whole form
+  // wants it everywhere, not step by step. The stored key is still
+  // bpd_fin_mode so nobody's existing choice is thrown away.
+  function guided(){ return finMode==="guided"; }
+
+  // Each step body is a flat list of rows, so a question here is just a group
+  // of those rows under one heading. The six fields at the top of Step 1 stay
+  // together: a business name on a screen of its own would feel slower, not
+  // easier.
+  var STEP_FLOW=[
+    [ {id:"basics",  l:"The basics",           hint:"name, where, how it is set up"},
+      {id:"contact", l:"Main contact and your team",hint:"who the people are"},
+      {id:"history", l:"Your story and the gap",hint:"how it began, and the problem it solves"},
+      {id:"position",l:"Position statement",   hint:"four short phrases"},
+      {id:"online",  l:"Online presence",      hint:"where people find you"},
+      {id:"ip",      l:"Legal and intellectual property",hint:""},
+      {id:"extra1",  l:"Anything else",        hint:"optional"} ],
+    [ {id:"current",    l:"Customers today",       hint:"if you have any yet"},
+      {id:"target",     l:"Your target customer",  hint:"who you are for"},
+      {id:"market",     l:"Market opportunity",    hint:"how big it is"},
+      {id:"competitors",l:"Your competitors",      hint:"who else does this"},
+      {id:"compsw",     l:"How they measure up",   hint:"their strengths and weaknesses"},
+      {id:"advantage",  l:"Your advantage",        hint:"why a customer picks you"},
+      {id:"extra3",     l:"Anything else",         hint:"optional"} ],
+    [ {id:"swot",    l:"SWOT",               hint:"strengths, weaknesses, opportunities, threats"},
+      {id:"vision",  l:"Vision",             hint:"where this is going"},
+      {id:"pos3",    l:"Position statement", hint:"from Step 1"},
+      {id:"values",  l:"Values",             hint:"what you stand for"},
+      {id:"goals",   l:"Goals",              hint:"the main steps to success"},
+      {id:"extra2",  l:"Anything else",      hint:"optional"} ],
+    [ {id:"g4",     l:"Your goals",      hint:"from Step 3"},
+      {id:"spend4", l:"What it will take",hint:"the spend behind each goal"},
+      {id:"extra4", l:"Anything else",   hint:"optional"} ]
+  ];
+  var qStepState=useState(0);
+  var qStep=qStepState[0];var setQStep=qStepState[1];
+
+  function stepFlow(i){ return STEP_FLOW[i]||[]; }
+  function swCount(){ return stepFlow(step).length; }
+  function swIdx(){ return Math.min(qStep,Math.max(0,swCount()-1)); }
+  function swNow(){ return stepFlow(step)[swIdx()]; }
+  function swNext(){ return stepFlow(step)[swIdx()+1]; }
+  // Guards every group in steps 1-4. Step 5 has its own fw().
+  function sw(id){ return !guided()||!swCount()||swNow().id===id; }
+
+  // One chain of Back and Next through the whole app: the last question of a
+  // step leads to the first of the next, and Back from the first question of
+  // a step returns to the LAST question of the one before, which is where
+  // they actually were.
+  function swGo(d){
+    var i=swIdx()+d;
+    if(i>=0&&i<swCount()){ setQStep(i); window.scrollTo(0,0); return; }
+    var n=step+d;
+    if(n<0||n>=stepDefs.length)return;
+    setStepAndSave(n);
+    setQStep(d>0?0:Math.max(0,stepFlow(n).length-1));
+  }
+  // Step 5 as one flat sequence of questions, not six sections of unequal
+  // size. Starting position held twelve field groups and Other transactions
+  // one, so the sections decided how much you met at once rather than what you
+  // needed to answer next. `core` marks the questions every business has;
+  // the rest exist only for one already trading and are skipped unless asked
+  // for. `sec` says which section wrapper to show it in, so the chrome still
+  // tells you where you are.
+  var FIN_FLOW=[
+    {id:"setup",     sec:"start", core:true,  l:"Currency and start date",  hint:"the basics"},
+    {id:"cash",      sec:"start", core:true,  l:"What you have and owe",    hint:"where you stand today"},
+    {id:"trading",   sec:"start", core:true,  l:"Already trading",          hint:"debtors, stock, what you need"},
+    {id:"taxreg",    sec:"start", core:true,  l:"Registered for GST?",      hint:""},
+    {id:"sells",     sec:"sales", core:true,  l:"What you sell",            hint:"products, services or both"},
+    {id:"volume",    sec:"sales", core:true,  l:"How much you sell",        hint:"and how fast it grows"},
+    {id:"price",     sec:"sales", core:true,  l:"What you charge",          hint:"your average price"},
+    {id:"cost",      sec:"sales", core:true,  l:"What it costs you",        hint:"the direct cost of a sale"},
+    {id:"terms",     sec:"sales", core:false, l:"When customers pay",       hint:"your terms"},
+    {id:"othrev",    sec:"sales", core:false, l:"Other income",             hint:"grants, interest, rent"},
+    {id:"spend",     sec:"other", core:true,  l:"What you spend",           hint:"your running costs"},
+    {id:"stockterms",sec:"other", core:false, l:"Stock and supplier terms", hint:"when you pay"},
+    {id:"tax",       sec:"tax",   core:true,  l:"Tax",                      hint:"rate, basis and months"},
+    {id:"tx",        sec:"tx",    core:false, l:"Loans and other movements",hint:"money in and out"},
+    {id:"notes",     sec:"notes", core:true,  l:"Anything else",            hint:"optional"}
+  ];
+  function finFlowFor(detail){
+    return FIN_FLOW.filter(function(q){ return q.core||detail; });
+  }
+  function finFlow(){ return finFlowFor(finDetail); }
+  function finCount(){ return finFlow().length; }
+  function finIdx(){ return Math.min(finStep,finCount()-1); }
+  function finNow(){ return finFlow()[finIdx()]; }
+  function finNext(){ var f=finFlow(); return f[finIdx()+1]; }
+  // One question at a time when guided; everything when not.
+  function fw(id){ return finMode!=="guided"||finNow().id===id; }
+  function finVisible(k){ return finMode!=="guided"||finNow().sec===k; }
+  function finIsOpen(k){ return finMode==="guided"?true:!!finOpen[k]; }
+  function finToggle(k){ if(finMode!=="guided")toggleFin(k); }
   // Voice input. recKey is the field currently listening; voiceVer forces a
   // textarea to re-read its value after dictation or a tidy-up.
   var recKeyState=useState("");var recKey=recKeyState[0];var setRecKey=recKeyState[1];
@@ -1308,8 +1689,13 @@ export default function App(){
   var adminMsgState=useState(function(){try{return localStorage.getItem("bpg_admin_msg")||"";}catch(e){return"";}});
   var adminMsg=adminMsgState[0];
 
-  var inp={width:"100%",fontFamily:"inherit",fontSize:16,color:"#29384A",background:"#fff",border:"1px solid #9AA8BC",borderRadius:10,padding:"14px 14px",outline:"none",boxSizing:"border-box"};
-  var ta=function(r){return Object.assign({},inp,{resize:"vertical",lineHeight:1.6,minHeight:r*26});};
+  // Every full-size field - input, select, one-line textarea - is this tall.
+  // They get there differently (an input from its line box, a select from
+  // its padding, a textarea from autoGrow), so the figure lives here and the
+  // three are tuned to it rather than each drifting on its own.
+  var FIELD_H=52;
+  var inp={width:"100%",fontFamily:"inherit",fontSize:16,color:"#29384A",background:"#fff",border:"1px solid #9AA8BC",borderRadius:10,padding:"12px 14px",outline:"none",boxSizing:"border-box",lineHeight:1.6};
+  var ta=function(r){return Object.assign({},inp,{resize:"vertical",lineHeight:1.6,minHeight:FIELD_H});};
   // Two-column field rows. flex-basis 260px means the pair sits side by side on
   // desktop and stacks automatically on narrow screens, with no media query.
   // minWidth:0 stops a nested flex child (the date selects) forcing an overflow.
@@ -1328,8 +1714,13 @@ export default function App(){
     if(!el||typeof el.scrollHeight!=="number")return;
     var prev=el.style.height;
     el.style.height="auto";
+    // scrollHeight leaves out the border; box-sizing:border-box counts it in
+    // style.height. Without this the box lands a border short and clips the
+    // last line. Measured from the element so it holds whatever the border is.
+    var border=el.offsetHeight-el.clientHeight;
     var h=el.scrollHeight;
     if(h>0){
+      h=Math.max(h+border,FIELD_H);
       var next=h+"px";
       if(next===prev){el.style.height=prev;return;}
       el.style.height=next;
@@ -1354,7 +1745,7 @@ export default function App(){
     if(typeof requestAnimationFrame==="function")requestAnimationFrame(function(){autoGrow(el);});
   },[]);
   var growOn=function(e){autoGrow(e.target);};
-  var sel=Object.assign({},inp,{cursor:"pointer"});
+  var sel=Object.assign({},inp,{cursor:"pointer",padding:"14px 14px"});
   var btnSm={fontFamily:"inherit",fontSize:13,padding:"6px 12px",borderRadius:6,border:"1px solid #E3E8F0",background:"#fff",cursor:"pointer",color:"#29384A"};
   var suggestBtn={fontFamily:"inherit",fontSize:13,padding:"8px 16px",borderRadius:6,border:"none",background:"#1B4FA8",cursor:"pointer",color:"#fff",fontWeight:500,flexShrink:0};
   // Busy state. The old version only swapped the label to "Suggesting..." on the
@@ -1589,6 +1980,9 @@ export default function App(){
   // own device, and shipping their content to Google would make that untrue.
   // Every call is wrapped: an ad-blocker removing gtag must never break the app.
   var STEP_NAMES=["details","market","strategy","how","finances"];
+  // STEP_NAMES goes to analytics; these are what the tracker and the Back and
+  // Next buttons show, so the words on the buttons match the dots above them.
+  var STEP_LABELS=["Details","Market","Strategy","How","Finances"];
   function track(name,params){
     try{
       if(typeof gtag!=="function")return;
@@ -1598,6 +1992,7 @@ export default function App(){
 
   function setStepAndSave(n){
     setStep(n);
+    setQStep(0);
     try{localStorage.setItem("bpg_step",String(n));}catch(e){}
     // The single most useful event in the app: how far down the five steps
     // people actually get before they stop.
@@ -1622,7 +2017,7 @@ export default function App(){
 
   function RT(id,ph,rows,label){
     return (<div>
-      <textarea ref={growRef} onInput={growOn} key={id+"-"+(voiceVer[id]||0)} aria-label={fieldLabel(id,label)} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>
+      <textarea rows={1} ref={growRef} onInput={growOn} key={id+"-"+(voiceVer[id]||0)} aria-label={fieldLabel(id,label)} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={ta(rows||2)} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>
       {VoiceTools(id)}
     </div>);
   }
@@ -1719,7 +2114,7 @@ export default function App(){
     (function(){var was=goals.slice();stashAI("goals",function(){setGoalsAndSave(was);});})();
     try{
       var prompt="Based on this business SWOT analysis, suggest 5 specific, measurable goals that maximise strengths and opportunities and address weaknesses and threats (one per line, no numbering or bullets, 10-20 words each):\n"+
-        "Business: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\n"+
+        "Business: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nProblem solved / gap in the market: "+(fdRef.current.problem||"not specified")+"\n"+
         "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
         "Strengths: "+(fdRef.current.swotS||"")+"\n"+
         "Weaknesses: "+(fdRef.current.swotW||"")+"\n"+
@@ -1739,7 +2134,7 @@ export default function App(){
     setGoalLoading(true);
     (function(){var was={S:fdRef.current.swotS||"",W:fdRef.current.swotW||"",O:fdRef.current.swotO||"",T:fdRef.current.swotT||""};stashAI("swot",function(){fdRef.current.swotS=was.S;fdRef.current.swotW=was.W;fdRef.current.swotO=was.O;fdRef.current.swotT=was.T;saveToStorage();setSwotVersion(function(v){return v+1;});});})();
     setSwotVersion(function(v){return v+1;});
-    var prompt="Write a SWOT analysis for this business. Return ONLY the four sections in this exact format:\nStrengths: [3-4 points, comma separated]\nWeaknesses: [3-4 points, comma separated]\nOpportunities: [3-4 points, comma separated]\nThreats: [3-4 points, comma separated]\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nStage: "+(fdRef.current.stage||"")+"\nTeam: "+(fdRef.current.team||"")+"\nCompetitors: "+(fdRef.current.competitors||"")+"\nTarget market: "+(fdRef.current.targetCust||"")+"\nPosition statement: "+(fdRef.current.position||"not specified");
+    var prompt="Write a SWOT analysis for this business. Return ONLY the four sections in this exact format:\nStrengths: [3-4 points, comma separated]\nWeaknesses: [3-4 points, comma separated]\nOpportunities: [3-4 points, comma separated]\nThreats: [3-4 points, comma separated]\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nProblem solved / gap in the market: "+(fdRef.current.problem||"not specified")+"\nIndustry: "+(fdRef.current.industry||"")+"\nStage: "+(fdRef.current.stage||"")+"\nTeam: "+(fdRef.current.team||"")+"\nCompetitors: "+(fdRef.current.competitors||"")+"\nTarget market: "+(fdRef.current.targetCust||"")+"\nPosition statement: "+(fdRef.current.position||"not specified");
     prompt+=revisionNote(mode,["Strengths: "+(fdRef.current.swotS||""),"Weaknesses: "+(fdRef.current.swotW||""),"Opportunities: "+(fdRef.current.swotO||""),"Threats: "+(fdRef.current.swotT||"")].join("\n"),note);
     try{
       var data=await aiFetch({max_tokens:500,messages:[{role:"user",content:prompt}]});
@@ -2008,6 +2403,8 @@ export default function App(){
       "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
       "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
       "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "The problem it solves / gap in the market: "+(fdRef.current.problem||"not specified")+"\n"+
+      "Sells: "+(fdRef.current.sells||"not specified")+"\n"+
       "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
       "Stage: "+(fdRef.current.stage||"not specified")+"\n"+
       "Current customers: "+(fdRef.current.currentCust||"none stated")+"\n\n"+
@@ -2044,6 +2441,8 @@ export default function App(){
       "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
       "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
       "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "The problem it solves / gap in the market: "+(fdRef.current.problem||"not specified")+"\n"+
+      "Sells: "+(fdRef.current.sells||"not specified")+"\n"+
       "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
       "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n"+
       "Stage: "+(fdRef.current.stage||"not specified")+"\n"+
@@ -2073,6 +2472,8 @@ export default function App(){
       "Business: "+(fdRef.current.bizName||"this business")+"\n"+
       "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
       "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "The problem it solves / gap in the market: "+(fdRef.current.problem||"not specified")+"\n"+
+      "Sells: "+(fdRef.current.sells||"not specified")+"\n"+
       "Why the owner started it: "+(fdRef.current.history||"not specified")+"\n"+
       "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
       "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n"+
@@ -2098,11 +2499,13 @@ export default function App(){
     setAdvLoading(true);
     (function(){var was=fdRef.current.advantage||"";stashAI("adv",function(){fdRef.current.advantage=was;saveToStorage();setAdvVersion(function(v){return v+1;});});})();
     setAdvVersion(function(v){return v+1;});
-    var prompt="State the competitive advantage or unique selling point of this business, in 2-4 sentences of plain prose.\n\n"+
+    var prompt="State the competitive advantage or unique selling point of this business compared to its competitors, in 2-4 sentences of plain prose.\n\n"+
       "Business: "+(fdRef.current.bizName||"this business")+"\n"+
       "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
       "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
       "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "The problem it solves / gap in the market: "+(fdRef.current.problem||"not specified")+"\n"+
+      "Sells: "+(fdRef.current.sells||"not specified")+"\n"+
       "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
       "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n"+
       "Competitors: "+(fdRef.current.competitors||"not specified")+"\n"+
@@ -2139,6 +2542,8 @@ export default function App(){
       "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
       "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
       "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "The problem it solves / gap in the market: "+(fdRef.current.problem||"not specified")+"\n"+
+      "Sells: "+(fdRef.current.sells||"not specified")+"\n"+
       "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
       "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n\n"+
       "Write one short paragraph per competitor, in this shape:\n"+
@@ -2180,7 +2585,7 @@ export default function App(){
   async function suggestGoalCard(i,mode,note){
     setGoalCardLoading(function(prev){var n=Object.assign({},prev);n[i]=true;return n;});
     (function(){var wasH=fdRef.current["goalHow"+(i+1)]||"",wasR=fdRef.current["goalRes"+(i+1)]||"";stashAI("gc"+i,function(){fdRef.current["goalHow"+(i+1)]=wasH;fdRef.current["goalRes"+(i+1)]=wasR;saveToStorage();setGoalCardVer(function(prev){var n=Object.assign({},prev);n[i]=(n[i]||0)+1;return n;});});})();
-    var prompt="For this specific business goal, suggest:\n1. How to achieve it (2-3 concrete action steps, 1-2 sentences)\n2. Resources needed (people, tools, budget - 1-2 sentences)\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nIndustry: "+(fdRef.current.industry||"")+"\nPosition statement: "+(fdRef.current.position||"not specified")+"\nGoal: "+(goals[i]||"")+"\n\nReturn in this exact format:\nHow: [your suggestion]\nResources: [your suggestion]";
+    var prompt="For this specific business goal, suggest:\n1. How to achieve it (2-3 concrete action steps, 1-2 sentences)\n2. Resources needed (people, tools, budget - 1-2 sentences)\n\nBusiness: "+(fdRef.current.bizName||"")+" - "+(fdRef.current.description||fdRef.current.history||"")+"\nProblem solved / gap in the market: "+(fdRef.current.problem||"not specified")+"\nIndustry: "+(fdRef.current.industry||"")+"\nPosition statement: "+(fdRef.current.position||"not specified")+"\nGoal: "+(goals[i]||"")+"\n\nReturn in this exact format:\nHow: [your suggestion]\nResources: [your suggestion]";
     prompt+=revisionNote(mode,["How: "+(fdRef.current["goalHow"+(i+1)]||""),"Resources: "+(fdRef.current["goalRes"+(i+1)]||"")].join("\n"),note);
     try{
       var data=await aiFetch({max_tokens:300,messages:[{role:"user",content:prompt}]});
@@ -2925,6 +3330,7 @@ export default function App(){
       "STEP 1 - BUSINESS DETAILS: Business: "+(f.bizName||"")+" | Industry: "+(f.industry||"")+" | Type: "+(f.bizType||"")+" | Stage: "+(f.stage||"")+
       " | Establishment date: "+establishmentDate+
       " | Description: "+(f.description||f.history||"")+" | History: "+(f.history||"")+
+      " | Problem solved / gap in the market: "+(f.problem||"")+
       " | Locations: "+(f.locations||"")+" | Team: "+(f.team||"")+
       " | Online: "+onlineText+" | Contact: "+contactText+" | Legal: "+legalText+
       " | IP: "+(f.ip||"")+
@@ -2944,6 +3350,7 @@ export default function App(){
       " - never refer to a goal number higher than this, and never name a goal that is not listed below.\n"+
       "PER-GOAL EXECUTION DETAIL (how each goal will be achieved and what it needs):\n"+goalsPlanText+
       "\n\nSTEP 5 - FINANCIAL POSITION: "+finText+
+      " | Notes: "+(f.extra5||"")+
       "\n\nDATE TERMINOLOGY - follow exactly:\n"+
       "- Refer to the Step 1 date only as the \"establishment date\" (the month the business was established).\n"+
       "- Refer to the Step 5 date only as the \"plan date\" (the month the 12-month forecast begins).\n"+
@@ -2962,16 +3369,32 @@ export default function App(){
       "- Write only the sections asked for. Do not add a preamble, a closing summary, or any other section.\n";
 
     var promptA=ctx+
-      "\nWrite ONLY these two sections, in this order:\n"+
-      "## 1. Business Details\n## 2. Market & Customers\n\n"+
-      "SECTION 1 - Business Details: flowing prose paragraphs, no bullet points, no subheadings. Cover what the business does, its stage and establishment date, where it operates, who runs it, and its origin.\n\n"+
-      "SECTION 2 REQUIREMENTS - Market & Customers (prose paragraphs, no bullet points, no subheadings):\n"+
-      "- Describe the realistic, addressable market this business can actually reach given its size, stage, locations and resources. Do not quote large total-industry figures as if they were reachable.\n"+
-      "- If the market opportunity supplied above is broad or nationwide, narrow it to the segment this business can realistically serve, and say why.\n"+
-      "- For competitors, cover their strengths AND their weaknesses. Give the strengths genuine weight - do not dismiss competitors or list only their shortcomings.\n"+
-      "- Then explain where this business can realistically compete against those strengths.\n"+
+      "\nWrite ONLY this section:\n"+
+      "## 1. Business Details\n\n"+
+      "Sections 2, 3, 4 and 5 are being written separately - do not cover the market, customers, competitors, vision, goals or financial position here.\n\n"+
+      "SECTION 1 - Business Details: flowing prose paragraphs, no bullet points, no subheadings. Cover what the business does, its stage and establishment date, where it operates, who runs it, and its origin.\n"+
+      "- Also work in, where they have been supplied: how the business is set up and its legal status, any intellectual property it owns, and where it can be found online. Weave them into the prose; do not list them.\n"+
+      "- If the owner has left notes under Step 1, treat them as part of the brief and reflect what they say.\n"+
+      "- Where the owner has stated the problem being solved or the gap in the market, open the section with it, in their terms, before describing what the business does. If they have not stated one, do not invent one.\n\n"+
       SHARED_FORMAT+
-      "- LENGTH: 430-500 words for these two sections combined. Write in full, substantive paragraphs - this is a document a bank or investor may read.";
+      "- LENGTH: 480-620 words. Write in full, substantive paragraphs - this is a document a bank or investor may read.";
+
+    // Section 2 on its own. Three subsections written properly needs more
+    // words than half a shared budget allowed, and its own request keeps
+    // the reply inside the 26-second function cap.
+    var promptA2=ctx+
+      "\nWrite ONLY this section:\n"+
+      "## 2. Market & Customers\n\n"+
+      "Sections 1, 3, 4 and 5 are being written separately - do not describe the business itself, its vision, its goals or its financial position here.\n\n"+
+      "SECTION 2 REQUIREMENTS - Market & Customers. Three labelled blocks, using these exact ### subheadings in this order:\n"+
+      "### Customers\n### Market Opportunity\n### Competitors\n"+
+      "Prose paragraphs under each - no bullet points, and no further subheadings below these three.\n"+
+      "- CUSTOMERS: describe the target customer in specific terms - who they are, what they need, and why this business suits them. This is the heart of the section and must not be skipped. Where the business already has customers, say who they are and what that proves about demand.\n"+
+      "- MARKET OPPORTUNITY: describe the realistic, addressable market this business can actually reach given its size, stage, locations and resources. Do not quote large total-industry figures as if they were reachable. If the market opportunity supplied above is broad or nationwide, narrow it to the segment this business can realistically serve, and say why.\n"+
+      "- COMPETITORS: cover their strengths AND their weaknesses. Give the strengths genuine weight - do not dismiss competitors or list only their shortcomings. Then explain where this business can realistically compete against those strengths, using the competitive advantage the owner has stated. If they have stated one, name it plainly rather than implying it.\n"+
+      "- If the owner has left notes under Step 2, treat them as part of the brief and reflect what they say, under whichever of the three they belong to.\n"+
+      SHARED_FORMAT+
+      "- LENGTH: 700-900 words across the three subsections, weighted towards Customers. Write in full, substantive paragraphs - this is a document a bank or investor may read.";
 
     var promptB=ctx+
       "\nWrite ONLY this section:\n"+
@@ -2984,7 +3407,7 @@ export default function App(){
       "- For Values, present them as a short list of lines starting with - so each value is visible on its own line.\n"+
       "- Do NOT include goals in this section.\n"+
       SHARED_FORMAT+
-      "- LENGTH: 120-160 words.";
+      "- LENGTH: 260-340 words across the three blocks.";
 
     // Its own call. Four goals fitted alongside section 3; eight would not, and
     // a single longer request runs past the 26s function limit and returns a
@@ -3003,7 +3426,7 @@ export default function App(){
       "- After all the goals, finish with a paragraph headed ### Team & Resources covering the team as it stands, any planned hires, marketing support, and the estimated extra sales units and extra expenses from the goals.\n"+
       "- If the estimated extra expenses from goals is $0 but individual goals describe costs, do NOT say there are no additional expenses. Say those costs have not yet been estimated into the forecast.\n"+
       SHARED_FORMAT+
-      "- LENGTH: 70-95 words for each of the "+goals.filter(Boolean).length+
+      "- LENGTH: 120-160 words for each of the "+goals.filter(Boolean).length+
       " goals, then about 70 words for Team & Resources.";
 
     var promptC=ctx+
@@ -3030,7 +3453,7 @@ export default function App(){
       "- If Other transactions are listed above, describe each one in the direction given (cash in or cash out). Do not describe money coming into the business as an outflow, or money leaving it as an inflow.\n"+
       "- Do not refer to goals by number and do not invent a goal. Sections 3 and 4 are written separately; only the goals listed above exist.\n"+
       SHARED_FORMAT+
-      "- LENGTH: 280-340 words for this section.";
+      "- LENGTH: 600-750 words for this section.";
 
     try{
       // Three smaller requests sent together. Each is well inside Netlify's 26s
@@ -3075,7 +3498,13 @@ export default function App(){
           return t;
         });
       }
-      var parts=await Promise.all([trackPart(promptA),trackPart(promptB,500),trackPart(promptBGoals,1400),trackPart(promptC)]);
+      var parts=await Promise.all([
+        trackPart(promptA,1100),      // 1. Business Details
+        trackPart(promptA2,1600),     // 2. Market & Customers, three subsections
+        trackPart(promptB,700),       // 3. Vision & Position
+        trackPart(promptBGoals,2200), // the goals
+        trackPart(promptC,1400)       // the financial section
+      ]);
       var text=parts.map(function(p){return p.trim();}).join("\n\n");
 
       var today=new Date();
@@ -3183,7 +3612,7 @@ export default function App(){
       localStorage.removeItem("bpd_access_token");
       localStorage.removeItem("bpd_seen_welcome");
       localStorage.removeItem("bpd_seen_finances");
-      localStorage.removeItem("bpd_intake_done");
+      localStorage.removeItem("bpd_intake_done");   // set by earlier builds
       localStorage.removeItem("bpg_admin_msg");
       localStorage.removeItem("bpg_ggc");
     }catch(e){}
@@ -3879,10 +4308,18 @@ export default function App(){
       (h.goalExp>0&&!h.goalExpApplied?("The goals carry about "+m(h.goalExp)+" of costs that are NOT included in the expenses above.\n"):"")+
       "\nWrite a short review for the owner.\n\n"+
       "Rules:\n"+
+      ((fdRef.current.needCapital||fdRef.current.needIncome)?(
+        "\nWHAT THE OWNER SAYS THEY NEED (their words, which may be a year or a month - read it as written):\n"+
+        (fdRef.current.needCapital?("To start or grow the business: "+fdRef.current.needCapital+"\n"):"")+
+        (fdRef.current.needIncome?("To earn from the business: "+fdRef.current.needIncome+"\n"):"")+
+        "- Say plainly whether these figures deliver that. Compare like with like: drawings are not an expense, so net profit is what is available to pay the owner, before tax. If it falls short, say by how much.\n"
+      ):"")+
       "- Open with one sentence saying what the forecast shows overall. Do not flatter.\n"+
       "- Then give between three and five concerns, most serious first, as a numbered list. Each one: what the issue is, the figure that shows it, and what to do about it. Two to three sentences each.\n"+
       "- Quote the figures above exactly. Never estimate, never invent a benchmark, never cite a statistic or a source.\n"+
       "- Raise only what these figures support. If the forecast is genuinely sound, say so and give fewer concerns rather than padding the list.\n"+
+      "- This forecast contains no income tax. If the business makes a profit, say that tax on it is still to come and is not in these figures.\n"+
+      "- If drawings are larger than the net profit, say so plainly: the difference is being funded from capital or borrowing, and the tax is still calculated on the profit, not on what was drawn.\n"+
       "- Things worth checking if the figures show them: an owner paying themselves nothing; tax sitting in the bank that is owed; a thin or first-month cash buffer; growth assumed with no marketing behind it; costs the goals will bring that are not in the forecast; a margin that leaves no room for error; revenue depending on one customer or one location.\n"+
       "- Plain English. No jargon, no headings, no preamble, no closing pep talk. Under 320 words in total.";
     try{
@@ -3929,6 +4366,7 @@ export default function App(){
     var prompt="You are helping a small business owner make a first estimate of the four figures that drive a 12-month cashflow forecast.\n\n"+
       "Business: "+(f.bizName||"this business")+"\n"+
       "What it does: "+(f.description||f.history||"not specified")+"\n"+
+      "The problem it solves / gap in the market: "+(f.problem||"not specified")+"\n"+
       "Industry: "+(f.industry||"not specified")+"\n"+
       "Location: "+(f.locations||"New Zealand")+"\n"+
       "Stage: "+(f.stage||"not specified")+"\n"+
@@ -4024,6 +4462,8 @@ export default function App(){
       "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
       "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
       "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "The problem it solves / gap in the market: "+(fdRef.current.problem||"not specified")+"\n"+
+      "Sells: "+(fdRef.current.sells||"not specified")+"\n"+
       "Stage: "+(fdRef.current.stage||"not specified")+"\n"+
       "Team as it stands: "+(fdRef.current.team||fdRef.current.execTeam||"not specified")+"\n"+
       "Planned new hires: "+(fdRef.current.execTeamNew||"none stated")+"\n"+
@@ -4235,7 +4675,7 @@ export default function App(){
                   onChange={function(e){var rs=teamRows(cat);rs[ri]={name:e.target.value,amt:rs[ri].amt,start:rs[ri].start};setRows(rs);}}/>
                 <input style={Object.assign({},inp,{flex:"0 0 120px",textAlign:"right",fontSize:13})} placeholder="Annual $" defaultValue={row.amt}
                   onChange={function(e){var rs=teamRows(cat);rs[ri]={name:rs[ri].name,amt:e.target.value.replace(/[^0-9.-]/g,""),start:rs[ri].start};setRows(rs);}}/>
-                <select style={Object.assign({},sel,{flex:"0 0 152px",fontSize:13})} value={row.start||""}
+                <select style={Object.assign({},sel,{flex:"0 0 152px",fontSize:13,padding:"14px 14px"})} value={row.start||""}
                   onChange={function(e){var rs=teamRows(cat);rs[ri]={name:rs[ri].name,amt:rs[ri].amt,start:e.target.value};setRows(rs,true);}}>
                   <option value="">Starts {monthNameFor(1)}</option>
                   {Array.from({length:11},function(_,k){var m=k+2;return <option key={m} value={String(m)}>Starts {monthNameFor(m)}</option>;})}
@@ -4321,6 +4761,8 @@ export default function App(){
       "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
       "Location(s): "+bizLocation()+"\n"+
       "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "The problem it solves / gap in the market: "+(fdRef.current.problem||"not specified")+"\n"+
+      "Sells: "+(fdRef.current.sells||"not specified")+"\n"+
       "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n"+
       "Position statement: "+(fdRef.current.position||"not specified")+"\n"+
       "Competitors: "+(fdRef.current.competitors||"not specified")+"\n"+
@@ -4373,6 +4815,8 @@ export default function App(){
       "Industry: "+(fdRef.current.industry||"not specified")+"\n"+
       "Location(s): "+(fdRef.current.locations||"New Zealand")+"\n"+
       "What the business does: "+(fdRef.current.description||fdRef.current.history||"not specified")+"\n"+
+      "The problem it solves / gap in the market: "+(fdRef.current.problem||"not specified")+"\n"+
+      "Sells: "+(fdRef.current.sells||"not specified")+"\n"+
       "Target customer: "+(fdRef.current.targetCust||"not specified")+"\n"+
       "Stage: "+(fdRef.current.stage||"not specified")+"\n"+
       "Average sale price per unit, if entered: "+(fdRef.current.avgPrice||"not entered")+"\n\n"+
@@ -4823,156 +5267,44 @@ export default function App(){
     var np=liveRows.reduce(function(s,r){return s+(r.netProfit||0);},0);
     var neg=lowV<0;
     return (
-      <div style={{position:"sticky",top:0,zIndex:5,background:neg?"#FDEEEB":"#EAF0F9",border:"1px solid "+(neg?"#F2CFC7":"#E3E8F0"),borderRadius:12,padding:"10px 14px",marginBottom:14,display:"flex",gap:18,flexWrap:"wrap",alignItems:"center"}}>
+      <div style={{background:neg?"#FDEEEB":"#EAF0F9",border:"1px solid "+(neg?"#F2CFC7":"#E3E8F0"),borderRadius:12,padding:"10px 18px",display:"flex",gap:18,flexWrap:"wrap",alignItems:"center",justifyContent:"space-between"}}>
         <div><div style={{fontSize:11,color:"#5A6C7E",textTransform:"uppercase",letterSpacing:"0.05em"}}>12-month revenue</div><div style={{fontSize:18,fontWeight:700,color:"#01236D"}} className="bpd-num bpd-pop">{fmt(rev)}</div></div>
         <div><div style={{fontSize:11,color:"#5A6C7E",textTransform:"uppercase",letterSpacing:"0.05em"}}>Net profit / (loss)</div><div style={{fontSize:18,fontWeight:700,color:np<0?"#B14A38":"#1F7A7C"}} className="bpd-num bpd-pop">{fmt(np)}</div></div>
         <div><div style={{fontSize:11,color:"#5A6C7E",textTransform:"uppercase",letterSpacing:"0.05em"}}>Closing balance</div><div style={{fontSize:15,fontWeight:700,color:closing<0?"#B14A38":"#1F7A7C"}}>{fmt(closing)}</div></div>
         <div><div style={{fontSize:11,color:"#5A6C7E",textTransform:"uppercase",letterSpacing:"0.05em"}}>Lowest month</div><div style={{fontSize:18,fontWeight:700,color:neg?"#B14A38":"#1F7A7C"}} className="bpd-num bpd-pop">{fmt(lowV)} <span style={{fontSize:11,fontWeight:500,color:"#5A6C7E"}}>{low.month}</span></div></div>
+        {/* The shape, not just the totals. The strip already said where the
+            year ends and where it dips; this says which months get you there,
+            so the forecast can be watched building while the figures are
+            typed instead of only on the Cashflow tab. Hand-drawn SVG rather
+            than a chart component - it redraws on every keystroke. */}
+        <div style={{flex:"0 0 auto"}}>
+          <div style={{fontSize:11,color:"#5A6C7E",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:3}}>Cash by month</div>
+          {(function(){
+            var W=132,H=34,gap=2,n=liveRows.length;
+            var vals=liveRows.map(function(r){return r.closingBalance||0;});
+            var maxV=Math.max.apply(null,[0].concat(vals));
+            var minV=Math.min.apply(null,[0].concat(vals));
+            var range=(maxV-minV)||1;
+            var zeroY=H*(maxV/range);
+            var bw=(W-gap*(n-1))/n;
+            return (<svg width={W} height={H} style={{display:"block"}} role="img"
+              aria-label={"Closing bank balance by month, "+liveRows[0].month+" to "+liveRows[n-1].month}>
+              {minV<0&&<line x1="0" y1={zeroY} x2={W} y2={zeroY} stroke="#E3C4BD" strokeWidth="1"/>}
+              {vals.map(function(v,i){
+                var y=v>=0?H*((maxV-v)/range):zeroY;
+                var hh=Math.max(1,H*(Math.abs(v)/range));
+                return <rect key={i} x={i*(bw+gap)} y={y} width={bw} height={hh} rx="1"
+                  fill={v<0?"#B14A38":(low&&liveRows[i]===low&&neg?"#B14A38":"#1F7A7C")}/>;
+              })}
+            </svg>);
+          })()}
+        </div>
         {neg&&<div style={{fontSize:11,color:"#B14A38",flex:"1 1 200px",lineHeight:1.45}}>Cash goes negative in {low.month}. You may need funding, or to reduce costs, before then.</div>}
         {taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)&&(
           <div style={{fontSize:11,color:"#B14A38",fontWeight:700,flex:"1 1 200px",lineHeight:1.45}}>
-            No {taxLabel()} rate entered in section 3, so none is included. These figures overstate your cash.
+            No {taxLabel()} rate entered under Tax, so none is included. These figures overstate your cash.
           </div>
         )}
-      </div>
-    );
-  }
-
-  // These were a standing panel above the plan. They are now two buttons in the
-  // banner; the explanation each one used to carry is on hover and on keyboard
-  // focus, so the banner stays quiet until somebody asks.
-  function Intake(){
-    var dlgRef=useDialog(showIntake,null);   // no Escape close: skipping is explicit
-    if(!showIntake)return null;
-    var total=INTAKE_Q.length;
-    var done=intakeIdx>=total;               // the summary screen
-    var q=done?null:INTAKE_Q[intakeIdx];
-    var val=q?(intakeAns[q.id]!==undefined?intakeAns[q.id]:(fdRef.current[q.id]||"")):"";
-
-    var wrap={position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(1,35,109,0.55)",
-      display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:10000,overflowY:"auto"};
-    var card={background:"#fff",borderRadius:12,maxWidth:620,width:"100%",padding:"26px 28px 24px",
-      boxShadow:"0 12px 44px rgba(0,0,0,0.28)",margin:"auto"};
-    var input={width:"100%",boxSizing:"border-box",fontFamily:"inherit",fontSize:15,padding:"11px 12px",
-      border:"1px solid #D5DFEC",borderRadius:6,color:"#29384A",outline:"none"};
-    var primary={fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 22px",borderRadius:6,
-      border:"none",background:"#01236D",color:"#fff",cursor:"pointer"};
-    var quiet={fontFamily:"inherit",fontSize:13.5,color:"#5A6C7E",background:"none",border:"none",
-      cursor:"pointer",textDecoration:"underline",padding:0};
-    var second={fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 22px",borderRadius:6,
-      border:"1px solid #01236D",background:"#fff",color:"#01236D",cursor:"pointer"};
-
-    function go(n){ setIntakeIdx(Math.max(0,Math.min(total,n))); }
-    // Two ways out, because the right one depends on who is standing there.
-    // The intake answers land in Step 1, and the rest of that form - date
-    // established, contact, team, online presence, legal obligations, IP - is
-    // never asked anywhere else, so somebody who means to finish a plan
-    // should go there. Somebody still deciding whether this is worth their
-    // afternoon should be allowed to go and see the AI work first; Step 1 is
-    // two clicks away and its fields keep.
-    function finish(step){ closeIntake(); setStepAndSave(step); try{window.scrollTo(0,0);}catch(e){} }
-
-    if(done){
-      var filled=INTAKE_Q.filter(function(x){return String(fdRef.current[x.id]||"").trim();});
-      return (
-        <div style={wrap} role="dialog" aria-modal="true" aria-label="Getting started">
-          <div style={card} ref={dlgRef}>
-            <div style={{fontSize:20,fontWeight:800,color:"#01236D",marginBottom:8}}>That's the hard part done</div>
-            <div style={{fontSize:14.5,color:"#29384A",lineHeight:1.6,marginBottom:16}}>
-              {filled.length} {filled.length===1?"answer has":"answers have"} gone into Step 1, and you can change any of them there.
-              A few details are still to add &mdash; the rest of Step 1 takes a minute, and the more it has, the better
-              every suggestion reads. Or go straight to Market &amp; Customers and try the two free AI suggestions first.
-              Step 1 will be waiting.
-            </div>
-            <ul style={{listStyle:"none",margin:"0 0 20px",padding:0,borderTop:"1px solid #E3E8F0"}}>
-              {filled.map(function(x){
-                var v=String(fdRef.current[x.id]||"");
-                return (<li key={x.id} style={{padding:"9px 0",borderBottom:"1px solid #E3E8F0",fontSize:13.5,color:"#29384A",lineHeight:1.5}}>
-                  <span style={{color:"#5A6C7E"}}>{INTAKE_LABEL[x.id]||x.id}: </span>
-                  {v.length>150?v.slice(0,150)+"…":v}
-                </li>);
-              })}
-            </ul>
-            <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
-              <button style={primary} onClick={function(){finish(0);}}>Finish my details &rarr;</button>
-              <button style={second} onClick={function(){finish(1);}}>See my free AI suggestions &rarr;</button>
-              <button style={quiet} onClick={function(){go(total-1);}}>Back</button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div style={wrap} role="dialog" aria-modal="true" aria-label="Getting started">
-        <div style={card} ref={dlgRef}>
-          <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.09em",textTransform:"uppercase",color:"#5A6C7E",marginBottom:12}}>
-            A few questions first &middot; {intakeIdx+1} of {total}
-          </div>
-          <div style={{height:4,background:"#E3E8F0",borderRadius:99,marginBottom:20}}>
-            <div style={{height:4,width:((intakeIdx+1)/total*100)+"%",background:"#D0B16F",borderRadius:99,transition:"width .2s"}}/>
-          </div>
-          <div style={{fontSize:19,fontWeight:800,color:"#01236D",marginBottom:q.help?6:16,lineHeight:1.35}}>{q.q}</div>
-          {q.help?<div style={{fontSize:13.5,color:"#5A6C7E",lineHeight:1.55,marginBottom:16}}>{q.help}</div>:null}
-
-          {q.kind==="position"
-            ? (function(){
-                var rows=POS_ROWS;
-                var preview=assemblePosition();
-                return (<div style={{marginBottom:20}}>
-                  {rows.map(function(r){
-                    return (<div key={r.k} style={{display:"flex",alignItems:"center",gap:10,marginBottom:9,flexWrap:"wrap"}}>
-                      <span style={{fontSize:14,color:"#5A6C7E",minWidth:76,flexShrink:0,textAlign:"right"}}>{r.lead}</span>
-                      <input style={Object.assign({},input,{flex:"1 1 200px",minWidth:0})} placeholder={r.ph}
-                        value={intakeAns[r.k]!==undefined?intakeAns[r.k]:(fdRef.current[r.k]||"")}
-                        onChange={function(e){
-                          setIntakeAnswer(r.k,e.target.value);
-                          // writePosition only writes a sentence we actually
-                          // have. assemble returns "" until both the who and
-                          // the what blanks are filled, and writing that
-                          // blanked an existing statement on the first
-                          // keystroke.
-                          writePosition();
-                        }}/>
-                    </div>);
-                  })}
-                  <div style={{marginTop:14,padding:"12px 14px",background:"#F4F7FB",borderRadius:6,
-                    fontSize:14.5,color:preview?"#01236D":"#5A6C7E",lineHeight:1.6,fontStyle:preview?"normal":"italic"}}>
-                    {preview||"Your position statement will appear here as you fill the blanks."}
-                  </div>
-                </div>);
-              })()
-            : q.kind==="choice"
-            ? (<div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:20}}>
-                {q.opts.map(function(o){
-                  var on=val===o;
-                  return (<button key={o} onClick={function(){setIntakeAnswer(q.id,o);go(intakeIdx+1);}}
-                    style={{textAlign:"left",fontFamily:"inherit",fontSize:14.5,padding:"12px 14px",borderRadius:6,cursor:"pointer",
-                      border:"1px solid "+(on?"#01236D":"#D5DFEC"),background:on?"#EAF0F9":"#fff",color:"#29384A"}}>{o}</button>);
-                })}
-              </div>)
-            : q.kind==="area"
-              ? (<textarea autoFocus rows={q.rows||3} style={Object.assign({},input,{resize:"vertical",lineHeight:1.6,marginBottom:20})}
-                   placeholder={q.ph} value={val}
-                   onChange={function(e){setIntakeAnswer(q.id,e.target.value);}}/>)
-              : (<input autoFocus style={Object.assign({},input,{marginBottom:20})} placeholder={q.ph} value={val}
-                   onChange={function(e){setIntakeAnswer(q.id,e.target.value);}}
-                   onKeyDown={function(e){if(e.key==="Enter"){e.preventDefault();go(intakeIdx+1);}}}/>)}
-
-          <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
-            {q.kind!=="choice"
-              ? <button style={primary} onClick={function(){go(intakeIdx+1);}}>
-                  {intakeIdx===total-1?"Finish":"Next"} &rarr;
-                </button>
-              : null}
-            {intakeIdx>0?<button style={quiet} onClick={function(){go(intakeIdx-1);}}>Back</button>:null}
-            {/* Every question is skippable. A blank answer costs a little plan
-                quality; a question someone cannot answer costs the whole visit. */}
-            <button style={quiet} onClick={function(){go(intakeIdx+1);}}>Skip this one</button>
-            <span style={{marginLeft:"auto"}}/>
-            <button style={quiet} onClick={function(){closeIntake();}}>Fill the form myself</button>
-          </div>
-        </div>
       </div>
     );
   }
@@ -5162,8 +5494,11 @@ export default function App(){
   // own figures in, an offer to estimate them is noise.
   function StartingFigures(){
     var f=fdRef.current;
-    var anyEntered=["avgPrice","avgCost","month1Units"].some(function(k){return String(f[k]||"").trim();});
-    if(anyEntered&&!sfData&&!sfLoad)return null;
+    // Hidden only once the figures it offers are all in. It used to go the
+    // moment ANY one of them was entered, taking the help away from the
+    // person half way through and stuck - the one who needs it most.
+    var allEntered=["avgPrice","avgCost","month1Units"].every(function(k){return String(f[k]||"").trim();});
+    if(allEntered&&!sfData&&!sfLoad)return null;
     var box={background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:10,padding:"16px 18px",marginBottom:18};
     var rowS={display:"flex",alignItems:"baseline",gap:10,padding:"9px 0",borderBottom:"1px solid #EFE2C6",flexWrap:"wrap"};
     var lab={fontSize:12.5,color:"#7A5E18",minWidth:132,fontWeight:600};
@@ -5184,9 +5519,9 @@ export default function App(){
           <div style={{flex:"1 1 320px"}}>
             <div style={{fontSize:15,fontWeight:700,color:"#7A5E18",marginBottom:4}}>Not sure where to start?</div>
             <div style={{fontSize:13.5,color:"#5A6C7E",lineHeight:1.55}}>
-              The forecast runs on four figures: what you charge, what it costs you, how many you sell in month one, and how fast that grows.
+              The forecast runs on four figures: what you charge, what it costs you, how many {unitMany()} you sell in month one, and how fast that grows.
               We can suggest a starting set for a business like yours to correct, rather than leaving you a blank page.
-              Prices and costs exclude {taxLabel()} &mdash; the forecast adds it separately if you are registered, which you tell us in section 3.
+              Prices and costs exclude {taxLabel()} &mdash; the forecast adds it separately if you are registered, which you tell us under Tax.
               {goalUnitsYear()>0?(" Your Step 4 goals estimate about "+goalUnitsYear().toLocaleString()+" extra units a year. These four figures are your base trading level, and those goal units are added on top where you switch them on below."):""}
             </div>
           </div>
@@ -5205,9 +5540,9 @@ export default function App(){
             The price and cost below exclude {taxLabel()}. If the figure you have in mind includes it, take it off before comparing.
             {goalUnitsYear()>0?(" The units figure is your base trading level: the "+goalUnitsYear().toLocaleString()+" extra units a year from your goals are added on top, not included here."):""}
           </div>
-          {row("PRICE","Price per unit",cur)}
-          {row("COST","Cost per unit",cur)}
-          {row("UNITS","Units in month 1")}
+          {row("PRICE","Price per "+unitOne(),cur)}
+          {row("COST","Cost per "+unitOne(),cur)}
+          {row("UNITS",cap(unitMany())+" in month 1")}
           {row("GROWTH","Growth a month","","%")}
           <div style={{display:"flex",gap:12,alignItems:"center",marginTop:14,flexWrap:"wrap"}}>
             <button style={Object.assign({},suggestBtn,{background:"#01236D"})} onClick={applyStartingFigures}>Use these figures</button>
@@ -5359,6 +5694,7 @@ export default function App(){
   var stepDefs=[
     {label:"Step 1 of 5 - Business Details",title:"Tell us about your business",desc:"Let's start with the fundamentals.",
       render:function(){return (<>
+          {sw("basics")&&(<>
           <div style={f2row}>
             <div style={f2col}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Business name</div>
@@ -5398,6 +5734,8 @@ export default function App(){
               {RS("stage",["Great idea (thinking about going into business)","Early stage (business started and getting traction)","Established business (been in business awhile)"])}
             </div>
           </div>
+          </>)}
+          {sw("contact")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Main contact</div>
           <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
             {contactCh.map(function(c){
@@ -5407,9 +5745,16 @@ export default function App(){
               </div>);
             })}
           </div>
+          </>)}
+          {sw("history")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Business history / origin</div>
-          {RT("history","e.g. I spotted a gap in the market when...",3)}
+          {RT("history","e.g. I had been doing this for ten years for someone else and wanted to do it properly...",3)}
           <div style={{marginBottom:14}}/>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What is the problem solved or gap in the market?</div>
+          {RT("problem","e.g. I spotted a gap in the market when...",3,"What is the problem solved or gap in the market?")}
+          <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("position")&&(<>
           {/* The same four blanks the first-run intake uses, so someone who
               skipped the intake meets the field in the form it was designed
               for rather than as a blank box asking for a composed sentence.
@@ -5425,15 +5770,48 @@ export default function App(){
                 defaultValue={fdRef.current[r.k]||""}
                 onChange={function(e){
                   fdRef.current[r.k]=e.target.value;
-                  if(writePosition())setVoiceVer(function(v){var n=Object.assign({},v);n.position=(n.position||0)+1;return n;});
+                  // writePosition saves only when it writes, which it cannot
+                  // do until both the "For" and the "is a" blanks are filled.
+                  // Without this the other blanks were lost on reload.
+                  writePosition();
+                  saveToStorage();
+                  // Re-render either way: to show the finished sentence when
+                  // one was written, and to show why not when it was not.
+                  setVoiceVer(function(v){var n=Object.assign({},v);n.position=(n.position||0)+1;return n;});
                 }}/>
             </div>);
           })}
+          {positionBlanksNeeded().length>0&&(
+            <div style={{background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:8,
+              padding:"10px 12px",marginBottom:10,fontSize:13,color:"#7A5E18",lineHeight:1.5}}>
+              Fill in {positionBlanksNeeded().map(function(w){return "\u201c"+w+"\u201d";}).join(" and ")} and
+              the statement writes itself below. It needs both of those to make a sentence that reads properly.
+            </div>
+          )}
+          {positionHeldByUser()&&(
+            <div style={{display:"flex",gap:10,alignItems:"flex-start",flexWrap:"wrap",
+              background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:8,
+              padding:"10px 12px",marginBottom:10}}>
+              <span style={{fontSize:13,color:"#7A5E18",flex:"1 1 260px",lineHeight:1.5}}>
+                Your own wording is being kept, so the blanks above are not rewriting the statement below.
+              </span>
+              <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"6px 12px",
+                borderRadius:6,border:"1px solid #E8D6AC",background:"#fff",color:"#01236D",
+                cursor:"pointer",flexShrink:0}}
+                onClick={releasePositionToBlanks}>Write it from the blanks</button>
+            </div>
+          )}
           {RT("position","e.g. For sole traders who need accurate financials, Flowly is accounting software that will take the complexity out of keeping your accounts up to date.",3)}
           <div style={{marginBottom:14}}/>
+          </>)}
+          {/* Same guard as Main contact above: the blocks between them are
+              hidden in guided mode, so the two show as one question. */}
+          {sw("contact")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Business team</div>
           {RT("team","e.g. 2 full-time founders, 1 part-time developer...",2)}
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("online")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Online presence</div>
           {(function(){
             // Badge is 44px so the longest label ("Other") fits without
@@ -5449,6 +5827,8 @@ export default function App(){
               <div style={f2col}>{onlineCh.slice(3).map(onlineRow)}</div>
             </div>);
           })()}
+          </>)}
+          {sw("ip")&&(<>
           <fieldset style={{border:"none",padding:0,margin:0}}>
           <legend style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,padding:0}}>Legal obligations</legend>
           <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:14}}>
@@ -5474,77 +5854,103 @@ export default function App(){
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What Intellectual Property does your business have?</div>
           {RT("ip","e.g. Registered trademark, proprietary software. Or: none.",2)}
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("extra1")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
-          <textarea ref={growRef} onInput={growOn} key="extra1" style={ta(2)} defaultValue={fdRef.current["extra1"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra1"]=e.target.value;saveToStorage();}}/>
+          <textarea rows={1} ref={growRef} onInput={growOn} key="extra1" style={ta(2)} defaultValue={fdRef.current["extra1"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra1"]=e.target.value;saveToStorage();}}/>
+          </>)}
         </>
       );}},
     {label:"Step 2 of 5 - Market & Customers",title:"Tell us about your customers, market and competitors",desc:"Providing facts and figures is important.",
       render:function(){return (<>
+          {sw("current")&&(<>
           {/* Above the target-customer question on purpose: its Suggest prompt
               reads this answer, so asking for it afterwards meant the button always
               ran with "none stated". */}
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Does the business have any current customers/market share?</div>
           {RT("currentCust","e.g. 45 paying customers, approx 2% of local market...",2)}
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("target")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Who is the target customer/market?</div>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={tcLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestTargetCust();}} disabled={tcLoading}>{tcLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"tc",has:!!(fdRef.current.targetCust||"").trim(),loading:tcLoading,run:suggestTargetCust})}{FreeTag()}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"tc-"+tcVersion} style={{marginTop:8}}>
-            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.targetCust||""} placeholder="e.g. Small business owners aged 30-50..." onChange={function(e){fdRef.current.targetCust=e.target.value;saveToStorage();}}/>
+            <textarea rows={1} ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.targetCust||""} placeholder="e.g. Small business owners aged 30-50..." onChange={function(e){fdRef.current.targetCust=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("market")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What is the target market opportunity (estimated)?</div>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={msLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestMarketSize();}} disabled={msLoading}>{msLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"ms",has:!!(fdRef.current.marketSize||"").trim(),loading:msLoading,run:suggestMarketSize})}{FreeTag()}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"ms-"+msVersion} style={{marginTop:8}}>
-            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.marketSize||""} placeholder="e.g. SME accounting software, roughly $120M a year in our region..." onChange={function(e){fdRef.current.marketSize=e.target.value;saveToStorage();}}/>
+            <textarea rows={1} ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.marketSize||""} placeholder="e.g. SME accounting software, roughly $120M a year in our region..." onChange={function(e){fdRef.current.marketSize=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("competitors")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Who are the main competitors to your business and how does your business differ from them?</div>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={compLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestCompetitors();}} disabled={compLoading}>{compLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"comp",has:!!(fdRef.current.competitors||"").trim(),loading:compLoading,run:suggestCompetitors})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"comp-"+compVersion} style={{marginTop:8}}>
-            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.competitors||""} placeholder="e.g. Xero (market leader, feature-rich but expensive)..." onChange={function(e){fdRef.current.competitors=e.target.value;saveToStorage();}}/>
+            <textarea rows={1} ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.competitors||""} placeholder="e.g. Xero (market leader, feature-rich but expensive)..." onChange={function(e){fdRef.current.competitors=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("compsw")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What are the strengths and weaknesses of the main competitors to your business?</div>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={cswLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestCompSW();}} disabled={cswLoading}>{cswLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"csw",has:!!(fdRef.current.compStrWeakness||"").trim(),loading:cswLoading,run:suggestCompSW})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"csw-"+compSwVersion} style={{marginTop:8}}>
-            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.compStrWeakness||""} placeholder="e.g. Xero: strengths - brand, integrations. Weaknesses - price..." onChange={function(e){fdRef.current.compStrWeakness=e.target.value;saveToStorage();}}/>
+            <textarea rows={1} ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.compStrWeakness||""} placeholder="e.g. Xero: strengths - brand, integrations. Weaknesses - price..." onChange={function(e){fdRef.current.compStrWeakness=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
-          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What is the competitive advantage or unique selling point of your business?</div>
+          </>)}
+          {sw("advantage")&&(<>
+          <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What is the competitive advantage or unique selling point of your business compared to your competitors?</div>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={advLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestAdvantage();}} disabled={advLoading}>{advLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"adv",has:!!(fdRef.current.advantage||"").trim(),loading:advLoading,run:suggestAdvantage})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span></div>
           <div key={"adv-"+advVersion} style={{marginTop:8}}>
-            <textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current.advantage||""} placeholder="What makes you better or different?" onChange={function(e){fdRef.current.advantage=e.target.value;saveToStorage();}}/>
+            <textarea rows={1} ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current.advantage||""} placeholder="What makes you better or different?" onChange={function(e){fdRef.current.advantage=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("extra3")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
-          <textarea ref={growRef} onInput={growOn} key="extra3" style={ta(2)} defaultValue={fdRef.current["extra3"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra3"]=e.target.value;saveToStorage();}}/>
+          <textarea rows={1} ref={growRef} onInput={growOn} key="extra3" style={ta(2)} defaultValue={fdRef.current["extra3"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra3"]=e.target.value;saveToStorage();}}/>
+          </>)}
         </>
       );}},
     {label:"Step 3 of 5 - Vision & Strategy",title:"Tell us how you see the future of your business",desc:"What does success look like?",
       render:function(){return (<>
+          {sw("swot")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>SWOT Analysis</div>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestSWOT();}} disabled={!!goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"swot",has:!!((fdRef.current.swotS||"")+(fdRef.current.swotW||"")).trim(),loading:!!goalLoading,run:suggestSWOT})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Strengths, Weaknesses, Opportunities, Threats the business has.</span></div>
           <div key={"swot-"+swotVersion} style={{display:"flex",flexDirection:"column",gap:10,marginTop:10}}>
-            {[{id:"swotS",l:"Strengths",h:"What your business does well",ph:"e.g. Strong technical team, first-mover advantage..."},{id:"swotW",l:"Weaknesses",h:"What your business could do better",ph:"e.g. Limited marketing budget..."},{id:"swotO",l:"Opportunities",h:"The possibilities available",ph:"e.g. Growing market, underserved segment..."},{id:"swotT",l:"Threats",h:"The risks to your business",ph:"e.g. Well-funded competitors..."}].map(function(x){return (<div key={x.id}><label style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:3,display:"block"}}>{x.l}</label><span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>{x.h}</span><textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current[x.id]||""} placeholder={x.ph} onChange={function(e){fdRef.current[x.id]=e.target.value;saveToStorage();}}/></div>);})}
+            {[{id:"swotS",l:"Strengths",h:"What your business does well",ph:"e.g. Strong technical team, first-mover advantage..."},{id:"swotW",l:"Weaknesses",h:"What your business could do better",ph:"e.g. Limited marketing budget..."},{id:"swotO",l:"Opportunities",h:"The possibilities available",ph:"e.g. Growing market, underserved segment..."},{id:"swotT",l:"Threats",h:"The risks to your business",ph:"e.g. Well-funded competitors..."}].map(function(x){return (<div key={x.id}><label style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:3,display:"block"}}>{x.l}</label><span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>{x.h}</span><textarea rows={1} ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current[x.id]||""} placeholder={x.ph} onChange={function(e){fdRef.current[x.id]=e.target.value;saveToStorage();}}/></div>);})}
           </div>
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("vision")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Vision</div>
           <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>By (year) be the (ambition) for (who)</span>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={visLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestVision();}} disabled={visLoading}>{visLoading?busyLabel("Working on it…"):"Suggest with AI"}</button>{ReviseButtons({id:"vis",has:!!(fdRef.current.vision||"").trim(),loading:visLoading,run:suggestVision})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and change anything that is not the ambition you have for your business.</span></div>
           <div key={"vis-"+visVersion} style={{marginTop:8}}>
-            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.vision||""} placeholder="e.g. By 2027, to be the go-to invoicing tool for 10,000 sole traders..." onChange={function(e){fdRef.current.vision=e.target.value;saveToStorage();}}/>
+            <textarea rows={1} ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.vision||""} placeholder="e.g. By 2027, to be the go-to invoicing tool for 10,000 sole traders..." onChange={function(e){fdRef.current.vision=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("pos3")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Position Statement</div>
           <div style={{fontSize:13,color:"#5A6C7E",marginBottom:5}}>Entered in Step 1. To change it, go back to <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#01236D",background:"none",border:"none",padding:0,cursor:"pointer",textDecoration:"underline"}} onClick={function(){setStepAndSave(0);window.scrollTo(0,0);}}>Step 1 - Business Details</button>.</div>
           <div style={Object.assign({},ta(3),{background:"#FCFCFA",color:"#5A6C7E",whiteSpace:"pre-wrap",cursor:"not-allowed",overflow:"auto"})}>{fdRef.current.position||"Not yet entered - add it in Step 1."}</div>
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("values")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Values</div><div style={{fontSize:13,color:"#5A6C7E",marginBottom:6}}>The principles that guide your business</div>
           <div style={{display:"flex",alignItems:"center",gap:0}}><button style={valLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestValues();}} disabled={valLoading}>{valLoading?busyLabel("Working on it…"):"Suggest with AI"}</button>{ReviseButtons({id:"val",has:!!(fdRef.current.values||"").trim(),loading:valLoading,run:suggestValues})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and change anything that is not how you actually run your business.</span></div>
           <div key={"val-"+valVersion} style={{marginTop:8}}>
-            <textarea ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.values||""} placeholder="e.g. Simplicity - we remove complexity, not add to it..." onChange={function(e){fdRef.current.values=e.target.value;saveToStorage();}}/>
+            <textarea rows={1} ref={growRef} onInput={growOn} style={ta(3)} defaultValue={fdRef.current.values||""} placeholder="e.g. Simplicity - we remove complexity, not add to it..." onChange={function(e){fdRef.current.values=e.target.value;saveToStorage();}}/>
           </div>
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("goals")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Goals</div>
           <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>The main steps to achieve success</span>
           <div style={{display:"flex",alignItems:"center",gap:0,marginBottom:8}}><button style={goalLoading?suggestBtnBusy:suggestBtn} onClick={function(){suggestGoals();}} disabled={goalLoading}>{goalLoading?busyLabel("Working on it\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"goals",has:goals.some(function(g){return !!(g||"").trim();}),loading:!!goalLoading,run:suggestGoals})}<span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other Goals the business should have.</span></div>
@@ -5552,12 +5958,16 @@ export default function App(){
             {goals.map(function(g,i){var gs={display:"flex",gap:8,alignItems:"flex-start",marginBottom:6};return (<div key={i} style={gs}><div style={{fontSize:13,fontWeight:700,color:"#5A6C7E",width:18,flexShrink:0,paddingTop:10}}>{i+1}</div><input style={Object.assign({},inp,{flex:1})} value={g} placeholder={"e.g. Reach 500 paying customers within 12 months..."} onChange={function(e){var n=goals.slice();n[i]=e.target.value;setGoalsAndSave(n);}}/></div>);})}
           </div>
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("extra2")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
-          <textarea ref={growRef} onInput={growOn} key="extra2" style={ta(2)} defaultValue={fdRef.current["extra2"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra2"]=e.target.value;saveToStorage();}}/>
+          <textarea rows={1} ref={growRef} onInput={growOn} key="extra2" style={ta(2)} defaultValue={fdRef.current["extra2"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra2"]=e.target.value;saveToStorage();}}/>
+          </>)}
         </>
       );}},
     {label:"Step 4 of 5 - Making it Happen",title:"Tell us how your business will achieve its goals",desc:<span>What will it take to achieve success?</span>,
       render:function(){return (<>
+          {sw("g4")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Business Goals</div>
           <span style={{fontSize:13,color:"#5A6C7E",marginBottom:6,display:"block"}}>From Step 3 — read only. <button style={{background:"none",border:"none",color:"#01236D",fontSize:13,cursor:"pointer",padding:0,fontFamily:"inherit"}} onClick={function(){setStepAndSave(2);}}>Edit in Step 3</button></span>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -5572,11 +5982,11 @@ export default function App(){
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}><button style={goalCardLoading[i]?suggestBtnBusy:suggestBtn} disabled={!!goalCardLoading[i]} onClick={function(){suggestGoalCard(i);}}>{goalCardLoading[i]?busyLabel("Working\u2026"):"Suggest with AI"}</button>{ReviseButtons({id:"gc"+i,has:!!((fdRef.current["goalHow"+(i+1)]||"")+(fdRef.current["goalRes"+(i+1)]||"")).trim(),loading:!!goalCardLoading[i],run:function(m,nt){suggestGoalCard(i,m,nt);}})}<span style={{fontSize:11,color:"#29384A",fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other ways the business will achieve its goals and resources needed.</span></div>
                   <div key={"ghow"+i+"-"+(goalCardVer[i]||0)}>
                     <div style={{fontSize:13,fontWeight:500,color:"#29384A",marginBottom:3}}>How will you achieve this goal?</div>
-                    <textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current["goalHow"+(i+1)]||""} placeholder="e.g. Launch targeted social media campaign..." onChange={function(e){fdRef.current["goalHow"+(i+1)]=e.target.value;saveToStorage();}}/>
+                    <textarea rows={1} ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current["goalHow"+(i+1)]||""} placeholder="e.g. Launch targeted social media campaign..." onChange={function(e){fdRef.current["goalHow"+(i+1)]=e.target.value;saveToStorage();}}/>
                   </div>
                   <div key={"gres"+i+"-"+(goalCardVer[i]||0)}>
                     <label style={{fontSize:13,fontWeight:500,color:"#29384A",marginBottom:3,display:"block"}}>Resources needed</label>
-                    <textarea ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current["goalRes"+(i+1)]||""} placeholder="e.g. Marketing manager, design tools..." onChange={function(e){fdRef.current["goalRes"+(i+1)]=e.target.value;saveToStorage();}}/>
+                    <textarea rows={1} ref={growRef} onInput={growOn} style={ta(2)} defaultValue={fdRef.current["goalRes"+(i+1)]||""} placeholder="e.g. Marketing manager, design tools..." onChange={function(e){fdRef.current["goalRes"+(i+1)]=e.target.value;saveToStorage();}}/>
                   </div>
                 </div>
               </div>);
@@ -5584,6 +5994,8 @@ export default function App(){
           </div>
           {!goals.some(Boolean)&&<div style={{fontSize:13,color:"#29384A",fontStyle:"italic"}}>No goals entered yet — go back to Step 3 to add them.</div>}
           <div style={{marginBottom:14}}/>
+          </>)}
+          {sw("spend4")&&(<>
           <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
             <div style={{flex:"1 1 300px",minWidth:0}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How many extra sales units will each goal deliver over the next 12 months?</div>
@@ -5655,14 +6067,17 @@ export default function App(){
               </div>
             </div>
           </div>
+          </>)}
+          {sw("extra4")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
-          <textarea ref={growRef} onInput={growOn} key="extra4" style={ta(2)} defaultValue={fdRef.current["extra4"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra4"]=e.target.value;saveToStorage();}}/>
+          <textarea rows={1} ref={growRef} onInput={growOn} key="extra4" style={ta(2)} defaultValue={fdRef.current["extra4"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra4"]=e.target.value;saveToStorage();}}/>
+          </>)}
         </>
       );}},
     {label:"Step 5 of 5 - Financial Information",title:"Tell us about your business finances",desc:<span>These numbers will determine your 12-month cashflow forecast.</span>,
       render:function(){
-        var s5tabs=["Details","Cashflow","Graphs","What If","Health check"];
-        var s5key=["details","cashflow","graphs","whatif","healthcheck"].indexOf(previewTab)>=0?previewTab:"details";
+        var s5tabs=["Inputs","Cashflow","Graphs","What If","Health check"];
+        var s5key=["inputs","cashflow","graphs","whatif","healthcheck"].indexOf(previewTab)>=0?previewTab:"inputs";
         return (<>
           <div style={{display:"flex",gap:12,alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",marginBottom:20}}>
           <div style={{display:"inline-flex",gap:4,background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:12,padding:4,maxWidth:"100%",overflowX:"auto"}}>
@@ -5678,17 +6093,68 @@ export default function App(){
               }} onClick={function(){setPreviewTab(k);}}>{t}</button>;
             })}
           </div>
-          <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"12px 24px",borderRadius:10,
-            border:"none",background:"#01236D",color:"#fff",cursor:"pointer",flexShrink:0,
-            display:"inline-flex",alignItems:"center",gap:9}}
-            onClick={function(){setShowDirection(true);window.scrollTo(0,0);}}>
-            Review your plan <span style={{fontSize:18,lineHeight:1}}>&rarr;</span>
-          </button>
+          {s5key==="cashflow"&&(
+            <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",flexShrink:0}}
+              onClick={function(){downloadCashflowExcel();}}>Download Excel (.xlsx)</button>
+          )}
           </div>
-          {s5key==="details"&&(<>
-            {StartingFigures()}
-            {FinSummary()}
-            <FinSection open={finOpen.start} onToggle={function(){toggleFin("start");}} title="1. Starting position" hint="where you are today">
+          {s5key==="inputs"&&(<>
+            {/* Guided mode: where you are, what is left, and how to get out of it. */}
+          {finMode==="guided"&&(
+            <div style={{background:"#fff",border:"1px solid #E3E8F0",borderRadius:12,padding:"12px 14px",marginBottom:16}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:10}}>
+                <span style={{fontSize:12,fontWeight:700,color:"#01236D",letterSpacing:"0.04em",textTransform:"uppercase"}}>
+                  Question {finIdx()+1} of {finCount()}
+                </span>
+                <span style={{fontSize:14,fontWeight:600,color:"#29384A"}}>{finNow().l}</span>
+                <span style={{fontSize:12.5,color:"#5A6C7E"}}>{finNow().hint}</span>
+                <button style={{marginLeft:"auto",fontFamily:"inherit",fontSize:12.5,color:"#01236D",background:"none",
+                  border:"none",cursor:"pointer",textDecoration:"underline",padding:0}}
+                  onClick={function(){chooseFinMode("all");}}>Show all sections instead</button>
+              </div>
+              <div style={{display:"flex",gap:4,marginBottom:12}}>
+                {finFlow().map(function(st,idx){
+                  var done=idx<finIdx(), here=idx===finIdx();
+                  return <button key={st.id} title={st.l} aria-label={"Go to "+st.l}
+                    onClick={function(){setFinStep(idx);}}
+                    style={{flex:1,height:6,borderRadius:3,border:"none",cursor:"pointer",padding:0,
+                      background:here?"#01236D":done?"#1F7A7C":"#E3E8F0"}}/>;
+                })}
+              </div>
+              <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                <button style={{fontFamily:"inherit",fontSize:14,fontWeight:600,padding:"10px 18px",borderRadius:9,
+                  border:"1px solid #E3E8F0",background:"#fff",color:"#29384A",cursor:"pointer"}}
+                  onClick={function(){
+                    if(finIdx()>0){setFinStep(finIdx()-1);}
+                    else{setShowDirection(false);setStepAndSave(3);setQStep(Math.max(0,stepFlow(3).length-1));}
+                    window.scrollTo(0,0);
+                  }}>&larr; {finIdx()>0?"Back":"Back to How"}</button>
+                {finIdx()<finCount()-1?(
+                  <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"11px 26px",borderRadius:9,
+                    border:"none",background:"#01236D",color:"#fff",cursor:"pointer",marginLeft:"auto"}}
+                    onClick={function(){setFinStep(finIdx()+1);window.scrollTo(0,0);}}>
+                    Next: {finNext().l} &rarr;
+                  </button>
+                ):(
+                  <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"11px 26px",borderRadius:9,
+                    border:"none",background:"#1F7A7C",color:"#fff",cursor:"pointer",marginLeft:"auto"}}
+                    onClick={function(){setPreviewTab("cashflow");window.scrollTo(0,0);}}>
+                    See your cashflow &rarr;
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          {finMode!=="guided"&&(
+            <div style={{marginBottom:12}}>
+              <button style={{fontFamily:"inherit",fontSize:12.5,color:"#01236D",background:"none",border:"none",
+                cursor:"pointer",textDecoration:"underline",padding:0}}
+                onClick={function(){chooseFinMode("guided");setFinStep(0);}}>Take me through it one section at a time</button>
+            </div>
+          )}
+          {(finMode!=="guided"||["setup","volume","price","cost"].indexOf(finNow().id)>=0)&&StartingFigures()}
+            {finVisible("start")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("start")} onToggle={function(){finToggle("start");}} title="1. Starting position" hint="where you are today">
+            {fw("setup")&&(<>
             <div style={{marginBottom:14}}>
               <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Currency</div>
               <select style={Object.assign({},sel,{maxWidth:320})} value={curSym}
@@ -5716,6 +6182,8 @@ export default function App(){
                 </select>
               </div>
             </div>
+            </>)}
+            {fw("cash")&&(<>
             <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
               <div style={{flex:"1 1 260px",minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Cash in the bank on day one ($)</div>
@@ -5737,7 +6205,71 @@ export default function App(){
                 <input style={inp} defaultValue={fdRef.current.equity||""} placeholder="e.g. $30,000 from founder Jane Smith" onChange={function(e){fdRef.current.equity=e.target.value;saveToStorage();}}/>
               </div>
             </div>
+            </>)}
+            {fw("trading")&&(<>
             <div style={{marginBottom:14}}/>
+                        <div style={{display:"flex",alignItems:"flex-start",gap:9,marginBottom:14,
+              background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"11px 13px"}}>
+              <input type="checkbox" id="chkFinDetail" style={{width:16,height:16,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:2}}
+                checked={!!finDetail}
+                onChange={function(e){chooseFinDetail(e.target.checked);refreshLive();}}/>
+              <label htmlFor="chkFinDetail" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.5}}>
+                My business is already trading
+                <span style={{color:"#5A6C7E"}}> &mdash; ask me what I am owed, what I owe, the stock and equipment
+                I hold, and what I need to take out. Leave this unticked if you are starting out.</span>
+              </label>
+            </div>
+                        {finDetail&&(<>
+<div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
+              <div style={{flex:"1 1 260px",minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Owed to you on day one</div>
+                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Invoices already out that have not been paid. They come in during month 1.</span>
+                <input style={inp} defaultValue={fdRef.current.openDebtors||""} placeholder="e.g. 3,000" onChange={function(e){fdRef.current.openDebtors=e.target.value;saveToStorage();refreshLive();}}/>
+              </div>
+              <div style={{flex:"1 1 260px",minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Owed by you on day one</div>
+                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Supplier bills already received and not yet paid. They go out in month 1.</span>
+                <input style={inp} defaultValue={fdRef.current.openCreditors||""} placeholder="e.g. 5,000" onChange={function(e){fdRef.current.openCreditors=e.target.value;saveToStorage();refreshLive();}}/>
+              </div>
+              <div style={{flex:"1 1 260px",minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Stock you already hold</div>
+                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What it cost you. An established business does not have to buy its opening stock again; a new one does.</span>
+                <input style={inp} defaultValue={fdRef.current.openStock||""} placeholder="e.g. 4,000" onChange={function(e){fdRef.current.openStock=e.target.value;saveToStorage();refreshLive();}}/>
+              </div>
+              <div style={{flex:"1 1 260px",minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Equipment and vehicles you own</div>
+                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What they are worth now. Only needed if you want depreciation worked out for you.</span>
+                <input style={inp} defaultValue={fdRef.current.openAssets||""} placeholder="e.g. 30,000" onChange={function(e){fdRef.current.openAssets=e.target.value;saveToStorage();refreshLive();}}/>
+              </div>
+            </div>
+            <div style={{marginBottom:14}}/>
+            {/* The two questions the forecast is actually answering. Neither is
+                an input to the arithmetic - they are what the finished numbers
+                get measured against, which is what makes the health check able
+                to say "this does not get you there" instead of only describing
+                the figures. */}
+            <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
+              <div style={{flex:"1 1 260px",minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much do you need to start or grow the business?</div>
+                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Setting up, equipment, stock, and enough to cover the months before it pays for itself.</span>
+                <input style={inp} defaultValue={fdRef.current.needCapital||""} placeholder="e.g. 25,000" onChange={function(e){fdRef.current.needCapital=e.target.value;saveToStorage();refreshLive();}}/>
+              </div>
+              <div style={{flex:"1 1 260px",minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much do you need to draw from the business?</div>
+                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What you need to take out of the business to live on. Say whether that is a year or a month.</span>
+                <input style={inp} defaultValue={fdRef.current.needIncome||""} placeholder="e.g. 60,000 a year" onChange={function(e){fdRef.current.needIncome=e.target.value;saveToStorage();refreshLive();}}/>
+                {String(fdRef.current.needIncome||"").trim()&&(
+                  <div style={{marginTop:6,background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:8,
+                    padding:"9px 11px",fontSize:12.5,color:"#7A5E18",lineHeight:1.5}}>
+                    {drawingsTaxNote()}
+                  </div>
+                )}
+              </div>
+            </div>
+            </>)}
+            <div style={{marginBottom:14}}/>
+            </>)}
+            {fw("taxreg")&&(<>
             <div style={{display:"flex",alignItems:"center",gap:9,background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"13px 14px"}}>
               <input type="checkbox" id="chkTaxReg" checked={taxReg} style={{width:17,height:17,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
                 onChange={function(e){
@@ -5762,10 +6294,43 @@ export default function App(){
                 </div>)}
             <div style={{marginBottom:14}}/>
 
-            </FinSection>
-            <FinSection open={finOpen.sales} onToggle={function(){toggleFin("sales");}} title="2. Money in" hint="sales and other income">
+                        </>)}
+</FinSection></>)}
+            {finVisible("sales")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("sales")} onToggle={function(){finToggle("sales");}} title="2. Money in" hint="sales and other income">
             {TaxExclNote("sales")}
-            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Monthly sales units</div>
+            {/* One question, asked once, to set the language and the defaults
+                for everything below it. Not a template: it hides no field and
+                removes no capability, because plenty of service businesses do
+                have a cost of sales - a plumber buys parts, an agency
+                subcontracts - and a template that hid the cost field would be
+                wrong for exactly those people. */}
+            {fw("sells")&&(<>
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:6,display:"block"}}>What does the business sell?</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {SELLS_OPTS.map(function(o){
+                  var on=(fdRef.current.sells||"")===o.k;
+                  return (<button key={o.k} type="button"
+                    aria-pressed={on}
+                    onClick={function(){
+                      fdRef.current.sells=on?"":o.k;
+                      saveToStorage();refreshLive();
+                      setAvgSalesVer(function(v){return v+1;});
+                    }}
+                    style={{fontFamily:"inherit",fontSize:13.5,fontWeight:on?700:500,
+                      padding:"9px 16px",borderRadius:8,cursor:"pointer",
+                      border:"1px solid "+(on?"#01236D":"#D8E2F0"),
+                      background:on?"#01236D":"#fff",color:on?"#fff":"#29384A"}}>{o.l}</button>);
+                })}
+              </div>
+            </div>
+            </>)}
+            {fw("terms")&&(<>
+            {TermsRow({k:"recvLag",label:"When do your customers pay you?",
+              help:"Paid on the spot, or invoiced? This is the single biggest thing that separates a profitable business from one that runs out of money."})}
+            </>)}
+            {fw("volume")&&(<>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>{"Monthly "+unitMany()}</div>
             <div style={{fontSize:13,color:"#29384A",background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>
               Tip: if your business provides services, units may be hours or jobs. If you sell several different things, a unit is usually one average sale &mdash; the helpers under Average sale price and Average cost per unit will blend them for you.
             </div>
@@ -5776,7 +6341,7 @@ export default function App(){
               <div key={"unitsGrid-"+avgSalesVer}><MonthGrid keyPrefix={"monthlyUnitsM"} storeKey={"monthlyUnits"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>
               <div style={{display:"flex",gap:8,alignItems:"center",marginTop:6,flexWrap:"wrap"}}>
                 <span style={{fontSize:13,color:"#29384A",flexShrink:0}}>Apply growth %</span>
-                <input id="unitsGrowthInp" style={Object.assign({},inp,{width:52,textAlign:"right",padding:"5px 6px",fontSize:13})} placeholder="e.g. 5"/>
+                <input id="unitsGrowthInp" style={Object.assign({},inp,{width:52,textAlign:"right",padding:"5px 6px",fontSize:13,lineHeight:"normal"})} placeholder="e.g. 5"/>
                 <button style={Object.assign({},btnSm,{fontSize:11,padding:"5px 10px"})} onClick={function(){
                   var base=parseFloat(fdRef.current["monthlyUnitsM1"])||0;
                   var pct=parseFloat(document.getElementById("unitsGrowthInp").value)||0;
@@ -5805,7 +6370,9 @@ export default function App(){
             {GoalApply({totalKey:"goalSalesTotal",applyKey:"goalSalesApply",monthlyKey:"goalSalesMonthly",label:"Add the extra",money:false})}
 
             <div style={{marginBottom:14}}/>
-            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Average sale price ($)</div>
+            </>)}
+            {fw("price")&&(<>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>{"Average price per "+unitOne()+" ("+(fdRef.current.currencySym||"$")+")"}</div>
             {AvgPriceHelper()}
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgPrice" checked={!!gridChecks["avgPrice"]} onChange={function(){toggleGrid("avgPrice");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgPrice" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["avgPrice"]?<div key={"avgPriceGrid-"+avgSalesVer}><MonthGrid keyPrefix={"avgPriceM"} storeKey={"avgPrice"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:(<div>
@@ -5813,8 +6380,14 @@ export default function App(){
               {IncreaseRow("priceInc","Price increase per month","% a month, compounding. Leave it blank to hold your price all year.")}
             </div>)}
             <div style={{marginBottom:14}}/>
-            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Average cost per unit ($)</div>
-            <div style={{fontSize:13,color:"#29384A",background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>Tip: if your business provides services, your average cost per unit may be zero.</div>
+            </>)}
+            {fw("cost")&&(<>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>{"Average cost per "+unitOne()+" ("+(fdRef.current.currencySym||"$")+")"}</div>
+            <div style={{fontSize:13,color:"#29384A",background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:6,padding:"7px 10px",marginBottom:8,lineHeight:1.5}}>{fdRef.current.sells==="services"
+                ? "What it costs you to deliver one "+unitOne()+" \u2014 materials, subcontractors, anything you only pay for when you do the work. Leave it blank if there is nothing."
+                : fdRef.current.sells==="products"
+                ? "What it costs you to make or buy one "+unitOne()+", before any of your running costs."
+                : "What one "+unitOne()+" costs you to make or deliver, before any of your running costs. Leave it blank if there is nothing."}</div>
             {AvgCostHelper()}
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkAvgCost" checked={!!gridChecks["avgCost"]} onChange={function(){toggleGrid("avgCost");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkAvgCost" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["avgCost"]?<div key={"avgCostGrid-"+avgSalesVer}><MonthGrid keyPrefix={"avgCostM"} storeKey={"avgCost"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:(<div>
@@ -5825,13 +6398,16 @@ export default function App(){
               Your cost per unit is the same as or higher than your sale price{lossMakingMonths().length<12?" in "+lossMakingMonths().length+" of the 12 months":""}, so each sale loses money before any expenses. Check the two figures above.
             </FinWarn>
             <div style={{marginBottom:14}}/>
+            </>)}
+            {fw("othrev")&&(<>
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Other money coming in ($)</div>
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><input type="checkbox" id="chkOtherRev" checked={!!gridChecks["otherRevenue"]} onChange={function(){toggleGrid("otherRevenue");}} style={{width:15,height:15,cursor:"pointer",accentColor:GREEN}}/><label htmlFor="chkOtherRev" style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
             {gridChecks["otherRevenue"]?<div key={"otherRevGrid-"+avgSalesVer}><MonthGrid keyPrefix={"otherRevM"} storeKey={"otherRevenue"} fdRef={fdRef} onUpdate={function(){refreshLive();saveToStorage();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/></div>:<input key={"otherRev-"+avgSalesVer} style={inp} defaultValue={fdRef.current.otherRevenue||""} placeholder="e.g. 500 (grants, interest, rental income)" onChange={function(e){fdRef.current.otherRevenue=e.target.value;saveToStorage();refreshLive();}}/>}
             {AnnualTotal({value:sumLive(function(r){return r.revOther;})})}
             <div style={{marginBottom:14}}/>
-            </FinSection>
-            <FinSection open={finOpen.tax} onToggle={function(){toggleFin("tax");}} title="3. Tax"
+                        </>)}
+</FinSection></>)}
+            {finVisible("tax")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("tax")} onToggle={function(){finToggle("tax");}} title="3. Tax"
               hint={taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)?"rate still needed":undefined}
               hintColor={taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)?"#B14A38":undefined}>
             {taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)&&(
@@ -5869,7 +6445,24 @@ export default function App(){
                 <input style={Object.assign({},inp,{width:120},taxReg?{}:{background:"#FCFCFA",cursor:"not-allowed"})} disabled={!taxReg} defaultValue={fdRef.current.taxRate||""} placeholder="e.g. 15" onChange={function(e){fdRef.current.taxRate=e.target.value;saveToStorage();refreshLive();}}/>
               </div>
               <div style={{flex:1,minWidth:200}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Do you account for {taxLabel()} on a payments or an invoice basis?</div>
+                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>
+                  Payments basis means you account for it when the money moves, which most New Zealand businesses
+                  under $2m of sales can choose. Invoice basis means it is due when you raise the invoice, whether
+                  or not you have been paid.
+                </span>
+                <select style={Object.assign({},sel,{maxWidth:340,marginBottom:14},taxReg?{}:{background:"#FCFCFA",cursor:"not-allowed"})}
+                  disabled={!taxReg} value={fdRef.current.gstBasis||"payments"}
+                  onChange={function(e){fdRef.current.gstBasis=e.target.value;saveToStorage();refreshLive();}}>
+                  <option value="payments">Payments basis &mdash; when the money moves</option>
+                  <option value="invoice">Invoice basis &mdash; when the invoice is raised</option>
+                </select>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What months do you pay your {taxLabel()}?</div>
+                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:6,display:"block",lineHeight:1.5}}>
+                  Leave them all unticked and the forecast assumes you pay every month. In New Zealand, most
+                  businesses under $500,000 of sales file six-monthly and most others two-monthly &mdash; tick
+                  those months and the bill lands where it really lands.
+                </span>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,marginTop:4}}>
                   {Array.from({length:12},function(_,m){
                     var key="taxPayM"+(m+1);
@@ -5885,10 +6478,45 @@ export default function App(){
               </div>
             </div>
             {TaxMethodNote()}
-            </FinSection>
-            <FinSection open={finOpen.other} onToggle={function(){toggleFin("other");}} title="4. Money out" hint="your expenses">
+            </FinSection></>)}
+            {finVisible("other")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("other")} onToggle={function(){finToggle("other");}} title="4. Money out" hint="your expenses">
             {TaxExclNote("other")}
             <div style={{marginBottom:14}}/>
+            {fw("stockterms")&&(<>
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much stock do you hold?</div>
+              <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>
+                Stock is paid for before it is sold, so holding it ties up cash. Leave it at none if you buy only
+                what you have already sold, or if you sell your time.
+              </span>
+              <select style={Object.assign({},sel,{maxWidth:340})} value={fdRef.current.stockMonths||"0"}
+                onChange={function(e){fdRef.current.stockMonths=e.target.value;saveToStorage();refreshLive();}}>
+                <option value="0">None &mdash; I buy what I sell</option>
+                <option value="0.5">About two weeks of sales</option>
+                <option value="1">About a month of sales</option>
+                <option value="2">About two months of sales</option>
+                <option value="3">About three months of sales</option>
+              </select>
+            </div>
+            {TermsRow({k:"payLag",label:"When do you pay your suppliers?",
+              help:"Applies to what you buy to sell \u2014 your cost of sales."})}
+            <div style={{display:"flex",alignItems:"flex-start",gap:9,marginBottom:14,
+              background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"11px 13px"}}>
+              <input type="checkbox" id="chkPayLagExp" style={{width:16,height:16,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:2}}
+                checked={String(fdRef.current.payLagExp||"")==="1"}
+                onChange={function(e){
+                  fdRef.current.payLagExp=e.target.checked?"1":"";
+                  saveToStorage();refreshLive();
+                  setAvgSalesVer(function(v){return v+1;});
+                }}/>
+              <label htmlFor="chkPayLagExp" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.5}}>
+                Put my running costs on the same terms as well &mdash; rent, insurance, marketing and the rest.
+                <span style={{color:"#5A6C7E"}}> Team and Contractors are always paid in the month, whatever this is set to,
+                because people are paid when they work.</span>
+              </label>
+            </div>
+            </>)}
+            {fw("spend")&&(<>
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Monthly expenses</div>
             <span style={{fontSize:13,color:"#29384A",marginBottom:5,display:"block"}}>Do not include tax payments here - tax is calculated separately from the tax rate above.</span>
             <div style={{marginBottom:10}}>
@@ -5906,11 +6534,99 @@ export default function App(){
               if(showAllExp)return true;
               if(revealedExp[c.id])return true;
               if(gridChecks[c.id])return true;
-              return ["xAcct","xComms","xMkt","xOffice","xTeam"].indexOf(c.id)>=0;
+              return ["xAcct","xComms","xMkt","xOffice","xTeam","xDepn","xInterest"].indexOf(c.id)>=0;
             }).map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
               <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}</div>
+              {c.id==="xDepn"&&(
+                <div style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,lineHeight:1.5}}>
+                  Writing down what you own over its useful life. It reduces your profit but never leaves your
+                  bank account, so it changes the profit statement and not the cashflow. A rough monthly figure
+                  is what the assets cost, divided by the years you expect to use them, divided by twelve &mdash;
+                  $30,000 of gear over five years is $500 a month. Your accountant will use IRD&rsquo;s rates for the
+                  tax return; this is for the plan.
+                </div>
+              )}
+              {c.id==="xInterest"&&(
+                <div style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,lineHeight:1.5}}>
+                  The interest part of your loan repayments. It reduces your profit, but it does not come out of
+                  your bank again &mdash; the whole repayment already leaves through Loan transactions in section 5.
+                </div>
+              )}
+              {c.id==="xInterest"&&(
+                <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+                  <div style={{display:"flex",alignItems:"flex-start",gap:9}}>
+                    <input type="checkbox" id="chkIntAuto" style={{width:16,height:16,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:2}}
+                      checked={String(fdRef.current.intAuto||"")==="1"}
+                      onChange={function(e){
+                        fdRef.current.intAuto=e.target.checked?"1":"";
+                        saveToStorage();refreshLive();
+                        setAvgSalesVer(function(v){return v+1;});
+                      }}/>
+                    <label htmlFor="chkIntAuto" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.5}}>
+                      Work it out for me &mdash; from what you owe and your rate, following the repayments you
+                      enter in Other transactions.
+                    </label>
+                  </div>
+                  {String(fdRef.current.intAuto||"")==="1"&&(
+                    <div style={{marginTop:9,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                      <span style={{fontSize:13,color:"#29384A"}}>Owing now</span>
+                      <input style={Object.assign({},inp,{width:116})} defaultValue={fdRef.current.openLoan||""} placeholder="50,000"
+                        onChange={function(e){fdRef.current.openLoan=e.target.value;saveToStorage();refreshLive();}}/>
+                      <span style={{fontSize:13,color:"#29384A"}}>at</span>
+                      <input style={Object.assign({},inp,{width:86})} defaultValue={fdRef.current.loanRate||""} placeholder="8"
+                        onChange={function(e){fdRef.current.loanRate=e.target.value;saveToStorage();refreshLive();}}/>
+                      <span style={{fontSize:13,color:"#29384A"}}>% a year</span>
+                      <span style={{fontSize:12,color:"#5A6C7E",flex:"1 1 200px",lineHeight:1.45}}>
+                        Interest falls as you pay the loan down, so the figure declines across the year.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {c.id==="xDepn"&&(
+                <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+                  <div style={{display:"flex",alignItems:"flex-start",gap:9}}>
+                    <input type="checkbox" id="chkDepnAuto" style={{width:16,height:16,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:2}}
+                      checked={String(fdRef.current.depnAuto||"")==="1"}
+                      onChange={function(e){
+                        fdRef.current.depnAuto=e.target.checked?"1":"";
+                        saveToStorage();refreshLive();
+                        setAvgSalesVer(function(v){return v+1;});
+                      }}/>
+                    <label htmlFor="chkDepnAuto" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.5}}>
+                      Work it out for me &mdash; straight line on what you own, following anything you buy or sell
+                      in Other transactions.
+                    </label>
+                  </div>
+                  {String(fdRef.current.depnAuto||"")==="1"&&(
+                    <div style={{marginTop:9,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                      <span style={{fontSize:13,color:"#29384A"}}>Write off</span>
+                      <input style={Object.assign({},inp,{width:92})} defaultValue={fdRef.current.depnRate||""} placeholder="20"
+                        onChange={function(e){fdRef.current.depnRate=e.target.value;saveToStorage();refreshLive();}}/>
+                      <span style={{fontSize:13,color:"#29384A"}}>% of their value a year</span>
+                      <span style={{fontSize:12,color:"#5A6C7E",flex:"1 1 200px",lineHeight:1.45}}>
+                        20% is five years, 10% is ten. Your accountant will use IRD&rsquo;s rate per asset at tax time.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
-              {gridChecks[c.id]?<MonthGrid key={c.id+"-grid-"+avgSalesVer} keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input key={c.id+"-"+avgSalesVer} style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 200"} onChange={function(e){fdRef.current[c.id]=e.target.value;if(e.target.value)revealExp(c.id);saveToStorage();refreshLive();}}/>}
+              {c.id==="xInterest"&&String(fdRef.current.intAuto||"")==="1"
+                ? (<div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12})}>
+                    <span style={{fontSize:13}}>Worked out from what you owe</span>
+                    <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums",flexShrink:0}}>
+                      {fmt(liveRows.reduce(function(s,r){return s+(r.interestNonCash||0);},0))} a year
+                    </span>
+                  </div>)
+                : c.id==="xDepn"&&String(fdRef.current.depnAuto||"")==="1"
+                ? (<div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12})}>
+                    <span style={{fontSize:13}}>Worked out from what you own</span>
+                    <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums",flexShrink:0}}>
+                      {fmt(liveRows.reduce(function(s,r){return s+(r.depreciation||0);},0))} a year
+                    </span>
+                  </div>)
+                : gridChecks[c.id]?<MonthGrid key={c.id+"-grid-"+avgSalesVer} keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input key={c.id+"-"+avgSalesVer} style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 200"} onChange={function(e){fdRef.current[c.id]=e.target.value;if(e.target.value)revealExp(c.id);saveToStorage();refreshLive();}}/>}
                 {AnnualTotal({value:sumLive(function(r){return r.expDetail&&r.expDetail[c.id];})})}
                 {PEOPLE_CATS[c.id]?PeopleCostHelper(c.id):null}
             </div>);})}            <div style={{marginBottom:14}}/>
@@ -5920,8 +6636,9 @@ export default function App(){
               </button>
             </div>
             {GoalExpApply()}
-            </FinSection>
-            <FinSection open={finOpen.tx} onToggle={function(){toggleFin("tx");}} title="5. Other transactions" hint="loans, assets, drawings">
+                        </>)}
+</FinSection></>)}
+            {finVisible("tx")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("tx")} onToggle={function(){finToggle("tx");}} title="5. Other transactions" hint="loans, assets, drawings">
             {TaxExclNote("tx","Asset and Other Transactions")}
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Other money in and out ($)</div>
             <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>Regular monthly or one-off</span>
@@ -5940,6 +6657,8 @@ export default function App(){
                 if(!taxTotal)return null;
                 var how=c.id==="txTaxColl"?"Charged to customers on your tax-exclusive prices — held until your return is filed"
                        :c.id==="txTaxCred"?"Paid to suppliers on your tax-exclusive costs — claimed back through your return"
+                       :c.id==="txNeedCap"?"From what you said you need to start or grow, put in as funding in month 1"
+                       :c.id==="txDraw"?"From what you said you need to draw, taken out every month. Not an expense, so profit and the tax on it are unchanged"
                        :"From the Tax rate and payment months above";
                 return (<div key={c.id} style={{marginBottom:10}}>
                   <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{txLabel(c,taxLabel())}<span style={{fontSize:11,color:"#5A6C7E",marginLeft:8,fontWeight:400}}>Auto-calculated — not editable</span></div>
@@ -5956,22 +6675,30 @@ export default function App(){
                 {AnnualTotal({value:sumLive(function(r){return r.txDetail&&r.txDetail[c.id];})})}
               </div>);
             })}
-            </FinSection>
-            <FinSection open={finOpen.notes} onToggle={function(){toggleFin("notes");}} title="6. Anything else">
+            </FinSection></>)}
+            {finVisible("notes")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("notes")} onToggle={function(){finToggle("notes");}} title="6. Anything else">
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
-            <textarea ref={growRef} onInput={growOn} key="extra5" style={ta(2)} defaultValue={fdRef.current["extra5"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra5"]=e.target.value;saveToStorage();}}/>
-                      </FinSection>
+            <textarea rows={1} ref={growRef} onInput={growOn} key="extra5" style={ta(2)} defaultValue={fdRef.current["extra5"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra5"]=e.target.value;saveToStorage();}}/>
+                      </FinSection></>)}
           </>)}
           {s5key==="cashflow"&&<div>
-            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
-              <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){downloadCashflowExcel();}}>Download Excel (.xlsx)</button>
-            </div>
+            <div style={{marginBottom:12}}>{FinSummary()}</div>
             <CfTable rows={liveRows}/>
+            <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginTop:26,paddingTop:22,borderTop:"1px solid #E3E8F0"}}>
+              <span style={{fontSize:13.5,color:"#5A6C7E",lineHeight:1.5,flex:"1 1 240px"}}>
+                That is your forecast. Your plan pulls it together with everything you entered in the first four steps.
+              </span>
+              <button style={{fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"14px 34px",borderRadius:10,
+                border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}}
+                onClick={function(){setShowDirection(true);setShowOutput(false);window.scrollTo(0,0);}}>
+                Review your plan <span style={{fontSize:18,lineHeight:1}}>&rarr;</span>
+              </button>
+            </div>
           </div>}
           {s5key==="graphs"&&<CfCharts rows={liveRows} expCatsData={expCats}/>}
           {s5key==="healthcheck"&&HealthCheck()}
-          {s5key==="whatif"&&<WhatIf liveRows={liveRows} wiRev={wiRev} wiExp={wiExp} wiCos={wiCos} setWiRev={setWiRev} setWiExp={setWiExp} setWiCos={setWiCos} onBreakeven={suggestBreakeven} bkLoading={bkLoading} bkText={bkText} onClearBreakeven={function(){setBkText("");}} suggestBtn={suggestBtn} suggestBtnBusy={suggestBtnBusy} busyLabel={busyLabel} enteredPrice={enteredAvg("avgPrice")} enteredCost={enteredAvg("avgCost")}/>}
+          {s5key==="whatif"&&<WhatIf liveRows={liveRows} wiRev={wiRev} wiExp={wiExp} wiCos={wiCos} setWiRev={setWiRev} setWiExp={setWiExp} setWiCos={setWiCos} onBreakeven={suggestBreakeven} bkLoading={bkLoading} bkText={bkText} onClearBreakeven={function(){setBkText("");}} suggestBtn={suggestBtn} suggestBtnBusy={suggestBtnBusy} busyLabel={busyLabel} enteredPrice={enteredAvg("avgPrice")} enteredCost={enteredAvg("avgCost")} unitOne={unitOne}/>}
         </>
       );}},
   ];
@@ -5984,7 +6711,7 @@ export default function App(){
   // Pass the index of the step being edited, or stepDefs.length from Summary,
   // where every step is behind the user.
   function StepNav(current){
-    var names=["Details","Market","Strategy","How","Finances"];
+    var names=STEP_LABELS;
     return (
       <div style={{display:"flex",alignItems:"flex-start",gap:0,marginBottom:26,overflowX:"auto"}}>
         {stepDefs.map(function(s,i){
@@ -6028,7 +6755,7 @@ export default function App(){
             {label:"Cashflow",action:function(){setShowDirection(false);setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
           ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, {background:"#01236D",color:"#fff",border:"1px solid #01236D"})}>{item.label}</button>;})}
         </div>
-        <BackupHelp/>{Intake()}{StorageWarnings()}
+        <BackupHelp/>{StorageWarnings()}
         <div style={cardStyle}>
           {StepNav(stepDefs.length)}
           <div style={{fontSize:11,fontWeight:700,color:"#5A6C7E",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:8}}>Summary</div>
@@ -6100,7 +6827,7 @@ export default function App(){
           {!loading&&<button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,padding:"9px 18px",borderRadius:6,border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}} onClick={function(){generateWordDoc();}}>Download Word (.docx)</button>}
           <span style={{marginLeft:"auto"}}/>{AiAccessPill()}{BackupButtons()}
         </div>
-        <BackupHelp/>{Intake()}{StorageWarnings()}
+        <BackupHelp/>{StorageWarnings()}
         {!loading&&!!planHtml&&BrandingPanel()}
         <div style={cardStyle}>
           {tab==="plan"&&(
@@ -6167,19 +6894,68 @@ export default function App(){
           {label:"Cashflow",action:function(){setStepAndSave(4);setTimeout(function(){setPreviewTab("cashflow");},50);}},
         ].map(function(item){return <button key={item.label} onClick={item.action} style={Object.assign({fontFamily:"inherit",fontSize:14,fontWeight:700,padding:"11px 20px",borderRadius:10,cursor:"pointer",whiteSpace:"nowrap"}, Object.assign({background:"#01236D",color:"#fff",border:"1px solid #01236D"},(item.label==="Summary"&&step===stepDefs.length-1)?{boxShadow:"0 0 0 3px rgba(208,177,111,0.55)"}:{}))}>{item.label}</button>;})}
       </div>
-      <BackupHelp/>{Intake()}{StorageWarnings()}
+      <BackupHelp/>{StorageWarnings()}
       <div style={cardStyle}>
         {StepNav(step)}
         <div style={{fontSize:11,fontWeight:700,color:"#5A6C7E",letterSpacing:"0.09em",textTransform:"uppercase",marginBottom:8}}>{currentStep.label}</div>
         <div style={{fontSize:26,fontWeight:800,color:"#01236D",marginBottom:10,lineHeight:1.2,letterSpacing:"-0.01em"}}>{currentStep.title}<div style={{width:56,height:3,background:"#D0B16F",borderRadius:2,marginTop:9}}/></div>
         <div style={{fontSize:15,color:"#5A6C7E",marginBottom:26,lineHeight:1.6}}>{currentStep.desc}</div>
+        {/* Steps 1-4: where you are inside the step, and the way through it.
+            Step 5 renders its own, because its flow branches. */}
+        {guided()&&swCount()>0&&(
+          <div style={{background:"#fff",border:"1px solid #E3E8F0",borderRadius:12,padding:"12px 14px",marginBottom:20}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:10}}>
+              <span style={{fontSize:12,fontWeight:700,color:"#01236D",letterSpacing:"0.04em",textTransform:"uppercase"}}>
+                Question {swIdx()+1} of {swCount()}
+              </span>
+              <span style={{fontSize:14,fontWeight:600,color:"#29384A"}}>{swNow().l}</span>
+              {swNow().hint&&<span style={{fontSize:12.5,color:"#5A6C7E"}}>{swNow().hint}</span>}
+              <button style={{marginLeft:"auto",fontFamily:"inherit",fontSize:12.5,color:"#01236D",background:"none",
+                border:"none",cursor:"pointer",textDecoration:"underline",padding:0}}
+                onClick={function(){chooseFinMode("all");}}>Show the whole form instead</button>
+            </div>
+            <div style={{display:"flex",gap:4,marginBottom:12}}>
+              {stepFlow(step).map(function(q,idx){
+                var done=idx<swIdx(), here=idx===swIdx();
+                return <button key={q.id} title={q.l} aria-label={"Go to "+q.l}
+                  onClick={function(){setQStep(idx);window.scrollTo(0,0);}}
+                  style={{flex:1,height:6,borderRadius:3,border:"none",cursor:"pointer",padding:0,
+                    background:here?"#01236D":done?"#1F7A7C":"#E3E8F0"}}/>;
+              })}
+            </div>
+            <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+              {(swIdx()>0||step>0)&&(
+                <button style={{fontFamily:"inherit",fontSize:14,fontWeight:600,padding:"10px 18px",borderRadius:9,
+                  border:"1px solid #E3E8F0",background:"#fff",color:"#29384A",cursor:"pointer"}}
+                  onClick={function(){swGo(-1);}}>&larr; {swIdx()>0?"Back":"Back to "+STEP_LABELS[step-1]}</button>
+              )}
+              <button style={{fontFamily:"inherit",fontSize:15,fontWeight:700,padding:"11px 26px",borderRadius:9,
+                border:"none",background:swIdx()<swCount()-1?"#01236D":"#1F7A7C",
+                color:"#fff",cursor:"pointer",marginLeft:"auto"}}
+                onClick={function(){swGo(1);}}>
+                {swIdx()<swCount()-1
+                  ? "Next: "+swNext().l
+                  : "On to "+STEP_LABELS[step+1]} &rarr;
+              </button>
+            </div>
+          </div>
+        )}
+        {!guided()&&swCount()>0&&(
+          <div style={{marginBottom:18}}>
+            <button style={{fontFamily:"inherit",fontSize:13.5,fontWeight:600,padding:"9px 16px",borderRadius:9,
+              border:"1px solid #E3E8F0",background:"#fff",color:"#01236D",cursor:"pointer"}}
+              onClick={function(){chooseFinMode("guided");setQStep(0);}}>Take me through it one question at a time</button>
+          </div>
+        )}
         <div key={"stepbody-"+step+"-"+formVer}>{currentStep.render()}</div>
-        <div style={{display:"flex",gap:10,alignItems:"center",marginTop:32,paddingTop:24,borderTop:"1px solid #E3E8F0"}}>
+        <div style={{display:(step<stepDefs.length-1&&!guided())?"flex":"none",gap:10,alignItems:"center",marginTop:32,paddingTop:24,borderTop:"1px solid #E3E8F0"}}>
           {step>0&&<button style={{fontFamily:"inherit",fontSize:15,fontWeight:600,padding:"13px 22px",borderRadius:10,border:"1px solid #E3E8F0",background:"#fff",color:"#29384A",cursor:"pointer"}} onClick={function(){setStepAndSave(step-1);}}>&larr; Back</button>}
-          <button style={{fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"14px 34px",borderRadius:10,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:10}}
-            onClick={function(){ step<stepDefs.length-1 ? setStepAndSave(step+1) : (setShowDirection(true),window.scrollTo(0,0)); }}>
-            {step<stepDefs.length-1?"Next":"Review your plan"} <span style={{fontSize:18,lineHeight:1}}>&rarr;</span>
-          </button>
+          {step<stepDefs.length-1&&(
+            <button style={{fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"14px 34px",borderRadius:10,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:10}}
+              onClick={function(){ step<stepDefs.length-1 ? setStepAndSave(step+1) : (setShowDirection(true),window.scrollTo(0,0)); }}>
+              {step<stepDefs.length-1?"Next":"Review your plan"} <span style={{fontSize:18,lineHeight:1}}>&rarr;</span>
+            </button>
+          )}
         </div>
       </div>
       <AppFooter/>
@@ -6201,7 +6977,7 @@ export default function App(){
               <div style={{display:"flex",gap:6,marginBottom:12}}>
                 {[1,2,3,4,5].map(function(n){return <button key={n} onClick={function(){setFbRating(n);}} style={{fontFamily:"inherit",fontSize:18,background:"none",border:"none",cursor:"pointer",color:n<=fbRating?"#D0B16F":"#E3E8F0",padding:"2px 4px"}}>{n<=fbRating?"★":"☆"}</button>;})}
               </div>
-              <textarea ref={growRef} onInput={growOn} style={ta(3)} placeholder="Any comments? (optional)" value={fbText} onChange={function(e){setFbText(e.target.value);}}/>
+              <textarea rows={1} ref={growRef} onInput={growOn} style={ta(3)} placeholder="Any comments? (optional)" value={fbText} onChange={function(e){setFbText(e.target.value);}}/>
               <input key="fb-email" autoComplete="email" type="email" style={{...inp,marginTop:8}} placeholder="Your email (optional - so we can follow up)" value={fbEmail} onChange={function(e){setFbEmail(e.target.value);}}/>
               <div style={{display:"flex",gap:8,marginTop:8}}>
                 <button style={Object.assign({},btnSm,{background:"#01236D",color:"#fff",border:"none"})} onClick={submitFeedback} disabled={fbLoad||(!fbText.trim()&&fbRating===0)}>{fbLoad?"Sending...":"Send Feedback"}</button>
