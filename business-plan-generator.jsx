@@ -3389,22 +3389,32 @@ export default function App(){
       SHARED_FORMAT+
       "- LENGTH: 480-620 words. Write in full, substantive paragraphs - this is a document a bank or investor may read.";
 
-    // Section 2 on its own. Three subsections written properly needs more
-    // words than half a shared budget allowed, and its own request keeps
-    // the reply inside the 26-second function cap.
-    var promptA2=ctx+
-      "\nWrite ONLY this section:\n"+
-      "## 2. Market & Customers\n\n"+
-      "Sections 1, 3, 4 and 5 are being written separately - do not describe the business itself, its vision, its goals or its financial position here.\n\n"+
-      "SECTION 2 REQUIREMENTS - Market & Customers. Three labelled blocks, using these exact ### subheadings in this order:\n"+
-      "### Customers\n### Market Opportunity\n### Competitors\n"+
-      "Prose paragraphs under each - no bullet points, and no further subheadings below these three.\n"+
-      "- CUSTOMERS: describe the target customer in specific terms - who they are, what they need, and why this business suits them. This is the heart of the section and must not be skipped. Where the business already has customers, say who they are and what that proves about demand.\n"+
-      "- MARKET OPPORTUNITY: describe the realistic, addressable market this business can actually reach given its size, stage, locations and resources. Do not quote large total-industry figures as if they were reachable. If the market opportunity supplied above is broad or nationwide, narrow it to the segment this business can realistically serve, and say why.\n"+
-      "- COMPETITORS: cover their strengths AND their weaknesses. Give the strengths genuine weight - do not dismiss competitors or list only their shortcomings. Then explain where this business can realistically compete against those strengths, using the competitive advantage the owner has stated. If they have stated one, name it plainly rather than implying it.\n"+
-      "- If the owner has left notes under Step 2, treat them as part of the brief and reflect what they say, under whichever of the three they belong to.\n"+
-      SHARED_FORMAT+
-      "- LENGTH: 700-900 words across the three subsections, weighted towards Customers. Write in full, substantive paragraphs - this is a document a bank or investor may read.";
+    // Section 2, one request per subsection. Written as one request it asked
+    // for 700-900 words, which takes longer to generate than Netlify's 26s
+    // function cap allows, so the plan came back as a timeout. Each subsection
+    // is its own request now; only the first carries the ## heading.
+    function sec2(head, body, words, first){
+      return ctx+
+        "\nWrite ONLY this part of section 2 of the plan:\n"+
+        (first?"## 2. Market & Customers\n\n":"")+
+        "### "+head+"\n\n"+
+        "The rest of the plan is being written separately. Write ONLY the \""+head+"\" block: "+
+        "do not describe the business itself, its vision, its goals or its financial position, and do not write the other subsections of section 2.\n"+
+        "Output "+(first?"the ## heading, then ":"")+"the ### "+head+" heading, then prose paragraphs. No bullet points and no further subheadings.\n"+
+        body+
+        "- If the owner has left notes under Step 2 that belong under "+head+", treat them as part of the brief.\n"+
+        SHARED_FORMAT+
+        "- LENGTH: "+words+" words. Full, substantive paragraphs - this is a document a bank or investor may read.";
+    }
+    var promptA2a=sec2("Customers",
+      "- Describe the target customer in specific terms - who they are, what they need, and why this business suits them. This is the heart of section 2.\n",
+      "300-380", true);
+    var promptA2b=sec2("Market Opportunity",
+      "- Describe the realistic, addressable market this business can actually reach given its size, stage, locations and resources. Do not quote large total-market figures as if they were reachable.\n",
+      "200-260", false);
+    var promptA2c=sec2("Competitors",
+      "- Cover their strengths AND their weaknesses. Give the strengths genuine weight - do not dismiss competitors or list only their shortcomings. Then explain how this business differs.\n",
+      "200-260", false);
 
     var promptB=ctx+
       "\nWrite ONLY this section:\n"+
@@ -3422,48 +3432,78 @@ export default function App(){
     // Its own call. Four goals fitted alongside section 3; eight would not, and
     // a single longer request runs past the 26s function limit and returns a
     // timeout rather than a plan.
-    var promptBGoals=ctx+
-      "\nWrite ONLY this section:\n"+
-      "## 4. Goals & Achieving Them\n\n"+
-      "Sections 1, 2, 3 and 5 are being written separately - do not repeat the business description, market analysis, vision or financial position here.\n\n"+
-      "SECTION 4 REQUIREMENTS - Goals & Achieving Them:\n"+
-      "- List each goal from the PER-GOAL EXECUTION DETAIL above as its own ### subheading, numbered, in this form:\n"+
-      "### Goal 1: [short version of the goal]\n"+
-      "- Directly under each goal subheading, explain in prose how it will be achieved and what resources it needs, using the HOW and RESOURCES NEEDED supplied for that goal. Give each goal a proper explanation of several sentences rather than a single line.\n"+
-      "- Where a goal's How or Resources says \"not specified by the user\", say briefly that it still needs to be decided rather than inventing detail.\n"+
-      "- EVERY goal listed above must appear, each with its own ### subheading, in the same order. Do not omit, merge or condense any goal to save space. If you are running long, shorten each goal rather than dropping one.\n"+
-      "- Do NOT use bullet points or dashes within the goal summaries - prose only.\n"+
-      "- After all the goals, finish with a paragraph headed ### Team & Resources covering the team as it stands, any planned hires, marketing support, and the estimated extra sales units and extra expenses from the goals.\n"+
-      "- If the estimated extra expenses from goals is $0 but individual goals describe costs, do NOT say there are no additional expenses. Say those costs have not yet been estimated into the forecast.\n"+
+    // Section 4, a couple of goals per request. The old single request asked
+    // for 120-160 words for every goal at once, so a plan with five or six
+    // goals ran past the function cap and timed out.
+    var goalList=goals.filter(Boolean);
+    function goalChunk(from,to,first){
+      var mine=goalList.slice(from,to).map(function(g,i){
+        var n=from+i+1;
+        var h=f["goalHow"+n]||"", r=f["goalRes"+n]||"";
+        return "### Goal "+n+": "+g+"\n   HOW: "+(h||"not specified by the user")+
+               "\n   RESOURCES NEEDED: "+(r||"not specified by the user");
+      }).join("\n");
+      return ctx+
+        "\nWrite ONLY these goals, as part of section 4 of the plan:\n"+
+        (first?"## 4. Goals & Achieving Them\n\n":"")+
+        mine+"\n\n"+
+        "The rest of the plan, and the other goals, are being written separately. Do not repeat the business description, market analysis, vision or financial position, and do not write any goal not listed immediately above.\n"+
+        "- Output "+(first?"the ## heading, then ":"")+"each goal above as its own ### subheading, numbered exactly as given, in the same order.\n"+
+        "### Goal N: [short version of the goal]\n"+
+        "- Directly under each goal subheading, explain in prose how it will be achieved and what resources it needs, using the HOW and RESOURCES NEEDED supplied for that goal.\n"+
+        "- Where a goal's How or Resources says \"not specified by the user\", say briefly that it still needs to be decided rather than inventing detail.\n"+
+        "- Do NOT use bullet points or dashes within the goal summaries - prose only.\n"+
+        "- Do not write a Team & Resources paragraph; that is written separately.\n"+
+        SHARED_FORMAT+
+        "- LENGTH: 120-160 words for each of the "+(to-from)+" goals above.";
+    }
+    var goalPrompts=[];
+    for(var gi=0; gi<goalList.length; gi+=2){
+      goalPrompts.push(goalChunk(gi,Math.min(gi+2,goalList.length),gi===0));
+    }
+    if(!goalPrompts.length)goalPrompts.push(goalChunk(0,0,true));
+    var promptGoalsTeam=ctx+
+      "\nWrite ONLY this closing part of section 4:\n"+
+      "### Team & Resources\n\n"+
+      "The goals themselves are being written separately - do not list or summarise them again.\n"+
+      "- One paragraph under the ### Team & Resources heading covering the team as it stands, any planned hires, marketing support, and the estimated extra expenses from the goals.\n"+
+      "- If the estimated extra expenses from goals is $0 but individual goals describe costs, do NOT say there are no additional expenses. Say those costs have not been quantified yet.\n"+
       SHARED_FORMAT+
-      "- LENGTH: 120-160 words for each of the "+goals.filter(Boolean).length+
-      " goals, then about 70 words for Team & Resources.";
+      "- LENGTH: about 70 words.";
 
-    var promptC=ctx+
-      "\nWrite ONLY this section:\n"+
+    // Section 5, split in two for the same reason: 600-750 words in one
+    // request runs past the function cap. The first half carries the ##
+    // heading and the figures that must appear; the second takes the detail.
+    var promptCa=ctx+
+      "\nWrite ONLY the first half of this section:\n"+
       "## 5. Financial Position\n\n"+
-      "Sections 1 to 4 are being written separately - do not repeat the business description, market analysis, vision or goals here.\n\n"+
-      "SECTION 5 REQUIREMENTS - Financial Position:\n"+
-      "- ### subheadings and bullet points (lines starting with -) are fine here.\n"+
-      "- Cover the opening position, the shape of the 12-month forecast, and what the closing position means for the business.\n"+
+      "The rest of the plan is being written separately - do not repeat the business description, market analysis, vision or goals here. "+
+      "Another request is covering cost drivers, the tightest month for cash and what the closing position means, so do not cover those.\n"+
+      "SECTION 5, FIRST HALF:\n"+
+      "- Output the ## heading, then ### subheadings and prose. Bullet points (lines starting with -) are fine.\n"+
+      "- Cover the opening position and the shape of the 12-month forecast.\n"+
       "- Summarise the monthly figures rather than listing all twelve months individually.\n"+
-      "- Comment on the main cost drivers and on any month where cash looks tight.\n"+
       "- CRITICAL: describe the CALCULATED MONTHLY FORECAST above as it actually is. Do not invent seasonality, "+
       "peaks, troughs or a busy/quiet season that the figures do not show. If revenue rises steadily every month, "+
       "say so; do not claim some months are softer because the industry or the weather suggests they should be.\n"+
-      "- When naming the tightest month for cash, use the month with the lowest closing cash given above, not a guess.\n"+
-      "- Use the FORECAST TOTALS above for revenue, profit and price. Never quote a price or revenue range from the market research as if it were the forecast, and never claim the forecast reaches the upper end of a range unless the annual revenue figure above actually does.\n"+
-      // Plan 9 wrote a complete-looking section 5 - opening position, revenue,
-      // cost drivers, closing cash - that never once said what the business
-      // earns. Annual net profit was simply absent. "Use the totals for
-      // revenue, profit and price" tells it which figures to use if it uses
-      // them; it does not require it to. This does.
-      "- MANDATORY: state the annual net profit figure as an amount of money, and say whether monthly net profit rises, falls or holds steady across the year. A financial section that never states the profit is incomplete, however well it covers revenue and cash.\n"+
+      "- MANDATORY: state the annual net profit figure as an amount of money, and say whether monthly net profit rises, falls or holds steady across the year.\n"+
       "- MANDATORY: state the annual revenue figure and the closing cash figure as amounts of money.\n"+
-      "- If Other transactions are listed above, describe each one in the direction given (cash in or cash out). Do not describe money coming into the business as an outflow, or money leaving it as an inflow.\n"+
+      "- Use the FORECAST TOTALS above for revenue, profit and price. Never quote a price or revenue range from the market research as if it were the forecast.\n"+
+      SHARED_FORMAT+
+      "- LENGTH: 320-400 words.";
+
+    var promptCb=ctx+
+      "\nWrite ONLY the second half of section 5. Do NOT write a ## heading - the section is already open.\n"+
+      "The opening position and the shape of the forecast are being written separately - do not repeat them, and do not restate the annual revenue, profit or closing cash totals.\n"+
+      "SECTION 5, SECOND HALF:\n"+
+      "- Start at a ### subheading. Prose and bullet points (lines starting with -) are both fine.\n"+
+      "- Comment on the main cost drivers and on any month where cash looks tight.\n"+
+      "- When naming the tightest month for cash, use the month with the lowest closing cash given above, not a guess.\n"+
+      "- Say what the closing position means for the business.\n"+
+      "- If Other transactions are listed above, describe each one in the direction given (cash in or cash out). Do not describe money coming into the business as an outflow.\n"+
       "- Do not refer to goals by number and do not invent a goal. Sections 3 and 4 are written separately; only the goals listed above exist.\n"+
       SHARED_FORMAT+
-      "- LENGTH: 600-750 words for this section.";
+      "- LENGTH: 280-350 words.";
 
     try{
       // Three smaller requests sent together. Each is well inside Netlify's 26s
@@ -3501,20 +3541,40 @@ export default function App(){
       }
 
       var partsDone=0;
+      // One retry per part. The requests are small now, so a timeout is an
+      // unlucky slow response rather than a request that was always too big -
+      // and with eleven of them, losing the whole plan to one of them would
+      // be the common case rather than the rare one.
       function trackPart(p,tokens){
-        return requestPart(p,tokens).then(function(t){
+        return requestPart(p,tokens).catch(function(e){
+          if(!/timed out|unavailable|nothing to return|unreadable/i.test(e.message||""))throw e;
+          return requestPart(p,tokens);
+        }).then(function(t){
           partsDone++;
           genWords+=t.split(/\s+/).filter(Boolean).length;
           return t;
         });
       }
-      var parts=await Promise.all([
-        trackPart(promptA,1100),      // 1. Business Details
-        trackPart(promptA2,1600),     // 2. Market & Customers, three subsections
-        trackPart(promptB,700),       // 3. Vision & Position
-        trackPart(promptBGoals,2200), // the goals
-        trackPart(promptC,1400)       // the financial section
-      ]);
+      // Ten or so requests rather than five, each small enough to finish well
+      // inside the 26s cap. Sent in two waves so a plan with many goals does
+      // not open a dozen connections at once and draw a rate limit.
+      function wave(jobs){
+        return Promise.all(jobs.map(function(j){ return trackPart(j[0],j[1]); }));
+      }
+      var waveOne=[
+        [promptA,1000],     // 1. Business Details
+        [promptA2a,700],    // 2. Customers
+        [promptA2b,520],    // 2. Market Opportunity
+        [promptA2c,520],    // 2. Competitors
+        [promptB,700]       // 3. Vision & Position
+      ];
+      var waveTwo=goalPrompts.map(function(gp){ return [gp,700]; })   // 4. the goals, two at a time
+        .concat([[promptGoalsTeam,260],                               // 4. Team & Resources
+                 [promptCa,800],                                      // 5. first half
+                 [promptCb,700]]);                                    // 5. second half
+      var one=await wave(waveOne);
+      var two=await wave(waveTwo);
+      var parts=one.concat(two);
       var text=parts.map(function(p){return p.trim();}).join("\n\n");
 
       var today=new Date();
