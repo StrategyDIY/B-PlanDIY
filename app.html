@@ -1811,10 +1811,8 @@ function App(){
   // for. `sec` says which section wrapper to show it in, so the chrome still
   // tells you where you are.
   var FIN_FLOW=[
-    {id:"setup",     sec:"start", core:true,  l:"Currency and start date",  hint:"the basics"},
-    {id:"cash",      sec:"start", core:true,  l:"What you have and owe",    hint:"where you stand today"},
+    {id:"setup",     sec:"start", core:true,  l:"Where you are starting from",hint:"currency, start date, cash in the bank"},
     {id:"trading",   sec:"start", core:true,  l:"Already trading",          hint:"debtors, stock, what you need"},
-    {id:"taxreg",    sec:"start", core:true,  l:"Registered for GST?",      hint:""},
     {id:"sells",     sec:"sales", core:true,  l:"What you sell",            hint:"products, services or both"},
     {id:"volume",    sec:"sales", core:true,  l:"How much you sell",        hint:"and how fast it grows"},
     {id:"price",     sec:"sales", core:true,  l:"What you charge",          hint:"your average price"},
@@ -1822,8 +1820,9 @@ function App(){
     {id:"terms",     sec:"sales", core:false, l:"When customers pay",       hint:"your terms"},
     {id:"othrev",    sec:"sales", core:false, l:"Other income",             hint:"grants, interest, rent"},
     {id:"spend",     sec:"other", core:true,  l:"What you spend",           hint:"your running costs"},
+    {id:"depn",      sec:"other", core:true,  l:"Depreciation and interest",hint:"costs that are not cash"},
     {id:"stockterms",sec:"other", core:false, l:"Stock and supplier terms", hint:"when you pay"},
-    {id:"tax",       sec:"tax",   core:true,  l:"Tax",                      hint:"rate, basis and months"},
+    {id:"tax",       sec:"tax",   core:true,  l:"Products/services tax",   hint:"registration, rate, basis and months"},
     {id:"tx",        sec:"tx",    core:false, l:"Loans and other movements",hint:"money in and out"},
     {id:"notes",     sec:"notes", core:true,  l:"Anything else",            hint:"optional"}
   ];
@@ -3522,6 +3521,17 @@ function App(){
 
     var finBits=["Plan date (month the 12-month cashflow forecast begins): "+planDate,
                  "Opening bank balance: $"+(f.openingBalance||"0")];
+    var oOwed=needOneOff(f.openDebtors), oOwing=needOneOff(f.openCreditors),
+        oStock=needOneOff(f.openStock),  oGear=needOneOff(f.openAssets);
+    if(oOwed||oOwing||oStock||oGear||needOneOff(f.openLoan)){
+      finBits.push("The business is already trading. Opening position on the plan date");
+      if(oOwed) finBits.push("Owed to the business by customers on day one: $"+oOwed.toLocaleString());
+      if(oOwing)finBits.push("Owed by the business to suppliers on day one: $"+oOwing.toLocaleString());
+      if(oStock)finBits.push("Stock already held: $"+oStock.toLocaleString());
+      if(oGear) finBits.push("Equipment and vehicles owned, at current value: $"+oGear.toLocaleString());
+      var oLoan=needOneOff(f.openLoan);
+      if(oLoan)finBits.push("Loans still to repay on day one: $"+oLoan.toLocaleString());
+    }
     if(f.assets)finBits.push("Assets: "+f.assets);
     if(f.debt)finBits.push("Debt: "+f.debt);
     if(f.equity)finBits.push("Equity: "+f.equity);
@@ -5927,6 +5937,104 @@ function App(){
     a.click();
   }
 
+  // One expense row. Depreciation and interest need the same row as every
+  // other category but are asked as their own question, so the markup is
+  // a function rather than an inline map callback.
+  function ExpRow(c){ return (<div key={c.id} style={{marginBottom:10}}>
+              <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}</div>
+              {c.id==="xDepn"&&(
+                <div style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,lineHeight:1.5}}>
+                  Writing down what you own over its useful life. It reduces your profit but never leaves your
+                  bank account, so it changes the profit statement and not the cashflow. A rough monthly figure
+                  is what the assets cost, divided by the years you expect to use them, divided by twelve &mdash;
+                  $30,000 of gear over five years is $500 a month. Your accountant will use IRD&rsquo;s rates for the
+                  tax return; this is for the plan.
+                </div>
+              )}
+              {c.id==="xInterest"&&(
+                <div style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,lineHeight:1.5}}>
+                  The interest part of your loan repayments. It reduces your profit, but it does not come out of
+                  your bank again &mdash; the whole repayment already leaves through Loan transactions in section 5.
+                </div>
+              )}
+              {c.id==="xInterest"&&(
+                <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+                  <div style={{display:"flex",alignItems:"flex-start",gap:9}}>
+                    <input type="checkbox" id="chkIntAuto" style={{width:16,height:16,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:2}}
+                      checked={String(fdRef.current.intAuto||"")==="1"}
+                      onChange={function(e){
+                        fdRef.current.intAuto=e.target.checked?"1":"";
+                        saveToStorage();refreshLive();
+                        setAvgSalesVer(function(v){return v+1;});
+                      }}/>
+                    <label htmlFor="chkIntAuto" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.5}}>
+                      Work it out for me &mdash; from what you owe and your rate, following the repayments you
+                      enter in Other transactions.
+                    </label>
+                  </div>
+                  {String(fdRef.current.intAuto||"")==="1"&&(
+                    <div style={{marginTop:9,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                      <span style={{fontSize:13,color:"#29384A"}}>Owing now</span>
+                      <input key={"openLoan-"+avgSalesVer} style={Object.assign({},inp,{width:116})} defaultValue={fdRef.current.openLoan||""} placeholder="50,000"
+                        onChange={function(e){fdRef.current.openLoan=e.target.value;saveToStorage();refreshLive();}}/>
+                      <span style={{fontSize:13,color:"#29384A"}}>at</span>
+                      <input style={Object.assign({},inp,{width:86})} defaultValue={fdRef.current.loanRate||""} placeholder="8"
+                        onChange={function(e){fdRef.current.loanRate=e.target.value;saveToStorage();refreshLive();}}/>
+                      <span style={{fontSize:13,color:"#29384A"}}>% a year</span>
+                      <span style={{fontSize:12,color:"#5A6C7E",flex:"1 1 200px",lineHeight:1.45}}>
+                        Interest falls as you pay the loan down, so the figure declines across the year.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {c.id==="xDepn"&&(
+                <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
+                  <div style={{display:"flex",alignItems:"flex-start",gap:9}}>
+                    <input type="checkbox" id="chkDepnAuto" style={{width:16,height:16,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:2}}
+                      checked={String(fdRef.current.depnAuto||"")==="1"}
+                      onChange={function(e){
+                        fdRef.current.depnAuto=e.target.checked?"1":"";
+                        saveToStorage();refreshLive();
+                        setAvgSalesVer(function(v){return v+1;});
+                      }}/>
+                    <label htmlFor="chkDepnAuto" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.5}}>
+                      Work it out for me &mdash; straight line on what you own, following anything you buy or sell
+                      in Other transactions.
+                    </label>
+                  </div>
+                  {String(fdRef.current.depnAuto||"")==="1"&&(
+                    <div style={{marginTop:9,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                      <span style={{fontSize:13,color:"#29384A"}}>Write off</span>
+                      <input style={Object.assign({},inp,{width:92})} defaultValue={fdRef.current.depnRate||""} placeholder="20"
+                        onChange={function(e){fdRef.current.depnRate=e.target.value;saveToStorage();refreshLive();}}/>
+                      <span style={{fontSize:13,color:"#29384A"}}>% of their value a year</span>
+                      <span style={{fontSize:12,color:"#5A6C7E",flex:"1 1 200px",lineHeight:1.45}}>
+                        20% is five years, 10% is ten. Your accountant will use IRD&rsquo;s rate per asset at tax time.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
+              {c.id==="xInterest"&&String(fdRef.current.intAuto||"")==="1"
+                ? (<div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12})}>
+                    <span style={{fontSize:13}}>Worked out from what you owe</span>
+                    <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums",flexShrink:0}}>
+                      {fmt(liveRows.reduce(function(s,r){return s+(r.interestNonCash||0);},0))} a year
+                    </span>
+                  </div>)
+                : c.id==="xDepn"&&String(fdRef.current.depnAuto||"")==="1"
+                ? (<div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12})}>
+                    <span style={{fontSize:13}}>Worked out from what you own</span>
+                    <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums",flexShrink:0}}>
+                      {fmt(liveRows.reduce(function(s,r){return s+(r.depreciation||0);},0))} a year
+                    </span>
+                  </div>)
+                : gridChecks[c.id]?<MonthGrid key={c.id+"-grid-"+avgSalesVer} keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input key={c.id+"-"+avgSalesVer} style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 200"} onChange={function(e){fdRef.current[c.id]=e.target.value;if(e.target.value)revealExp(c.id);saveToStorage();refreshLive();}}/>}
+                {AnnualTotal({value:sumLive(function(r){return r.expDetail&&r.expDetail[c.id];})})}
+                {PEOPLE_CATS[c.id]?PeopleCostHelper(c.id):null}
+            </div>); }
   var stepDefs=[
     {label:"Step 1 of 5 - Business Details",title:"Tell us about your business",desc:"Let's start with the fundamentals.",
       render:function(){return (<>
@@ -6418,29 +6526,17 @@ function App(){
                 </select>
               </div>
             </div>
-            </>)}
-            {fw("cash")&&(<>
             <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
               <div style={{flex:"1 1 260px",minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Cash in the bank on day one ($)</div>
                 <input style={inp} defaultValue={fdRef.current.openingBalance||""} placeholder="e.g. 5000 (cash in bank at start)" onChange={function(e){fdRef.current.openingBalance=e.target.value;saveToStorage();refreshLive();}}/>
               </div>
               <div style={{flex:"1 1 260px",minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Money the business owes</div>
-                <input style={inp} defaultValue={fdRef.current.debt||""} placeholder="e.g. $5,000 suppliers, $10,000 loan" onChange={function(e){fdRef.current.debt=e.target.value;saveToStorage();}}/>
-              </div>
-            </div>
-            <div style={{marginBottom:14}}/>
-            <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
-              <div style={{flex:"1 1 260px",minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Assets the business owns</div>
-                <input style={inp} defaultValue={fdRef.current.assets||""} placeholder="e.g. $3,000 debtors, laptop $4,000" onChange={function(e){fdRef.current.assets=e.target.value;saveToStorage();}}/>
-              </div>
-              <div style={{flex:"1 1 260px",minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Money you or investors have put in</div>
                 <input style={inp} defaultValue={fdRef.current.equity||""} placeholder="e.g. $30,000 from founder Jane Smith" onChange={function(e){fdRef.current.equity=e.target.value;saveToStorage();}}/>
               </div>
             </div>
+            <div style={{marginBottom:14}}/>
             </>)}
             {fw("trading")&&(<>
             <div style={{marginBottom:14}}/>
@@ -6466,6 +6562,12 @@ function App(){
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Owed by you on day one</div>
                 <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Supplier bills already received and not yet paid. They go out in month 1.</span>
                 <input style={inp} defaultValue={fdRef.current.openCreditors||""} placeholder="e.g. 5,000" onChange={function(e){fdRef.current.openCreditors=e.target.value;saveToStorage();refreshLive();}}/>
+              </div>
+              <div style={{flex:"1 1 260px",minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Loans owing on day one</div>
+                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Term loan or overdraft still to repay. Interest is worked out from this under Depreciation and interest.</span>
+                <input style={inp} defaultValue={fdRef.current.openLoan||""} placeholder="e.g. 50,000"
+                  onChange={function(e){fdRef.current.openLoan=e.target.value;saveToStorage();refreshLive();setAvgSalesVer(function(v){return v+1;});}}/>
               </div>
               <div style={{flex:"1 1 260px",minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Stock you already hold</div>
@@ -6505,32 +6607,6 @@ function App(){
             </>)}
             <div style={{marginBottom:14}}/>
             </>)}
-            {fw("taxreg")&&(<>
-            <div style={{display:"flex",alignItems:"center",gap:9,background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"13px 14px"}}>
-              <input type="checkbox" id="chkTaxReg" checked={taxReg} style={{width:17,height:17,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
-                onChange={function(e){
-                  var v=e.target.checked;
-                  setTaxReg(v);
-                  fdRef.current.taxRegistered=v?"1":"";
-                  saveToStorage();refreshLive();
-                  // Section 3 is collapsed by default, so ticking this while it
-                  // is shut would leave the rate unasked for and unnoticed.
-                  if(v)setFinOpen(function(p){var n=Object.assign({},p);n.tax=true;return n;});
-                }}/>
-              <label htmlFor="chkTaxReg" style={{fontSize:15,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>Are you registered for {taxLabel()}?</label>
-            </div>
-            {taxReg
-              ?(<div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"11px 13px",marginTop:8}}>
-                  <span style={{fontSize:14,color:"#29384A",lineHeight:1.55}}>
-                    <strong style={{color:"#01236D"}}>All amounts entered should exclude {taxLabel()}.</strong> Enter your sales, costs and expenses at their tax-exclusive value. The tax itself is worked out separately from the rate and payment months you set in section 3.
-                  </span>
-                </div>)
-              :(<div style={{fontSize:13,color:"#5A6C7E",marginTop:6,lineHeight:1.5}}>
-                  Tax on the products or services you sell &mdash; GST in New Zealand and Australia, VAT in the UK and Ireland, HST or GST in Canada. If you are registered, tick the box above.
-                </div>)}
-            <div style={{marginBottom:14}}/>
-
-                        </>)}
 </FinSection></>)}
             {finVisible("sales")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("sales")} onToggle={function(){finToggle("sales");}} title="2. Money in" hint="sales and other income">
             {TaxExclNote("sales")}
@@ -6646,6 +6722,30 @@ function App(){
             {finVisible("tax")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("tax")} onToggle={function(){finToggle("tax");}} title="3. Tax"
               hint={taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)?"rate still needed":undefined}
               hintColor={taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)?"#B14A38":undefined}>
+            <div style={{display:"flex",alignItems:"center",gap:9,background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"13px 14px"}}>
+              <input type="checkbox" id="chkTaxReg" checked={taxReg} style={{width:17,height:17,cursor:"pointer",accentColor:GREEN,flexShrink:0}}
+                onChange={function(e){
+                  var v=e.target.checked;
+                  setTaxReg(v);
+                  fdRef.current.taxRegistered=v?"1":"";
+                  saveToStorage();refreshLive();
+                  // Section 3 is collapsed by default, so ticking this while it
+                  // is shut would leave the rate unasked for and unnoticed.
+                  if(v)setFinOpen(function(p){var n=Object.assign({},p);n.tax=true;return n;});
+                }}/>
+              <label htmlFor="chkTaxReg" style={{fontSize:15,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>Are you registered for {taxLabel()}?</label>
+            </div>
+            {taxReg
+              ?(<div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#EAF0F9",border:"1px solid #E3E8F0",borderLeft:"4px solid #1B4FA8",borderRadius:6,padding:"11px 13px",marginTop:8}}>
+                  <span style={{fontSize:14,color:"#29384A",lineHeight:1.55}}>
+                    <strong style={{color:"#01236D"}}>All amounts entered should exclude {taxLabel()}.</strong> Enter your sales, costs and expenses at their tax-exclusive value. The tax itself is worked out separately from the rate and payment months you set below.
+                  </span>
+                </div>)
+              :(<div style={{fontSize:13,color:"#5A6C7E",marginTop:6,lineHeight:1.5}}>
+                  Tax on the products or services you sell &mdash; GST in New Zealand and Australia, VAT in the UK and Ireland, HST or GST in Canada. If you are registered, tick the box above.
+                </div>)}
+            <div style={{marginBottom:14}}/>
+
             {taxReg&&!((parseFloat(fdRef.current.taxRate)||0)>0)&&(
               <div style={{display:"flex",gap:9,alignItems:"flex-start",background:"#FDEEEB",border:"1px solid #F2CFC7",borderLeft:"4px solid #B14A38",borderRadius:6,padding:"11px 13px",marginBottom:12}}>
                 <span style={{fontSize:14,color:"#B14A38",lineHeight:1.55}}>
@@ -6770,102 +6870,9 @@ function App(){
               if(showAllExp)return true;
               if(revealedExp[c.id])return true;
               if(gridChecks[c.id])return true;
-              return ["xAcct","xComms","xMkt","xOffice","xTeam","xDepn","xInterest"].indexOf(c.id)>=0;
-            }).map(function(c){return (<div key={c.id} style={{marginBottom:10}}>
-              <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}</div>
-              {c.id==="xDepn"&&(
-                <div style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,lineHeight:1.5}}>
-                  Writing down what you own over its useful life. It reduces your profit but never leaves your
-                  bank account, so it changes the profit statement and not the cashflow. A rough monthly figure
-                  is what the assets cost, divided by the years you expect to use them, divided by twelve &mdash;
-                  $30,000 of gear over five years is $500 a month. Your accountant will use IRD&rsquo;s rates for the
-                  tax return; this is for the plan.
-                </div>
-              )}
-              {c.id==="xInterest"&&(
-                <div style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,lineHeight:1.5}}>
-                  The interest part of your loan repayments. It reduces your profit, but it does not come out of
-                  your bank again &mdash; the whole repayment already leaves through Loan transactions in section 5.
-                </div>
-              )}
-              {c.id==="xInterest"&&(
-                <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
-                  <div style={{display:"flex",alignItems:"flex-start",gap:9}}>
-                    <input type="checkbox" id="chkIntAuto" style={{width:16,height:16,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:2}}
-                      checked={String(fdRef.current.intAuto||"")==="1"}
-                      onChange={function(e){
-                        fdRef.current.intAuto=e.target.checked?"1":"";
-                        saveToStorage();refreshLive();
-                        setAvgSalesVer(function(v){return v+1;});
-                      }}/>
-                    <label htmlFor="chkIntAuto" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.5}}>
-                      Work it out for me &mdash; from what you owe and your rate, following the repayments you
-                      enter in Other transactions.
-                    </label>
-                  </div>
-                  {String(fdRef.current.intAuto||"")==="1"&&(
-                    <div style={{marginTop:9,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-                      <span style={{fontSize:13,color:"#29384A"}}>Owing now</span>
-                      <input style={Object.assign({},inp,{width:116})} defaultValue={fdRef.current.openLoan||""} placeholder="50,000"
-                        onChange={function(e){fdRef.current.openLoan=e.target.value;saveToStorage();refreshLive();}}/>
-                      <span style={{fontSize:13,color:"#29384A"}}>at</span>
-                      <input style={Object.assign({},inp,{width:86})} defaultValue={fdRef.current.loanRate||""} placeholder="8"
-                        onChange={function(e){fdRef.current.loanRate=e.target.value;saveToStorage();refreshLive();}}/>
-                      <span style={{fontSize:13,color:"#29384A"}}>% a year</span>
-                      <span style={{fontSize:12,color:"#5A6C7E",flex:"1 1 200px",lineHeight:1.45}}>
-                        Interest falls as you pay the loan down, so the figure declines across the year.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-              {c.id==="xDepn"&&(
-                <div style={{background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"10px 12px",marginBottom:8}}>
-                  <div style={{display:"flex",alignItems:"flex-start",gap:9}}>
-                    <input type="checkbox" id="chkDepnAuto" style={{width:16,height:16,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:2}}
-                      checked={String(fdRef.current.depnAuto||"")==="1"}
-                      onChange={function(e){
-                        fdRef.current.depnAuto=e.target.checked?"1":"";
-                        saveToStorage();refreshLive();
-                        setAvgSalesVer(function(v){return v+1;});
-                      }}/>
-                    <label htmlFor="chkDepnAuto" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.5}}>
-                      Work it out for me &mdash; straight line on what you own, following anything you buy or sell
-                      in Other transactions.
-                    </label>
-                  </div>
-                  {String(fdRef.current.depnAuto||"")==="1"&&(
-                    <div style={{marginTop:9,display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-                      <span style={{fontSize:13,color:"#29384A"}}>Write off</span>
-                      <input style={Object.assign({},inp,{width:92})} defaultValue={fdRef.current.depnRate||""} placeholder="20"
-                        onChange={function(e){fdRef.current.depnRate=e.target.value;saveToStorage();refreshLive();}}/>
-                      <span style={{fontSize:13,color:"#29384A"}}>% of their value a year</span>
-                      <span style={{fontSize:12,color:"#5A6C7E",flex:"1 1 200px",lineHeight:1.45}}>
-                        20% is five years, 10% is ten. Your accountant will use IRD&rsquo;s rate per asset at tax time.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
-              {c.id==="xInterest"&&String(fdRef.current.intAuto||"")==="1"
-                ? (<div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12})}>
-                    <span style={{fontSize:13}}>Worked out from what you owe</span>
-                    <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums",flexShrink:0}}>
-                      {fmt(liveRows.reduce(function(s,r){return s+(r.interestNonCash||0);},0))} a year
-                    </span>
-                  </div>)
-                : c.id==="xDepn"&&String(fdRef.current.depnAuto||"")==="1"
-                ? (<div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12})}>
-                    <span style={{fontSize:13}}>Worked out from what you own</span>
-                    <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums",flexShrink:0}}>
-                      {fmt(liveRows.reduce(function(s,r){return s+(r.depreciation||0);},0))} a year
-                    </span>
-                  </div>)
-                : gridChecks[c.id]?<MonthGrid key={c.id+"-grid-"+avgSalesVer} keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input key={c.id+"-"+avgSalesVer} style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 200"} onChange={function(e){fdRef.current[c.id]=e.target.value;if(e.target.value)revealExp(c.id);saveToStorage();refreshLive();}}/>}
-                {AnnualTotal({value:sumLive(function(r){return r.expDetail&&r.expDetail[c.id];})})}
-                {PEOPLE_CATS[c.id]?PeopleCostHelper(c.id):null}
-            </div>);})}            <div style={{marginBottom:14}}/>
+              return ["xAcct","xComms","xMkt","xOffice","xTeam"].indexOf(c.id)>=0;
+            }).filter(function(c){ return c.id!=="xDepn"&&c.id!=="xInterest"; }).map(ExpRow)}
+            <div style={{marginBottom:14}}/>
             <div style={{marginBottom:12}}>
               <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#01236D",background:"none",border:"1px dashed #D0B16F",borderRadius:6,padding:"7px 12px",cursor:"pointer"}} onClick={function(){setShowAllExp(function(v){return !v;});}}>
                 {showAllExp?"Show fewer expense categories":"+ Show all "+expCats.length+" expense categories"}
@@ -6873,6 +6880,18 @@ function App(){
             </div>
             {GoalExpApply()}
                         </>)}
+            {fw("depn")&&(<>
+            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Depreciation and interest</div>
+            <span style={{fontSize:13,color:"#29384A",marginBottom:10,display:"block",lineHeight:1.5}}>
+              Neither is money leaving the bank in the month it is charged, so the forecast
+              treats them apart from your other costs. Leave them blank if they do not apply.
+            </span>
+            {["xDepn","xInterest"].map(function(id){
+              var c=expCats.filter(function(x){return x.id===id;})[0];
+              return c?ExpRow(c):null;
+            })}
+            <div style={{marginBottom:14}}/>
+            </>)}
 </FinSection></>)}
             {finVisible("tx")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("tx")} onToggle={function(){finToggle("tx");}} title="5. Other transactions" hint="loans, assets, drawings">
             {TaxExclNote("tx","Asset and Other Transactions")}
