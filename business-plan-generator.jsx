@@ -53,7 +53,7 @@ const txCats=[
   {id:"txTaxOther",l:"Tax payments other",ph:"e.g. 2000 income tax refund, -1000 withholding tax payment"},
   {id:"txNeedCap",l:"Funding to start or grow",auto:true},
   {id:"txDraw",l:"Drawings to the owner",auto:true},
-  {id:"txOther",l:"Other transactions",ph:"e.g. 10000 owner investment, -500 drawings"}
+  {id:"txOther",l:"Other transactions",ph:"e.g. 5000 grant received, -1200 bond paid"}
 ];
 // What this business calls its tax. Mirrors taxLabel() inside the component,
 // but available to calcCashflow and the export builders, which sit outside it.
@@ -358,7 +358,7 @@ function calcCashflow(f){
   let assetBase=needOneOff(f.openAssets);
   const stockMonths=parseFloat(f.stockMonths||0)||0;
   const openStock=needOneOff(f.openStock);
-  let prevCogs=0;
+  let stockBal=0;   // set from openStock once it has been parsed
   // Already earned, or already owed, before month 1 - they settle in month 1.
   const openDebtors=needOneOff(f.openDebtors);
   const openCreditors=needOneOff(f.openCreditors);
@@ -399,18 +399,20 @@ function calcCashflow(f){
     // Cost of sales is what was SOLD. What leaves the bank is what was BOUGHT,
     // and with stock on the shelf those are different numbers.
     //
-    // Holding N months of cover means the stock balance has to be N times the
-    // current run rate, so as sales grow you buy what you sell PLUS the
-    // increase in cover. Expressed this way it needs only this month and the
-    // last, never a month that has not been forecast yet.
-    //
-    // Month 1 also has to get the shelf stocked in the first place - less
-    // whatever the business already holds, which is why that is asked.
-    const stockBuild=i===0
-      ? Math.max(0,Math.round(stockMonths*cogs-openStock))
-      : Math.round(stockMonths*(cogs-prevCogs));
-    const purch=Math.max(0,cogs+stockBuild);
-    prevCogs=cogs;
+    // Holding N months of cover means carrying a stock balance of N times the
+    // current run rate, so this tracks the balance itself rather than working
+    // the change out from the movement in cost of sales. The difference shows
+    // when sales fall, or when a business starts with more stock than its
+    // cover calls for: buying nothing can only absorb one month's worth, and
+    // deriving the change from cost of sales threw the rest away, so the
+    // forecast had the business re-buying stock it was already holding.
+    // Carrying the balance runs the surplus down over as many months as it
+    // takes, which is what actually happens.
+    if(i===0)stockBal=openStock;
+    const target=Math.round(stockMonths*cogs);
+    const purch=Math.max(0,target-stockBal+cogs);
+    const stockBuild=purch-cogs;
+    stockBal=Math.max(0,stockBal-cogs+purch);
     purchHist.push(purch);
 
     const grossProfit=revenue-cogs;
@@ -548,7 +550,7 @@ function calcCashflow(f){
     // already owed before the forecast starts.
     // Running costs (rent, wages, insurance) are not lagged - the supplier
     // terms question is about what you buy to sell, which is cost of sales.
-    const cashSales=Math.round(cashIn(revHist,i,f.recvLag)+(i===0?openDebtors:0));
+    const cashSales=Math.round(cashIn(revProdHist,i,f.recvLag)+revOther+(i===0?openDebtors:0));
     const cashCogs =Math.round(cashIn(purchHist,i,f.payLag)+(i===0?openCreditors:0));
     const netCashflow=Math.round(cashSales-cashCogs-expPaidNow-expPaidLagged)+otherTx;
     const openBal=bal;
@@ -1577,6 +1579,7 @@ export default function App(){
   var FIN_FLOW=[
     {id:"setup",     sec:"start", core:true,  l:"Where you are starting from",hint:"currency, start date, cash in the bank"},
     {id:"trading",   sec:"start", core:true,  l:"Already trading",          hint:"debtors, stock, what you need"},
+    {id:"tax",       sec:"tax",   core:true,  l:"Products/services tax",   hint:"registration, rate, basis and months"},
     {id:"sells",     sec:"sales", core:true,  l:"What you sell",            hint:"products, services or both"},
     {id:"volume",    sec:"sales", core:true,  l:"How much you sell",        hint:"and how fast it grows"},
     {id:"price",     sec:"sales", core:true,  l:"What you charge",          hint:"your average price"},
@@ -1586,7 +1589,6 @@ export default function App(){
     {id:"spend",     sec:"other", core:true,  l:"What you spend",           hint:"your running costs"},
     {id:"depn",      sec:"other", core:true,  l:"Depreciation and interest",hint:"costs that are not cash"},
     {id:"stockterms",sec:"other", core:false, l:"Stock and supplier terms", hint:"when you pay"},
-    {id:"tax",       sec:"tax",   core:true,  l:"Products/services tax",   hint:"registration, rate, basis and months"},
     {id:"tx",        sec:"tx",    core:false, l:"Loans and other movements",hint:"money in and out"},
     {id:"notes",     sec:"notes", core:true,  l:"Anything else",            hint:"optional"}
   ];
@@ -1600,6 +1602,12 @@ export default function App(){
   function finNext(){ var f=finFlow(); return f[finIdx()+1]; }
   // One question at a time when guided; everything when not.
   function fw(id){ return finMode!=="guided"||finNow().id===id; }
+  // The converter takes the tax off a figure you are about to type, so it only
+  // belongs on a question that asks for one. These ask for a choice, a count
+  // or a set of terms, and it was appearing on them purely because it heads
+  // the whole section.
+  var NO_AMOUNT_Q={sells:1,volume:1,terms:1,stockterms:1};
+  function taxNoteHere(){ return finMode!=="guided"||!NO_AMOUNT_Q[finNow().id]; }
   function finVisible(k){ return finMode!=="guided"||finNow().sec===k; }
   function finIsOpen(k){ return finMode==="guided"?true:!!finOpen[k]; }
   function finToggle(k){ if(finMode!=="guided")toggleFin(k); }
@@ -3839,12 +3847,15 @@ export default function App(){
     );
   }
 
+  // A goal that has been deleted or blanked leaves its stored line behind.
+  // No row is drawn for it, so it would be counted without being visible.
+  function goalLives(gi){ return !!String((goals||[])[gi]||"").trim(); }
   function goalSalesMap(){
     var m={};
     String(fdRef.current.goalSalesLines||"").split("|").filter(Boolean).forEach(function(p){
       var b=p.split(":");
       var i=parseInt(b[0]);
-      if(!isNaN(i))m[i]=(b[1]||"").trim();
+      if(!isNaN(i)&&goalLives(i))m[i]=(b[1]||"").trim();
     });
     return m;
   }
@@ -3856,7 +3867,7 @@ export default function App(){
   }
   function writeGoalSales(map,remount){
     fdRef.current.goalSalesLines=Object.keys(map)
-      .filter(function(k){return String(map[k]).length;})
+      .filter(function(k){return goalLives(k)&&String(map[k]).length;})
       .map(function(k){return k+":"+map[k];}).join("|");
     // Mirror the sum so Step 5 and the plan prompt still read one figure.
     var t=0;
@@ -3881,7 +3892,7 @@ export default function App(){
         var gi=parseInt(b[0]);
         // Fourth part is the start month, used for salaries that begin partway
         // through the year. Absent means the whole 12 months.
-        if(!isNaN(gi))m[gi]={id:(b[1]||"").trim(),amt:(b[2]||"").trim(),start:(b[3]||"").trim()};
+        if(!isNaN(gi)&&goalLives(gi))m[gi]={id:(b[1]||"").trim(),amt:(b[2]||"").trim(),start:(b[3]||"").trim()};
       }
     });
     return m;
@@ -3889,7 +3900,7 @@ export default function App(){
   function goalExpFor2(gi){ return goalExpMap()[gi]||{id:"",amt:"",start:""}; }
   function writeGoalExp(map,remount){
     fdRef.current.goalExpLines=Object.keys(map)
-      .filter(function(k){return map[k]&&(map[k].id||String(map[k].amt).length);})
+      .filter(function(k){return goalLives(k)&&map[k]&&(map[k].id||String(map[k].amt).length);})
       .map(function(k){return k+":"+map[k].id+":"+map[k].amt+":"+(map[k].start||"");}).join("|");
     saveToStorage();refreshLive();
     if(remount)setGeVersion(function(v){return v+1;});
@@ -4328,7 +4339,7 @@ export default function App(){
     var neg=rows.filter(function(r){return (r.closingBalance||0)<0;});
     var taxColl=txSum("txTaxColl"), taxCred=txSum("txTaxCred"), taxPaid=txSum("txTax");
     var unremitted=taxColl+taxCred+taxPaid;      // cred and paid are negative
-    var drawings=txSum("txOther");
+    var drawings=txSum("txDraw");
     var wages=rows.reduce(function(a,r){return a+((r.expDetail&&r.expDetail.xTeam)||0);},0);
     var goalUnits=parseFloat(f.goalSalesTotal)||0;
     var goalExp=parseFloat(f.goalExpTotal)||0;
@@ -6433,7 +6444,7 @@ export default function App(){
             </>)}
 </FinSection></>)}
             {finVisible("sales")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("sales")} onToggle={function(){finToggle("sales");}} title="2. Money in" hint="sales and other income">
-            {TaxExclNote("sales")}
+            {taxNoteHere()&&TaxExclNote("sales")}
             {/* One question, asked once, to set the language and the defaults
                 for everything below it. Not a template: it hides no field and
                 removes no capability, because plenty of service businesses do
@@ -6640,7 +6651,7 @@ export default function App(){
             {TaxMethodNote()}
             </FinSection></>)}
             {finVisible("other")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("other")} onToggle={function(){finToggle("other");}} title="4. Money out" hint="your expenses">
-            {TaxExclNote("other")}
+            {taxNoteHere()&&TaxExclNote("other")}
             <div style={{marginBottom:14}}/>
             {fw("stockterms")&&(<>
             <div style={{marginBottom:14}}>
@@ -6718,7 +6729,7 @@ export default function App(){
             </>)}
 </FinSection></>)}
             {finVisible("tx")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("tx")} onToggle={function(){finToggle("tx");}} title="5. Other transactions" hint="loans, assets, drawings">
-            {TaxExclNote("tx","Asset and Other Transactions")}
+            {taxNoteHere()&&TaxExclNote("tx","Asset and Other Transactions")}
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Other money in and out ($)</div>
             <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>Regular monthly or one-off</span>
             <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:6,padding:"8px 11px",marginBottom:10,fontSize:13,color:"#29384A",lineHeight:1.55}}>
@@ -6765,8 +6776,27 @@ export default function App(){
             <div style={{marginBottom:12}}>{FinSummary()}</div>
             <CfTable rows={liveRows}/>
             <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap",marginTop:26,paddingTop:22,borderTop:"1px solid #E3E8F0"}}>
-              <span style={{fontSize:13.5,color:"#5A6C7E",lineHeight:1.5,flex:"1 1 240px"}}>
-                That is your forecast. Your plan pulls it together with everything you entered in the first four steps.
+              <span style={{fontSize:13.5,color:"#7A5E18",lineHeight:1.55,flex:"1 1 340px",
+                background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:8,padding:"10px 12px"}}>
+                <strong style={{color:"#7A5E18"}}>Tax still to come out of this cash.</strong>{" "}
+                No income tax has been worked out on your profit, so the closing balance makes no allowance for paying it.{" "}
+                {(function(){
+                  // The tax rows are in the forecast, but a balance can be left
+                  // sitting in the bank at year end - collected on sales and not
+                  // yet remitted, or paid on purchases and not yet claimed back.
+                  // Either way the closing cash is not all the business's own.
+                  if(!taxReg)return null;
+                  var coll=0,cred=0,paid=0;
+                  (liveRows||[]).forEach(function(r){
+                    var d=r.txDetail||{};
+                    coll+=d.txTaxColl||0; cred+=d.txTaxCred||0; paid+=d.txTax||0;
+                  });
+                  var owing=Math.round(coll+cred+paid);   // credits and payments are negative
+                  if(owing>0)return <span>The closing balance also still holds about <strong style={{color:"#7A5E18"}}>{fmt(owing)}</strong> of {taxLabel()} collected and not yet paid &mdash; that is not your money.</span>;
+                  if(owing<0)return <span>Your {taxLabel()} position at the end of the year is about <strong style={{color:"#7A5E18"}}>{fmt(Math.abs(owing))}</strong> owed back to you, which is in the closing balance only once it is refunded.</span>;
+                  return <span>Your {taxLabel()} is paid up to the end of the year in this forecast.</span>;
+                })()}{" "}
+                Set money aside, and talk to your accountant about what you are likely to owe and when.
               </span>
               <button style={{fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"14px 34px",borderRadius:10,
                 border:"none",background:"#01236D",color:"#fff",cursor:"pointer"}}
