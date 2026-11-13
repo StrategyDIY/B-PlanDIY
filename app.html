@@ -289,6 +289,7 @@ const txCats=[
   {id:"txTaxOther",l:"Tax payments other",ph:"e.g. 2000 income tax refund, -1000 withholding tax payment"},
   {id:"txNeedCap",l:"Funding to start or grow",auto:true},
   {id:"txDraw",l:"Drawings to the owner",auto:true},
+  {id:"txTaxAside",l:"Set aside for income tax",auto:true},
   {id:"txOther",l:"Other transactions",ph:"e.g. 5000 grant received, -1200 bond paid"}
 ];
 // What this business calls its tax. Mirrors taxLabel() inside the component,
@@ -595,6 +596,13 @@ function calcCashflow(f){
   const stockMonths=parseFloat(f.stockMonths||0)||0;
   const openStock=needOneOff(f.openStock);
   let stockBal=0;   // set from openStock once it has been parsed
+  // Income tax. A rate of zero means it has not been set, and nothing is
+  // calculated - better than quietly using a figure the owner never chose.
+  // Losses carry forward, so a business that loses before it earns is taxed
+  // on the difference and not on the good months alone.
+  const incTaxRate=parseFloat(f.incTaxRate||0)||0;
+  const incTaxAside=String(f.incTaxAside||"")==="1";
+  let lossCarried=0, taxReserve=0;
   // Already earned, or already owed, before month 1 - they settle in month 1.
   // Entered as the amount owed, which includes the tax, so each is split:
   // the net part is trading cash and the tax part goes to the tax rows,
@@ -691,6 +699,13 @@ function calcCashflow(f){
     });
 
     const netProfit=grossProfit-totalExpenses;
+    // Taxable profit for the month, after any loss brought forward. A loss
+    // adds to what is carried and is charged nothing.
+    let taxableNow=netProfit-lossCarried;
+    if(taxableNow<0){ lossCarried=-taxableNow; taxableNow=0; }
+    else { lossCarried=0; }
+    const incomeTax=Math.round(taxableNow*incTaxRate/100);
+    const profitAfterTax=netProfit-incomeTax;
 
     // People are paid when they work, whatever the supplier terms say, so Team
     // and Contractors never go on terms. Everything else can, if asked.
@@ -745,8 +760,10 @@ function calcCashflow(f){
     // On a payments basis the credit is claimed when the supplier is paid, so
     // it follows the same terms. Wages carry no credit either way.
     const taxExpBase=onPayments?(expPaidNow+expPaidLagged-teamExp):(expCash-teamExp);
-    const taxOnSales=Math.round(taxSalesBase*taxRate/100);
-    const taxOnInputs=salesTaxMode?0:Math.round((taxCogsBase+taxExpBase)*taxRate/100);
+    const taxOnSales=Math.round(taxSalesBase*taxRate/100)
+      +((onPayments&&i===0)?openDebtorsTax:0);
+    const taxOnInputs=salesTaxMode?0:(Math.round((taxCogsBase+taxExpBase)*taxRate/100)
+      +((onPayments&&i===0)?openCreditorsTax:0));
     // Those two are the RETURN, and they follow the basis. What reaches the
     // bank is a different question and always follows the money: a customer
     // on 30-day terms hands over the tax with the invoice when they pay it,
@@ -755,7 +772,8 @@ function calcCashflow(f){
     // it belonged to was collected.
     //
     // Opening debtors and creditors are entered as the amount actually owed,
-    // which already includes the tax, so no tax is added on top of them.
+    // which already includes the tax, so none is added on top of them - the
+    // amount entered is split instead.
     const taxCashSales=Math.round(cashIn(revProdHist,i,f.recvLag)*taxRate/100)
       +(i===0?openDebtorsTax:0);
     const taxCashInputs=(salesTaxMode?0:Math.round(
@@ -786,6 +804,11 @@ function calcCashflow(f){
         // What they said they need to start or grow, treated as funding put
         // in at the start. Month one only - it is capital, not income.
         v=i===0?Math.round(needOneOff(f.needCapital)):0;
+      } else if(c.id==="txTaxAside"){
+        // Not a payment - the money has not gone to anyone. It is moved out
+        // of the balance so the figure on screen is what the business can
+        // actually spend, and it is shown as a reserve of its own below.
+        v=incTaxAside?-incomeTax:0;
       } else if(c.id==="txDraw"){
         // What they said they need to earn, taken out every month. Drawings
         // are not an expense, so they never touch profit - this is the only
@@ -823,6 +846,7 @@ function calcCashflow(f){
     const openBal=bal;
     bal=bal+netCashflow;
 
+    if(incTaxAside)taxReserve+=incomeTax;
     rows.push({
       month:getMonthLabel(i),
       units:units,
@@ -845,6 +869,8 @@ function calcCashflow(f){
       loanBalance:Math.round(loanBal),
       assetBase:Math.round(assetBase),
       debtorsBal:debtorsBal, creditorsBal:creditorsBal, stockBal:stockBal,
+      incomeTax:incomeTax, profitAfterTax:profitAfterTax,
+      lossCarried:Math.round(lossCarried), taxReserve:Math.round(taxReserve),
       rcDebtors:Math.round(cashSales-revenue),
       rcStockCred:Math.round(cogs-cashCogs),
       rcExpTiming:Math.round(expCash-expPaidNow-expPaidLagged),
@@ -932,6 +958,16 @@ function CfTable({rows}){
             {rows.map(function(r){return <td key={r.month} style={r.netProfit<0?hlR:hlG}>{fmt(r.netProfit)}</td>;})}
             <td style={Object.assign({},totals("netProfit")<0?hlR:hlG,totB)}>{fmt(totals("netProfit"))}</td>
           </tr>
+          {rows.some(function(r){return (r.incomeTax||0)!==0;})&&(<>
+            <tr><td style={tdF}>Income tax (estimated)</td>
+              {rows.map(function(r){return <td key={r.month} style={td}>{fmt(-(r.incomeTax||0))}</td>;})}
+              <td style={Object.assign({},td,totB)}>{fmt(-totals("incomeTax"))}</td></tr>
+            <tr>
+              <td style={totals("profitAfterTax")<0?hlRF:hlGF}>Profit after tax</td>
+              {rows.map(function(r){return <td key={r.month} style={r.profitAfterTax<0?hlR:hlG}>{fmt(r.profitAfterTax)}</td>;})}
+              <td style={Object.assign({},totals("profitAfterTax")<0?hlR:hlG,totB)}>{fmt(totals("profitAfterTax"))}</td>
+            </tr>
+          </>)}
           {/* Profit to cash. Without these four the table simply does not add
               up any more: profit is accrual and the bank movement is cash, and
               depreciation, stock, debtors and supplier terms all sit between
@@ -1405,6 +1441,18 @@ function App(){
         d.taxRegistered=((parseFloat(d.taxRate)||0)>0)?"1":"";
       }
       repairMonthGrids(d);
+      (function(){
+        var carry=[];
+        if(String(d.assets||"").trim())carry.push("Assets the business owns: "+String(d.assets).trim());
+        if(String(d.debt||"").trim())carry.push("Money the business owes: "+String(d.debt).trim());
+        if(!carry.length)return;
+        var note=String(d.extra5||"").trim();
+        d.extra5=(note?note+"\n":"")+carry.join("\n");
+        d.assets=""; d.debt="";
+        // Written back now so it happens once, rather than being redone from
+        // the same stored values on every load until something else saves.
+        try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(d)); }catch(e){}
+      })();
       // Set before the first render, so no figure is ever drawn with the wrong
       // symbol and then corrected.
       setCurrency(d.currencySym);
@@ -1434,6 +1482,46 @@ function App(){
   var taxNameState=useState(fdRef.current.taxName||"");var taxName=taxNameState[0];var setTaxName=taxNameState[1];
   // Falls back to the neutral term until the user names their own tax.
   function taxLabel(){ return taxName||"products/services tax"; }
+  // Income tax. A company and a trust have a rate of their own; a sole
+  // trader or a partnership is taxed in the owner's hands at whatever their
+  // marginal rate is, which depends on income this app never sees. So those
+  // get no default - a guess there is worse than a blank.
+  function incTaxSuggest(){
+    var t=String(fdRef.current.bizType||"");
+    if(t==="Company (Ltd)")return {rate:"28",why:"Companies are taxed at 28% in New Zealand."};
+    if(t==="Trust")return {rate:"39",why:"Trustee income is taxed at 39% in New Zealand."};
+    if(t==="Sole Trader"||t==="Partnership")
+      return {rate:"",why:"A "+t.toLowerCase()+" is taxed in the owner's hands, so this is your own marginal rate - 10.5% up to $15,600, 17.5% to $53,500, 30% to $78,100, 33% to $180,000, then 39%. Use the rate your next dollar of income is taxed at."};
+    return {rate:"",why:"The rate depends on how the business is set up and, for a sole trader or partnership, on the owner's own income."};
+  }
+  function taxSchedNow(){
+    var f=fdRef.current;
+    if(f.taxFreq)return {freq:f.taxFreq,first:String(f.taxFirstM||"1")};
+    var on=[];
+    for(var m=1;m<=12;m++)if(f["taxPayM"+m])on.push(m);
+    if(!on.length)return {freq:"monthly",first:"1"};
+    if(on.length===12)return {freq:"monthly",first:"1"};
+    var step=on.length>1?on[1]-on[0]:0;
+    var even=on.length>1&&on.every(function(v,i){return i===0||v-on[i-1]===step;});
+    if(even&&(step===2||step===6)&&on[0]+step*(on.length-1)>12-step)
+      return {freq:String(step),first:String(on[0])};
+    return {freq:"pick",first:String(on[0])};
+  }
+  function setTaxSchedule(freq,firstM){
+    var f=fdRef.current;
+    f.taxFreq=freq; f.taxFirstM=String(firstM||"1");
+    if(freq!=="pick"){
+      var step=freq==="monthly"?1:parseInt(freq,10);
+      var start=freq==="monthly"?1:(parseInt(f.taxFirstM,10)||1);
+      for(var m=1;m<=12;m++)f["taxPayM"+m]="";
+      // Monthly is every month, which the forecast also treats as the
+      // default when nothing is ticked - set them anyway so the stored
+      // answer and the screen always agree.
+      for(var k=start;k<=12;k+=step)f["taxPayM"+k]="1";
+    }
+    saveToStorage();refreshLive();
+    setAvgSalesVer(function(v){return v+1;});
+  }
   var taxRegState=useState(fdRef.current.taxRegistered==="1");var taxReg=taxRegState[0];var setTaxReg=taxRegState[1];
   // Date established needs state for the same reason the cashflow start date
   // does. These are controlled selects, and React restores a controlled
@@ -1668,20 +1756,6 @@ function App(){
   // goals, vision, values, every expense category - so someone who had gone
   // straight to Step 5 and built a forecast would get the full-screen intake
   // dropped over their work.
-  function planLooksEmpty(){
-    var f=fdRef.current||{};
-    // Seeded automatically rather than typed, so their presence proves nothing.
-    var auto={taxRegistered:1,currencySym:1,taxName:1,taxRate:1,_rev:1,_planHtml:1,descAuto:1,posAuto:1};
-    var keys=Object.keys(f);
-    for(var i=0;i<keys.length;i++){
-      if(auto[keys[i]])continue;
-      var v=f[keys[i]];
-      if(v==null)continue;
-      if(typeof v==="object"){ if(Object.keys(v).length)return false; continue; }
-      if(String(v).trim())return false;
-    }
-    return true;
-  }
   // The first-visit welcome overlay and the first-time Finances overlay were
   // removed. Both were full-screen modals shown before the user had done
   // anything. The bpd_seen_welcome and bpd_seen_finances keys are still cleared
@@ -1744,7 +1818,7 @@ function App(){
   var bkTextState=useState("");var bkText=bkTextState[0];var setBkText=bkTextState[1];
   // Finances step: sections collapse so the tab is not one long scroll, and
   // rarely-used expense categories stay hidden until asked for.
-  var finOpenState=useState({start:false,sales:true,tax:false,other:false,tx:false,notes:false});
+  var finOpenState=useState({start:false,sales:true,tax:false,inctax:false,other:false,tx:false,notes:false});
   var finOpen=finOpenState[0];var setFinOpen=finOpenState[1];
   function toggleFin(id){setFinOpen(function(p){var n=Object.assign({},p);n[id]=!p[id];return n;});}
   // Six of Starting position's twelve field groups only exist for a business
@@ -1817,7 +1891,22 @@ function App(){
   var qStepState=useState(0);
   var qStep=qStepState[0];var setQStep=qStepState[1];
 
-  function stepFlow(i){ return STEP_FLOW[i]||[]; }
+  function stepFlow(i){
+    var f=STEP_FLOW[i]||[];
+    // No goals yet means the spend-per-goal matrix has nothing to show, so
+    // it is left out rather than offered as a screen that can only tell you
+    // to go back. Your goals stays, because that is where the way back is.
+    if(i===3&&!goals.some(Boolean))f=f.filter(function(q){return q.id!=="spend4";});
+    return f;
+  }
+  // Jump to a particular question of another step. setStepAndSave resets to
+  // the first question, so the index is set after it.
+  function goToQuestion(stepIdx,id){
+    setShowDirection(false);
+    setStepAndSave(stepIdx);
+    var k=(STEP_FLOW[stepIdx]||[]).findIndex(function(q){return q.id===id;});
+    if(k>=0)setQStep(k);
+  }
   function swCount(){ return stepFlow(step).length; }
   function swIdx(){ return Math.min(qStep,Math.max(0,swCount()-1)); }
   function swNow(){ return stepFlow(step)[swIdx()]; }
@@ -1848,6 +1937,7 @@ function App(){
     {id:"setup",     sec:"start", core:true,  l:"Where you are starting from",hint:"currency, start date, cash in the bank"},
     {id:"trading",   sec:"start", core:true,  l:"Already trading",          hint:"debtors, stock, what you need"},
     {id:"tax",       sec:"tax",   core:true,  l:"Products/services tax",   hint:"registration, rate, basis and months"},
+    {id:"inctax",    sec:"inctax",core:true,  l:"Income tax",              hint:"the rate on your profit"},
     {id:"sells",     sec:"sales", core:true,  l:"What you sell",            hint:"products, services or both"},
     {id:"volume",    sec:"sales", core:true,  l:"How much you sell",        hint:"and how fast it grows"},
     {id:"price",     sec:"sales", core:true,  l:"What you charge",          hint:"your average price"},
@@ -1959,8 +2049,6 @@ function App(){
   var goalCardVerState=useState({});var goalCardVer=goalCardVerState[0];var setGoalCardVer=goalCardVerState[1];
   var teamVersionState=useState(0);var teamVersion=teamVersionState[0];var setTeamVersion=teamVersionState[1];
   var goalSalesVerState=useState({});var goalSalesVer=goalSalesVerState[0];var setGoalSalesVer=goalSalesVerState[1];
-  var goalGridChecksState=useState(function(){try{return JSON.parse(localStorage.getItem("bpg_ggc")||"{}");}catch(e){return{};}});
-  var goalGridChecks=goalGridChecksState[0];var setGoalGridChecks=goalGridChecksState[1];
   var adminMsgState=useState(function(){try{return localStorage.getItem("bpg_admin_msg")||"";}catch(e){return"";}});
   var adminMsg=adminMsgState[0];
 
@@ -2364,14 +2452,6 @@ function App(){
     setAvgSalesVer(function(v){return v+1;});
   }
 
-  function toggleGoalGrid(key){
-    setGoalGridChecks(function(prev){
-      var n=Object.assign({},prev);
-      n[key]=!n[key];
-      try{localStorage.setItem("bpg_ggc",JSON.stringify(n));}catch(e){}
-      return n;
-    });
-  }
 
   function setGoalsAndSave(arr){
     setGoals(arr);
@@ -2979,6 +3059,10 @@ function App(){
       });
       data.push(dr("Total Expenses",cfRows.map(function(r){return r.totalExpenses||0;})));
       data.push(dr("Net Profit/(Loss)",cfRows.map(function(r){return r.netProfit||0;})));
+      if(cfRows.some(function(r){return (r.incomeTax||0)!==0;})){
+        data.push(dr("Income tax (estimated)",cfRows.map(function(r){return -(r.incomeTax||0);})));
+        data.push(dr("Profit after tax",cfRows.map(function(r){return r.profitAfterTax||0;})));
+      }
       (function(){
         var recon=[
           {k:"depreciation",   l:"Add back depreciation (not paid to anyone)"},
@@ -3010,7 +3094,9 @@ function App(){
           {k:"creditorsBal",l:"Owed by you (excluding "+taxWord+")"},
           {k:"stockBal",    l:"Stock on hand"},
           {k:"loanBalance", l:"Loan still to repay"},
-          {k:"assetBase",   l:"Equipment and vehicles, cost being depreciated"}
+          {k:"assetBase",   l:"Equipment and vehicles, cost being depreciated"},
+          {k:"taxReserve",  l:"Income tax set aside, running total"},
+          {k:"lossCarried", l:"Tax loss carried forward"}
         ].filter(function(x){return cfRows.some(function(r){return (r[x.k]||0)!==0;});});
         if(!bal.length)return;
         data.push([]);
@@ -3029,7 +3115,17 @@ function App(){
         var owing=Math.round(coll+cred+paid);
         data.push([]);
         data.push(sr("NOTES"));
-        data.push(["Net profit is before income tax. No income tax has been calculated on profit, so the closing balance makes no allowance for paying it."]);
+        var itTot=cfRows.reduce(function(s,r){return s+(r.incomeTax||0);},0);
+        var itRate=parseFloat(fdRef.current.incTaxRate||0)||0;
+        var itAside=String(fdRef.current.incTaxAside||"")==="1";
+        if(!itTot){
+          data.push(["Net profit is before income tax. No income tax has been calculated on profit, so the closing balance makes no allowance for paying it."]);
+        } else if(itAside){
+          data.push(["Income tax of about "+Math.round(itTot).toLocaleString()+" is estimated at "+itRate+"% of profit and set aside each month, so the closing balance already allows for paying it."]);
+        } else {
+          data.push(["Income tax of about "+Math.round(itTot).toLocaleString()+" is estimated at "+itRate+"% of profit, but it is not taken out of the bank in this forecast, so the closing balance makes no allowance for paying it."]);
+        }
+        if(last.lossCarried)data.push(["A tax loss of about "+Math.round(last.lossCarried).toLocaleString()+" is still carried forward at the end of month 12, which reduces the tax on later profits."]);
         if(owing>0)data.push(["The closing balance still holds about "+Math.round(owing).toLocaleString()+" of "+taxWord+" collected and not yet paid."]);
         if(owing<0)data.push(["About "+Math.abs(Math.round(owing)).toLocaleString()+" of "+taxWord+" is owed back to you at the end of the year."]);
         if(last.debtorsBal)data.push(["Customers still owe "+Math.round(last.debtorsBal).toLocaleString()+" excluding "+taxWord+" at the end of month 12, which is not in the closing balance."]);
@@ -3481,6 +3577,10 @@ function App(){
         tblRows.push(mhr("Expenses"));
         expCats.forEach(function(c){var vs=cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;});if(vs.some(function(v){return v!==0;}))tblRows.push(mr(c.l,cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;}),false));});
         tblRows.push(mrk("Total Expenses","totalExpenses",true));tblRows.push(mrk("Net Profit/(Loss)","netProfit",true));
+        if(cfRows.some(function(r){return (r.incomeTax||0)!==0;})){
+          tblRows.push(mr("Income tax (estimated)",cfRows.map(function(r){return -(r.incomeTax||0);}),false));
+          tblRows.push(mrk("Profit after tax","profitAfterTax",true));
+        }
         tblRows.push(mhr("Other Transactions"));
         txCats.forEach(function(c){var vs=cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;});if(vs.some(function(v){return v!==0;}))tblRows.push(mr(txLabel(c,cfRows[0]&&cfRows[0].taxWord),cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;}),false));});
         tblRows.push(mrk("Total Other Transactions","otherTx",true));
@@ -3620,8 +3720,6 @@ function App(){
       var oLoan=needOneOff(f.openLoan);
       if(oLoan)finBits.push("Loans still to repay on day one: $"+oLoan.toLocaleString());
     }
-    if(f.assets)finBits.push("Assets: "+f.assets);
-    if(f.debt)finBits.push("Debt: "+f.debt);
     if(f.equity)finBits.push("Equity: "+f.equity);
     finBits.push("Expenses: "+expText);
     finBits.push("Other transactions: "+txText);
@@ -3654,6 +3752,10 @@ function App(){
         " | total units "+tUnits+
         " | average selling price $"+mRows[0].avgPrice+" per unit"+
         " | average unit cost $"+mRows[0].avgCost+".";
+      var tTax=0;mRows.forEach(function(r){tTax+=r.incomeTax||0;});
+      if(tTax)monthlyText+=" Estimated income tax on that profit is $"+Math.round(tTax)+
+        ", leaving profit after tax of $"+Math.round(tProf-tTax)+
+        ". Treat the income tax figure as an estimate only.";
     }
     finText+=monthlyText;
     var onlineText=onlineCh.map(function(c){return f[c.id]?c.label+": "+f[c.id]:null;}).filter(Boolean).join(", ")||"Not provided";
@@ -3702,16 +3804,33 @@ function App(){
       "- No # headings, no ---, no ** anywhere.\n"+
       "- Write only the sections asked for. Do not add a preamble, a closing summary, or any other section.\n";
 
+    // Section 1 in two requests. 480-620 words in one is the longest single
+    // reply left in the plan and the closest to the 26s function cap, and a
+    // timeout there loses the section a reader starts with. The split falls
+    // where the content already changes gear: the story of the business,
+    // then how it is set up. Only the first carries the ## heading, and each
+    // is told what the other is covering so neither repeats it.
     var promptA=ctx+
-      "\nWrite ONLY this section:\n"+
+      "\nWrite ONLY the opening of this section:\n"+
       "## 1. Business Details\n\n"+
-      "Sections 2, 3, 4 and 5 are being written separately - do not cover the market, customers, competitors, vision, goals or financial position here.\n\n"+
-      "SECTION 1 - Business Details: flowing prose paragraphs, no bullet points, no subheadings. Cover what the business does, its stage and establishment date, where it operates, who runs it, and its origin.\n"+
-      "- Also work in, where they have been supplied: how the business is set up and its legal status, any intellectual property it owns, and where it can be found online. Weave them into the prose; do not list them.\n"+
-      "- If the owner has left notes under Step 1, treat them as part of the brief and reflect what they say.\n"+
-      "- Where the owner has stated the problem being solved or the gap in the market, open the section with it, in their terms, before describing what the business does. If they have not stated one, do not invent one.\n\n"+
+      "Sections 2, 3, 4 and 5 are being written separately - do not cover the market, customers, competitors, vision, goals or financial position here. "+
+      "A second request is covering how the business is set up, its legal status, its intellectual property and where it can be found online, so do not write about those.\n\n"+
+      "SECTION 1, OPENING: flowing prose paragraphs, no bullet points, no subheadings. "+
+      "Cover what the business does, its stage and establishment date, where it operates and who runs it.\n"+
+      "- Where the owner has stated the problem being solved or the gap in the market, open with it, in their terms, before describing what the business does. If they have not stated one, do not invent it.\n"+
       SHARED_FORMAT+
-      "- LENGTH: 480-620 words. Write in full, substantive paragraphs - this is a document a bank or investor may read.";
+      "- LENGTH: 300-380 words. Write in full, substantive paragraphs - this is a document a bank or investor may read.";
+
+    var promptA1b=ctx+
+      "\nWrite ONLY the rest of section 1. Do NOT write a ## heading - the section is already open.\n"+
+      "The opening paragraphs are being written separately and already cover what the business does, the problem it solves, its stage, where it operates and who runs it. "+
+      "Do not describe any of that again, and do not cover the market, customers, competitors, vision, goals or financial position.\n\n"+
+      "SECTION 1, CONTINUED: flowing prose paragraphs, no bullet points, no subheadings. Continue straight on from the opening.\n"+
+      "- Cover, where they have been supplied: how the business is set up and its legal status, any intellectual property it owns, and where it can be found online. Weave them into the prose; do not list them.\n"+
+      "- If the owner has left notes under Step 1, treat them as part of the brief and reflect what they say.\n"+
+      "- If none of these have been supplied, write a short paragraph saying the formal arrangements are still to be settled rather than inventing any.\n"+
+      SHARED_FORMAT+
+      "- LENGTH: 180-240 words.";
 
     // Section 2, one request per subsection. Written as one request it asked
     // for 700-900 words, which takes longer to generate than Netlify's 26s
@@ -3886,7 +4005,8 @@ function App(){
         return Promise.all(jobs.map(function(j){ return trackPart(j[0],j[1]); }));
       }
       var waveOne=[
-        [promptA,1000],     // 1. Business Details
+        [promptA,700],      // 1. Business Details, the opening
+        [promptA1b,520],    // 1. Business Details, how it is set up
         [promptA2a,700],    // 2. Customers
         [promptA2b,520],    // 2. Market Opportunity
         [promptA2c,520],    // 2. Competitors
@@ -4008,7 +4128,7 @@ function App(){
       localStorage.removeItem("bpd_seen_finances");
       localStorage.removeItem("bpd_intake_done");   // set by earlier builds
       localStorage.removeItem("bpg_admin_msg");
-      localStorage.removeItem("bpg_ggc");
+      localStorage.removeItem("bpg_ggc");    // written by earlier builds
     }catch(e){}
     window.location.href="https://b-plandiy.com/";
   }
@@ -4156,6 +4276,7 @@ function App(){
   function AnnualTotal(props){
     if(!liveRows||!liveRows.length)return null;
     var v=props.value||0;
+    if(!v&&!props.always)return null;
     return (
       <div style={{fontSize:13,color:"#5A6C7E",marginTop:4,textAlign:"right"}}>
         12-month total: <strong style={{color:v<0?"#B14A38":"#01236D",fontVariantNumeric:"tabular-nums"}}>{props.plain?Math.round(v).toLocaleString():fmt(v)}</strong>
@@ -5608,7 +5729,7 @@ function App(){
           <div style={{fontSize:13,color:"#B14A38",lineHeight:1.6}}>No rate entered yet, so no {taxLabel()} is being calculated.</div>
         )}
         <div style={{fontSize:13,color:"#29384A",lineHeight:1.6,marginTop:10,paddingTop:10,borderTop:"1px solid #E3E8F0"}}>
-          <strong style={{color:"#01236D"}}>Please check this against your own situation.</strong> This is an estimate for forecasting, not a tax calculation. Rules on what is taxable, what can be reclaimed and when payment is due vary, and your accountant or tax authority is the authority on yours. If the figure is wrong, correct it using <strong>Tax payments other</strong> in section 5, Other transactions &mdash; enter the difference there as a positive number for a refund or a negative one for a payment.
+          <strong style={{color:"#01236D"}}>Please check this against your own situation.</strong> This is an estimate for forecasting, not a tax calculation. Rules on what is taxable, what can be reclaimed and when payment is due vary, and your accountant or tax authority is the authority on yours. If the figure is wrong, correct it using <strong>Tax payments other</strong> under Loans and other movements &mdash; enter the difference there as a positive number for a refund or a negative one for a payment.
         </div>
       </div>
     );
@@ -6079,18 +6200,37 @@ function App(){
     );
   }
 
-  function downloadPlan(){
-    var text=planHtml.replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim();
-    var blob=new Blob([text],{type:"text/plain"});
-    var a=document.createElement("a");
-    a.href=URL.createObjectURL(blob);
-    a.download="business-plan.txt";
-    a.click();
-  }
 
   // One expense row. Depreciation and interest need the same row as every
   // other category but are asked as their own question, so the markup is
   // a function rather than an inline map callback.
+  // Most expenses are the same figure every month, so five "Enter monthly
+  // amounts" checkboxes were five controls nobody needed. One for the
+  // section turns them on. Unset means work it out from the plan, so anyone
+  // who already had a monthly grid open still sees their controls.
+  function expVaryOn(){
+    var v=fdRef.current.expVary;
+    if(v==="1")return true;
+    if(v==="0")return false;
+    return expCats.some(function(c){return gridChecks[c.id];});
+  }
+  function setExpVary(on){
+    fdRef.current.expVary=on?"1":"0";
+    saveToStorage();
+    setAvgSalesVer(function(v){return v+1;});
+  }
+  function ExpVaryToggle(){
+    return (
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+        <input type="checkbox" id="chkExpVary" checked={expVaryOn()}
+          onChange={function(e){setExpVary(e.target.checked);}}
+          style={{width:16,height:16,cursor:"pointer",accentColor:GREEN,flexShrink:0}}/>
+        <label htmlFor="chkExpVary" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.45}}>
+          Some of these change month to month
+        </label>
+      </div>
+    );
+  }
   function ExpRow(c){ return (<div key={c.id} style={{marginBottom:10}}>
               <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}</div>
               {c.id==="xDepn"&&(
@@ -6105,7 +6245,7 @@ function App(){
               {c.id==="xInterest"&&(
                 <div style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,lineHeight:1.5}}>
                   The interest part of your loan repayments. It reduces your profit, but it does not come out of
-                  your bank again &mdash; the whole repayment already leaves through Loan transactions in section 5.
+                  your bank again &mdash; the whole repayment already leaves through Loan transactions under Loans and other movements.
                 </div>
               )}
               {c.id==="xInterest"&&(
@@ -6133,10 +6273,25 @@ function App(){
                         onChange={function(e){fdRef.current.loanRate=e.target.value;saveToStorage();refreshLive();}}/>
                       <span style={{fontSize:13,color:"#29384A"}}>% a year</span>
                       <span style={{fontSize:12,color:"#5A6C7E",flex:"1 1 200px",lineHeight:1.45}}>
-                        Interest falls as you pay the loan down, so the figure declines across the year.
+                        Interest is worked out on what is still owed, so it falls as the loan is repaid.
                       </span>
                     </div>
                   )}
+                  {String(fdRef.current.intAuto||"")==="1"&&(function(){
+                    var bal=needOneOff(fdRef.current.openLoan);
+                    if(!bal)return null;
+                    var repaid=(liveRows||[]).reduce(function(a,r){
+                      return a+Math.min(0,(r.txDetail&&r.txDetail.txLoan)||0);},0);
+                    if(repaid<0)return null;
+                    return (
+                      <div style={{marginTop:8,background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:6,
+                        padding:"8px 11px",fontSize:12.5,color:"#7A5E18",lineHeight:1.5}}>
+                        Nothing is repaying this loan, so the {fmt(bal)} and the interest on it stay flat all year.
+                        If you are making repayments, enter them under <strong>Loans and other movements</strong> as a
+                        negative amount &mdash; the repayment covers the interest first, and the rest comes off what you owe.
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
               {c.id==="xDepn"&&(
@@ -6167,7 +6322,9 @@ function App(){
                   )}
                 </div>
               )}
+              {(expVaryOn()||gridChecks[c.id])&&(
               <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
+              )}
               {c.id==="xInterest"&&String(fdRef.current.intAuto||"")==="1"
                 ? (<div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12})}>
                     <span style={{fontSize:13}}>Worked out from what you owe</span>
@@ -6464,7 +6621,7 @@ function App(){
       render:function(){return (<>
           {sw("g4")&&(<>
           <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Business Goals</div>
-          <span style={{fontSize:13,color:"#5A6C7E",marginBottom:6,display:"block"}}>From Step 3 — read only. <button style={{background:"none",border:"none",color:"#01236D",fontSize:13,cursor:"pointer",padding:0,fontFamily:"inherit"}} onClick={function(){setStepAndSave(2);}}>Edit in Step 3</button></span>
+          <span style={{fontSize:13,color:"#5A6C7E",marginBottom:6,display:"block"}}>From Step 3 — read only. <button style={{background:"none",border:"none",color:"#01236D",fontSize:13,cursor:"pointer",padding:0,fontFamily:"inherit"}} onClick={function(){goToQuestion(2,"goals");}}>Edit in Step 3</button></span>
           <div style={{display:"flex",flexDirection:"column",gap:12}}>
             {goals.map(function(g,i){
               if(!g)return null;
@@ -6487,7 +6644,16 @@ function App(){
               </div>);
             })}
           </div>
-          {!goals.some(Boolean)&&<div style={{fontSize:13,color:"#29384A",fontStyle:"italic"}}>No goals entered yet — go back to Step 3 to add them.</div>}
+          {!goals.some(Boolean)&&(
+            <div style={{background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:8,padding:"11px 13px",
+              fontSize:13,color:"#29384A",lineHeight:1.5}}>
+              You have not set any goals yet, and this step is about what it will take to reach them.{" "}
+              <button style={{fontFamily:"inherit",fontSize:13,fontWeight:600,color:"#01236D",background:"none",
+                border:"none",cursor:"pointer",padding:0,textDecoration:"underline"}}
+                onClick={function(){goToQuestion(2,"goals");}}>Add your goals</button>{" "}
+              and this step fills itself in.
+            </div>
+          )}
           <div style={{marginBottom:14}}/>
           </>)}
           {sw("spend4")&&(<>
@@ -6906,7 +7072,7 @@ function App(){
             )}
             {!taxReg&&(
               <div style={{fontSize:13,color:"#5A6C7E",background:"#FCFCFA",border:"1px solid #E3E8F0",borderLeft:"3px solid #1B4FA8",borderRadius:6,padding:"9px 12px",marginBottom:12,lineHeight:1.55}}>
-                You have said you are not registered for {taxLabel()}, so nothing here applies and no tax is included in your forecast. Tick <strong style={{color:"#01236D"}}>Are you registered for {taxLabel()}?</strong> in section 1 to use it.
+                You have said you are not registered for {taxLabel()}, so nothing here applies and no tax is included in your forecast. Tick <strong style={{color:"#01236D"}}>Are you registered for {taxLabel()}?</strong> above to use it.
               </div>
             )}
             <div style={Object.assign({display:"flex",gap:16,alignItems:"flex-start",flexWrap:"wrap"},taxReg?{}:{opacity:0.45})}>
@@ -6944,12 +7110,32 @@ function App(){
                   <option value="payments">Payments basis &mdash; when the money moves</option>
                   <option value="invoice">Invoice basis &mdash; when the invoice is raised</option>
                 </select>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What months do you pay your {taxLabel()}?</div>
+                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>When do you pay your {taxLabel()}?</div>
+                <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:8}}>
+                  <select style={Object.assign({},sel,{flex:"1 1 200px",minWidth:0},taxReg?{}:{background:"#FCFCFA",cursor:"not-allowed"})}
+                    disabled={!taxReg} value={taxSchedNow().freq}
+                    onChange={function(e){ setTaxSchedule(e.target.value,taxSchedNow().first); }}>
+                    <option value="monthly">Every month</option>
+                    <option value="2">Every 2 months</option>
+                    <option value="6">Every 6 months</option>
+                    <option value="pick">Let me pick the months</option>
+                  </select>
+                  {(taxSchedNow().freq==="2"||taxSchedNow().freq==="6")&&(
+                    <select style={Object.assign({},sel,{flex:"1 1 200px",minWidth:0},taxReg?{}:{background:"#FCFCFA",cursor:"not-allowed"})}
+                      disabled={!taxReg} value={taxSchedNow().first}
+                      onChange={function(e){ setTaxSchedule(taxSchedNow().freq,e.target.value); }}>
+                      {Array.from({length:12},function(_,m){
+                        return <option key={m} value={String(m+1)}>First payment in {shortMonthFor(m+1)}</option>;
+                      })}
+                    </select>
+                  )}
+                </div>
                 <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:6,display:"block",lineHeight:1.5}}>
-                  Leave them all unticked and the forecast assumes you pay every month. In New Zealand, most
-                  businesses under $500,000 of sales file six-monthly and most others two-monthly &mdash; tick
-                  those months and the bill lands where it really lands.
+                  In New Zealand most businesses under $500,000 of sales file six-monthly and most others
+                  two-monthly. Which months those fall in depends on the taxable period you are registered
+                  for, so tell us the first one and the rest follow.
                 </span>
+                {taxSchedNow().freq==="pick"&&(
                 <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,marginTop:4}}>
                   {Array.from({length:12},function(_,m){
                     var key="taxPayM"+(m+1);
@@ -6962,11 +7148,51 @@ function App(){
                     </label>);
                   })}
                 </div>
+                )}
               </div>
             </div>
             {TaxMethodNote()}
             </FinSection></>)}
-            {finVisible("other")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("other")} onToggle={function(){finToggle("other");}} title="4. Money out" hint="your expenses">
+            {finVisible("inctax")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("inctax")} onToggle={function(){finToggle("inctax");}} title="4. Income tax">
+            <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>What rate is your profit taxed at?</div>
+            <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:6,display:"block",lineHeight:1.5}}>
+              {incTaxSuggest().why} Leave it blank and no income tax is worked out at all.
+            </span>
+            <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",marginBottom:10}}>
+              <input key={"incRate-"+avgSalesVer} style={Object.assign({},inp,{width:110})}
+                defaultValue={fdRef.current.incTaxRate||""} placeholder={incTaxSuggest().rate||"e.g. 33"}
+                onChange={function(e){fdRef.current.incTaxRate=e.target.value;saveToStorage();refreshLive();}}/>
+              <span style={{fontSize:13,color:"#29384A"}}>% of profit</span>
+              {incTaxSuggest().rate&&String(fdRef.current.incTaxRate||"").trim()!==incTaxSuggest().rate&&(
+                <button style={Object.assign({},btnSm,{background:"#EAF0F9",border:"1px solid #D8E2F0",color:"#01236D"})}
+                  onClick={function(){
+                    fdRef.current.incTaxRate=incTaxSuggest().rate;
+                    saveToStorage();refreshLive();setAvgSalesVer(function(v){return v+1;});
+                  }}>Use {incTaxSuggest().rate}%</button>
+              )}
+            </div>
+            <div style={{display:"flex",alignItems:"flex-start",gap:9,background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"12px 14px",marginBottom:10}}>
+              <input type="checkbox" id="chkTaxAside" checked={String(fdRef.current.incTaxAside||"")==="1"}
+                style={{width:17,height:17,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:2}}
+                onChange={function(e){
+                  fdRef.current.incTaxAside=e.target.checked?"1":"";
+                  saveToStorage();refreshLive();
+                }}/>
+              <label htmlFor="chkTaxAside" style={{fontSize:14,color:"#29384A",cursor:"pointer",lineHeight:1.5}}>
+                <strong style={{color:"#01236D"}}>Set the tax aside each month.</strong> Moves it out of your
+                balance as it is earned, so the cash on screen is what you can actually spend. It is a reserve,
+                not a payment &mdash; when the bill falls due, enter the payment under Loans and other movements.
+              </label>
+            </div>
+            <div style={{fontSize:12.5,color:"#5A6C7E",lineHeight:1.5}}>
+              This is an estimate on forecast profit, not a tax calculation. Taxable profit differs from
+              accounting profit &mdash; IRD depreciation rates, entertainment, private use &mdash; and when
+              the bill falls due depends on your balance date and whether you are a provisional taxpayer.
+              A business in its first year often pays nothing within these twelve months. Your accountant
+              is the authority on yours.
+            </div>
+            </FinSection></>)}
+            {finVisible("other")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("other")} onToggle={function(){finToggle("other");}} title="5. Money out" hint="your expenses">
             {taxNoteHere()&&TaxExclNote("other")}
             <div style={{marginBottom:14}}/>
             {fw("stockterms")&&(<>
@@ -7013,6 +7239,7 @@ function App(){
               <span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Suggests all categories at once, including any people you may need.</span>
             </div>
             {ExpenseSuggestions()}
+            {ExpVaryToggle()}
             <div style={{display:"flex",alignItems:"flex-start",gap:12,marginBottom:8}}>
                           </div>
             {expCats.filter(function(c){
@@ -7037,6 +7264,7 @@ function App(){
               Neither is money leaving the bank in the month it is charged, so the forecast
               treats them apart from your other costs. Leave them blank if they do not apply.
             </span>
+            {ExpVaryToggle()}
             {["xDepn","xInterest"].map(function(id){
               var c=expCats.filter(function(x){return x.id===id;})[0];
               return c?ExpRow(c):null;
@@ -7044,7 +7272,7 @@ function App(){
             <div style={{marginBottom:14}}/>
             </>)}
 </FinSection></>)}
-            {finVisible("tx")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("tx")} onToggle={function(){finToggle("tx");}} title="5. Other transactions" hint="loans, assets, drawings">
+            {finVisible("tx")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("tx")} onToggle={function(){finToggle("tx");}} title="6. Other transactions" hint="loans, assets, drawings">
             {taxNoteHere()&&TaxExclNote("tx","Asset and Other Transactions")}
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Other money in and out ($)</div>
             <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>Regular monthly or one-off</span>
@@ -7076,13 +7304,30 @@ function App(){
               }
               return (<div key={c.id} style={{marginBottom:10}}>
                 <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}</div>
+                {c.id==="txOther"&&(function(){
+                  var already=[];
+                  var dr=Math.round(needMonthly(fdRef.current.needIncome));
+                  var cap=Math.round(needOneOff(fdRef.current.needCapital));
+                  if(dr)already.push("drawings of "+fmt(dr)+" a month");
+                  if(cap)already.push("funding of "+fmt(cap)+" put in at the start");
+                  if(!already.length)return null;
+                  var many=already.length>1||!!dr;
+                  return (
+                    <div style={{background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:6,
+                      padding:"7px 10px",marginBottom:6,fontSize:12.5,color:"#7A5E18",lineHeight:1.5}}>
+                      Your {already.join(" and ")} {many?"are":"is"} already in the rows above,
+                      from what you told us earlier. Entering {many?"them":"it"} here as well would
+                      count {many?"them":"it"} twice.
+                    </div>
+                  );
+                })()}
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><input type="checkbox" id={"chk_"+c.id} checked={!!gridChecks[c.id]} onChange={function(){toggleGrid(c.id);}} style={{width:14,height:14,cursor:"pointer",accentColor:GREEN}}/><label htmlFor={"chk_"+c.id} style={{fontSize:13,color:"#29384A",cursor:"pointer"}}>Enter monthly amounts</label></div>
                 {gridChecks[c.id]?<MonthGrid keyPrefix={c.id+"M"} storeKey={c.id} fdRef={fdRef} onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>:<input style={inp} defaultValue={fdRef.current[c.id]||""} placeholder={c.ph||"e.g. 500"} onChange={function(e){fdRef.current[c.id]=e.target.value;saveToStorage();refreshLive();}}/>}
                 {AnnualTotal({value:sumLive(function(r){return r.txDetail&&r.txDetail[c.id];})})}
               </div>);
             })}
             </FinSection></>)}
-            {finVisible("notes")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("notes")} onToggle={function(){finToggle("notes");}} title="6. Anything else">
+            {finVisible("notes")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("notes")} onToggle={function(){finToggle("notes");}} title="7. Anything else">
             <div style={{marginBottom:14}}/>
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Anything else?</div>
             <textarea rows={1} ref={growRef} onInput={growOn} key="extra5" style={ta(2)} defaultValue={fdRef.current["extra5"]||""} placeholder="Optional..." onChange={function(e){fdRef.current["extra5"]=e.target.value;saveToStorage();}}/>
@@ -7095,7 +7340,17 @@ function App(){
               <span style={{fontSize:13.5,color:"#7A5E18",lineHeight:1.55,flex:"1 1 340px",
                 background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:8,padding:"10px 12px"}}>
                 <strong style={{color:"#7A5E18"}}>The closing balance is not the whole position.</strong>{" "}
-                No income tax has been worked out on your profit, so the closing balance makes no allowance for paying it.{" "}
+                {(function(){
+                  // Once a rate has been set the forecast does carry a tax
+                  // charge, so the warning has to change with it - and it
+                  // matters whether the money was actually set aside.
+                  var itTot=(liveRows||[]).reduce(function(s,r){return s+(r.incomeTax||0);},0);
+                  var itRate=parseFloat(fdRef.current.incTaxRate||0)||0;
+                  var itAside=String(fdRef.current.incTaxAside||"")==="1";
+                  if(!itTot)return <span>No income tax has been worked out on your profit, so the closing balance makes no allowance for paying it.</span>;
+                  if(itAside)return <span>Income tax of about <strong style={{color:"#7A5E18"}}>{fmt(itTot)}</strong> is estimated at {itRate}% and set aside each month, so the closing balance already allows for paying it.</span>;
+                  return <span>Income tax of about <strong style={{color:"#7A5E18"}}>{fmt(itTot)}</strong> is estimated at {itRate}%, but it is not taken out of the bank in this forecast, so the closing balance makes no allowance for paying it.</span>;
+                })()}{" "}
                 {(function(){
                   // The tax rows are in the forecast, but a balance can be left
                   // sitting in the bank at year end - collected on sales and not
@@ -7393,7 +7648,7 @@ function App(){
           {step<stepDefs.length-1&&(
             <button style={{fontFamily:"inherit",fontSize:16,fontWeight:700,padding:"14px 34px",borderRadius:10,border:"none",background:"#01236D",color:"#fff",cursor:"pointer",marginLeft:"auto",display:"inline-flex",alignItems:"center",gap:10}}
               onClick={function(){ step<stepDefs.length-1 ? setStepAndSave(step+1) : (setShowDirection(true),window.scrollTo(0,0)); }}>
-              {step<stepDefs.length-1?"Next":"Review your plan"} <span style={{fontSize:18,lineHeight:1}}>&rarr;</span>
+              Next <span style={{fontSize:18,lineHeight:1}}>&rarr;</span>
             </button>
           )}
         </div>
