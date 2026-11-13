@@ -844,7 +844,7 @@ function calcCashflow(f){
       interestNonCash:interest,
       loanBalance:Math.round(loanBal),
       assetBase:Math.round(assetBase),
-      debtorsBal:debtorsBal, creditorsBal:creditorsBal,
+      debtorsBal:debtorsBal, creditorsBal:creditorsBal, stockBal:stockBal,
       rcDebtors:Math.round(cashSales-revenue),
       rcStockCred:Math.round(cogs-cashCogs),
       rcExpTiming:Math.round(expCash-expPaidNow-expPaidLagged),
@@ -2942,6 +2942,7 @@ function App(){
       var XLSX=window.XLSX;
       if(!XLSX){alert("Excel library not loaded. Please try again.");return;}
       var wb=XLSX.utils.book_new();
+      var taxWord=(cfRows[0]&&cfRows[0].taxWord)||"tax";
       var data=[];
       var header=[""].concat(mos).concat(["Total"]);
       function dr(label,vals,opts){
@@ -2978,6 +2979,21 @@ function App(){
       });
       data.push(dr("Total Expenses",cfRows.map(function(r){return r.totalExpenses||0;})));
       data.push(dr("Net Profit/(Loss)",cfRows.map(function(r){return r.netProfit||0;})));
+      (function(){
+        var recon=[
+          {k:"depreciation",   l:"Add back depreciation (not paid to anyone)"},
+          {k:"interestNonCash",l:"Add back interest (already in your loan repayment)"},
+          {k:"rcDebtors",      l:"Timing: sales not yet collected"},
+          {k:"rcStockCred",    l:"Timing: stock bought and suppliers paid"},
+          {k:"rcExpTiming",    l:"Timing: running costs not yet paid"}
+        ].filter(function(x){return cfRows.some(function(r){return (r[x.k]||0)!==0;});});
+        if(!recon.length)return;
+        data.push(sr("PROFIT TO CASH"));
+        recon.forEach(function(x){
+          data.push(dr(x.l,cfRows.map(function(r){return r[x.k]||0;})));
+        });
+        data.push(dr("Cash from trading",cfRows.map(function(r){return r.cashFromTrading||0;})));
+      })();
       data.push(sr("OTHER TRANSACTIONS"));
       txCats.forEach(function(c){
         var tv=cfRows.map(function(r){return r.txDetail&&r.txDetail[c.id]||0;});
@@ -2988,6 +3004,38 @@ function App(){
       data.push(dr("Opening Balance",cfRows.map(function(r){return r.openingBalance||0;}),{noTotal:true}));
       data.push(dr("Net Cashflow",cfRows.map(function(r){return r.netCashflow||0;})));
       data.push(dr("Closing Balance",cfRows.map(function(r){return r.closingBalance||0;}),{noTotal:true}));
+      (function(){
+        var bal=[
+          {k:"debtorsBal",  l:"Owed to you (excluding "+taxWord+")"},
+          {k:"creditorsBal",l:"Owed by you (excluding "+taxWord+")"},
+          {k:"stockBal",    l:"Stock on hand"},
+          {k:"loanBalance", l:"Loan still to repay"},
+          {k:"assetBase",   l:"Equipment and vehicles, cost being depreciated"}
+        ].filter(function(x){return cfRows.some(function(r){return (r[x.k]||0)!==0;});});
+        if(!bal.length)return;
+        data.push([]);
+        data.push(sr("POSITION AT THE END OF EACH MONTH"));
+        bal.forEach(function(x){
+          data.push(dr(x.l,cfRows.map(function(r){return r[x.k]||0;}),{noTotal:true}));
+        });
+      })();
+      (function(){
+        // The same caveats the screen carries, so the file still says them
+        // once it has been emailed on to somebody.
+        var last=cfRows[cfRows.length-1]||{};
+        var coll=0,cred=0,paid=0;
+        cfRows.forEach(function(r){var d=r.txDetail||{};
+          coll+=d.txTaxColl||0; cred+=d.txTaxCred||0; paid+=d.txTax||0;});
+        var owing=Math.round(coll+cred+paid);
+        data.push([]);
+        data.push(sr("NOTES"));
+        data.push(["Net profit is before income tax. No income tax has been calculated on profit, so the closing balance makes no allowance for paying it."]);
+        if(owing>0)data.push(["The closing balance still holds about "+Math.round(owing).toLocaleString()+" of "+taxWord+" collected and not yet paid."]);
+        if(owing<0)data.push(["About "+Math.abs(Math.round(owing)).toLocaleString()+" of "+taxWord+" is owed back to you at the end of the year."]);
+        if(last.debtorsBal)data.push(["Customers still owe "+Math.round(last.debtorsBal).toLocaleString()+" excluding "+taxWord+" at the end of month 12, which is not in the closing balance."]);
+        if(last.creditorsBal)data.push(["Suppliers are still owed "+Math.round(last.creditorsBal).toLocaleString()+" excluding "+taxWord+" at the end of month 12, which has to come out of it."]);
+        data.push(["Prepared with B-PlanDIY. Figures are a forecast, not advice - check them with your accountant."]);
+      })();
 
       var ws=XLSX.utils.aoa_to_sheet(data);
       // Show cents on the Avg Price and Avg Cost rows.
