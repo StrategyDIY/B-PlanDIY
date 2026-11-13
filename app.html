@@ -408,6 +408,18 @@ function parseMonthly(str,def){
   return Array(12).fill(isNaN(n)?def:n);
 }
 
+// One-off amounts can now be spread across the year. A plain figure still
+// means month 1, exactly as it always did; a grid writes M1:...,M12:... and
+// that is read month by month.
+function oneOffSeries(v){
+  var s=String(v==null?"":v);
+  if(/M\d+\s*:/i.test(s))return parseMonthly(s,0);
+  var a=Array(12).fill(0);
+  a[0]=needOneOff(s);
+  return a;
+}
+function seriesTotal(a){ return (a||[]).reduce(function(x,y){return x+(y||0);},0); }
+
 function parseGrowth(str){
   if(!str||str.toLowerCase()==="no"||!str.trim())return Array(12).fill(0);
   const s=str.trim();
@@ -630,12 +642,16 @@ function calcCashflow(f){
   // month 1 as funding either way; being a loan is what decides whether it is
   // owed back, and what it buys is what decides whether it is still in the
   // bank at the end of the month.
-  const capTotal=needOneOff(f.needCapital);
+  const capArr=oneOffSeries(f.needCapital);
+  const capTotal=seriesTotal(capArr);
   const capSource=String(f.capSource||"own");
-  const capLoanAmt=Math.min(capTotal,
-    capSource==="loan"?capTotal:(capSource==="part"?needOneOff(f.capLoan):0));
-  const capOnAssets=Math.min(capTotal,needOneOff(f.capOnAssets));
-  const capOnStock=Math.min(Math.max(0,capTotal-capOnAssets),needOneOff(f.capOnStock));
+  const capLoanArr=capSource==="loan"?capArr.slice()
+    :(capSource==="part"?oneOffSeries(f.capLoan):Array(12).fill(0));
+  const capLoanAmt=seriesTotal(capLoanArr);
+  const capAssetsArr=oneOffSeries(f.capOnAssets);
+  const capStockArr=oneOffSeries(f.capOnStock);
+  const capOnAssets=seriesTotal(capAssetsArr);
+  const capOnStock=seriesTotal(capStockArr);
   const capRate=parseFloat(f.capRate||0)||0;
   const capYears=parseFloat(f.capYears||0)||0;
   // A rate given for the funding loan turns the interest calculation on for a
@@ -644,7 +660,21 @@ function calcCashflow(f){
   const intAutoUser=String(f.intAuto||"")==="1";
   const intAuto=intAutoUser||(capLoanAmt>0&&capRate>0);
   const intRate=intAutoUser?(parseFloat(f.loanRate||0)||0):capRate;
-  const capRepayM=levelPayment(capLoanAmt,intRate,capYears*12);
+
+  // Each drawdown is repaid on its own terms, from the month it is taken:
+  // borrow in two parts and the repayment steps up when the second part
+  // lands, which is what a bank would do.
+  const capRepayArr=(function(){
+    var out=Array(12).fill(0);
+    var months=Math.round(capYears*12);
+    if(!(months>0))return out;
+    for(var j=0;j<12;j++){
+      if(!(capLoanArr[j]>0))continue;
+      var pay=levelPayment(capLoanArr[j],intRate,months);
+      for(var k=j;k<12&&k-j<months;k++)out[k]+=pay;
+    }
+    return out;
+  })();
 
   // Selling an asset. Two things are asked when a sale is entered: how much
   // of the opening asset balance was this asset, and how much depreciation
@@ -736,7 +766,7 @@ function calcCashflow(f){
     // Stock bought out of the funding is bought in month 1 and counts towards
     // the cover being held, so it runs through the ordinary stock lines
     // rather than a row of its own.
-    const capStockBuy=(i===0?capOnStock:0);
+    const capStockBuy=Math.round(capStockArr[i]||0);
     const purch=Math.max(0,target-stockBal-capStockBuy+cogs)+capStockBuy;
     const stockBuild=purch-cogs;
     stockBal=Math.max(0,stockBal-cogs+purch);
@@ -752,7 +782,7 @@ function calcCashflow(f){
     // Equipment bought out of the funding is an asset transaction like any
     // other, so it rides in that row: the cash goes out, and the asset base
     // it leaves behind starts depreciating the same month.
-    const assetWanted=Math.round((txArr["txAsset"]||[])[i]||0)-(i===0?capOnAssets:0);
+    const assetWanted=Math.round((txArr["txAsset"]||[])[i]||0)-Math.round(capAssetsArr[i]||0);
     // Nothing can be sold that is not owned. A sale for more than the written
     // down value is fine - that is a gain, and the cash is real - but with
     // nothing on the books at all there is nothing to sell.
@@ -783,14 +813,14 @@ function calcCashflow(f){
     const userLoan=Math.round((txArr["txLoan"]||[])[i]||0);
     // Funding taken as a loan is owed from the month it arrives. The cash is
     // already in the bank through the funding row, so only the balance moves.
-    if(i===0&&capLoanAmt>0)loanBal+=capLoanAmt;
+    if(capLoanArr[i]>0)loanBal+=capLoanArr[i];
     if(userLoan>0)loanBal+=userLoan;                       // money borrowed
     const autoInt=intAuto?Math.max(0,Math.round(loanBal*intRate/100/12)):null;
     // Nothing can be repaid that is not owed. Without this a repayment typed
     // against a loan that does not exist took the money out of the bank and
     // left nothing behind - the forecast simply lost it.
     const owedNow=Math.max(0,Math.round(loanBal+(autoInt||0)));
-    const capRepayNow=(capRepayM>0&&i<Math.round(capYears*12))?Math.min(capRepayM,owedNow):0;
+    const capRepayNow=Math.min(capRepayArr[i]||0,owedNow);
     const userRepayWanted=userLoan<0?-userLoan:0;
     const userRepayTaken=Math.min(userRepayWanted,Math.max(0,owedNow-capRepayNow));
     const loanOverRepay=userRepayWanted-userRepayTaken;
@@ -916,7 +946,7 @@ function calcCashflow(f){
       } else if(c.id==="txNeedCap"){
         // What they said they need to start or grow, treated as funding put
         // in at the start. Month one only - it is capital, not income.
-        v=i===0?Math.round(needOneOff(f.needCapital)):0;
+        v=Math.round(capArr[i]||0);
       } else if(c.id==="txLoan"){
         v=loanFlow;
       } else if(c.id==="txAsset"){
@@ -2602,6 +2632,30 @@ function App(){
     return map[key]||(key+"M");
   }
 
+  // Amounts that happen once rather than every month.
+  var ONE_OFF_KEYS={needCapital:1,capLoan:1,capOnAssets:1,capOnStock:1};
+
+  // A money box that can become twelve money boxes.
+  function MoneyField(props){
+    var k=props.k;
+    return (<div>
+      {gridChecks[k]
+        ? <MonthGrid key={k+"-grid-"+avgSalesVer} keyPrefix={k+"M"} storeKey={k} fdRef={fdRef}
+            onUpdate={function(){saveToStorage();refreshLive();}} GREEN={GREEN} inp={inp} btnSm={btnSm}/>
+        : <input key={props.inputKey||(k+"-"+avgSalesVer)} style={props.style||inp}
+            defaultValue={fdRef.current[k]||""} placeholder={props.ph}
+            onChange={function(e){fdRef.current[k]=e.target.value;saveToStorage();refreshLive();}}/>}
+      <div style={{display:"flex",alignItems:"center",gap:7,marginTop:5}}>
+        <input type="checkbox" id={"chkm_"+k} checked={!!gridChecks[k]}
+          onChange={function(){toggleGrid(k);}}
+          style={{width:13,height:13,cursor:"pointer",accentColor:GREEN}}/>
+        <label htmlFor={"chkm_"+k} style={{fontSize:12,color:"#5A6C7E",cursor:"pointer"}}>
+          {props.label||"Spread it across the months"}
+        </label>
+      </div>
+    </div>);
+  }
+
   function toggleGrid(key){
     var turningOn=!gridChecks[key];
     var flatK=flatKeyFor(key), pre=monthPrefixFor(key);
@@ -2614,8 +2668,16 @@ function App(){
       if(cur&&cur.indexOf("M")<0){
         var v=parseFloat(cur.replace(/[^0-9.-]/g,""));
         if(!isNaN(v)){
-          for(var m=1;m<=12;m++)fdRef.current[pre+m]=String(v);
-          fdRef.current[key]=Array.from({length:12},function(_,i){return "M"+(i+1)+":"+v;}).join(",");
+          // A one-off amount belongs in month 1 and nowhere else. Spreading
+          // 25,000 of funding across twelve boxes would be 300,000.
+          if(ONE_OFF_KEYS[key]){
+            fdRef.current[pre+1]=String(v);
+            for(var z=2;z<=12;z++)fdRef.current[pre+z]="";
+            fdRef.current[key]="M1:"+v;
+          } else {
+            for(var m=1;m<=12;m++)fdRef.current[pre+m]=String(v);
+            fdRef.current[key]=Array.from({length:12},function(_,i){return "M"+(i+1)+":"+v;}).join(",");
+          }
         }
       }
     } else {
@@ -6494,11 +6556,11 @@ function App(){
   // figure remain is otherwise a mystery.
   function autoBasis(kind){
     var f=fdRef.current;
-    var tot=needOneOff(f.needCapital);
+    var tot=seriesTotal(oneOffSeries(f.needCapital));
     var src=String(f.capSource||"own");
     var fromCap=kind==="depreciation"
-      ? Math.min(tot,needOneOff(f.capOnAssets))
-      : Math.min(tot,src==="loan"?tot:(src==="part"?needOneOff(f.capLoan):0));
+      ? seriesTotal(oneOffSeries(f.capOnAssets))
+      : (src==="loan"?tot:(src==="part"?seriesTotal(oneOffSeries(f.capLoan)):0));
     var already=kind==="depreciation"?needOneOff(f.openAssets):needOneOff(f.openLoan);
     var what=kind==="depreciation"?"own":"owe";
     if(!already&&!fromCap)return "Nothing to work it out on yet";
@@ -7165,8 +7227,8 @@ function App(){
                 <div style={{marginBottom:14}}>
                   <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much do you need to start or grow the business?</div>
                   <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5,minHeight:38}}>Setting up, equipment, stock, and enough to cover the months before it pays for itself.</span>
-                  <input key={"needCap"+ncVer} style={inp} defaultValue={fdRef.current.needCapital||""} placeholder="e.g. 25,000"
-                    onChange={function(e){fdRef.current.needCapital=e.target.value;saveToStorage();refreshLive();}}/>
+                  {MoneyField({k:"needCapital",ph:"e.g. 25,000",inputKey:"needCap"+ncVer,
+                    label:"It comes in over several months"})}
                   <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8,flexWrap:"wrap"}}>
                     <button style={ncAiLoad?suggestBtnBusy:suggestBtn} disabled={ncAiLoad}
                       onClick={function(){suggestStartCapital();}}>
@@ -7174,86 +7236,6 @@ function App(){
                     </button>
                     <span style={{fontSize:11,color:"#29384A",fontStyle:"italic",flex:"1 1 160px",minWidth:0,lineHeight:1.5}}>Remember to fact check AI suggestions and add any other relevant information.</span>
                   </div>
-                  {(function(){
-                    // Only worth asking once there is a figure to ask about.
-                    var tot=needOneOff(fdRef.current.needCapital);
-                    if(!tot)return null;
-                    var src=String(fdRef.current.capSource||"own");
-                    var loanPart=src==="loan"?tot:(src==="part"?needOneOff(fdRef.current.capLoan):0);
-                    var onAssets=needOneOff(fdRef.current.capOnAssets);
-                    var onStock=needOneOff(fdRef.current.capOnStock);
-                    var svc=(fdRef.current.sells||"")==="services";
-                    var left=tot-onAssets-onStock;
-                    var set=function(k,v){fdRef.current[k]=v;saveToStorage();refreshLive();};
-                    var lbl={fontSize:12.5,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"};
-                    var opt=function(k,l){
-                      var on=src===k;
-                      return (<button key={k} type="button" aria-pressed={on}
-                        onClick={function(){set("capSource",k);}}
-                        style={{fontFamily:"inherit",fontSize:12.5,fontWeight:on?700:500,
-                          padding:"7px 13px",borderRadius:8,cursor:"pointer",
-                          border:"1px solid "+(on?"#01236D":"#D8E2F0"),
-                          background:on?"#01236D":"#fff",color:on?"#fff":"#29384A"}}>{l}</button>);
-                    };
-                    return (<div style={{marginTop:10,background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"12px 13px"}}>
-                      <div style={lbl}>Where is it coming from?</div>
-                      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
-                        {opt("own","My own or investors\u2019 money")}
-                        {opt("loan","A loan")}
-                        {opt("part","Part loan")}
-                      </div>
-                      {src==="part"&&(
-                        <div style={{marginBottom:10}}>
-                          <div style={lbl}>How much of it is the loan?</div>
-                          <input style={Object.assign({},inp,{maxWidth:200})} defaultValue={fdRef.current.capLoan||""} placeholder="e.g. 15,000"
-                            onChange={function(e){set("capLoan",e.target.value);}}/>
-                        </div>
-                      )}
-                      {loanPart>0&&(
-                        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10}}>
-                          <div style={{flex:"1 1 140px",minWidth:0}}>
-                            <div style={lbl}>Interest rate</div>
-                            <input style={inp} defaultValue={fdRef.current.capRate||""} placeholder="e.g. 9"
-                              onChange={function(e){set("capRate",e.target.value);}}/>
-                          </div>
-                          <div style={{flex:"1 1 160px",minWidth:0}}>
-                            <div style={lbl}>Repaid over</div>
-                            <select style={sel} value={fdRef.current.capYears||""}
-                              onChange={function(e){set("capYears",e.target.value);}}>
-                              <option value="">Not yet decided</option>
-                              {[1,2,3,4,5,7,10].map(function(y){return <option key={y} value={String(y)}>{y+" year"+(y>1?"s":"")}</option>;})}
-                            </select>
-                          </div>
-                        </div>
-                      )}
-                      <div style={lbl}>What will it be spent on?</div>
-                      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                        <div style={{flex:"1 1 150px",minWidth:0}}>
-                          <span style={{fontSize:12,color:"#5A6C7E",display:"block",marginBottom:3}}>Equipment and vehicles</span>
-                          <input style={inp} defaultValue={fdRef.current.capOnAssets||""} placeholder="e.g. 20,000"
-                            onChange={function(e){set("capOnAssets",e.target.value);}}/>
-                        </div>
-                        <div style={{flex:"1 1 150px",minWidth:0}}>
-                          <span style={{fontSize:12,color:"#5A6C7E",display:"block",marginBottom:3}}>{svc?"Stock \u2014 not needed":"Stock"}</span>
-                          <input disabled={svc} key={"capStock"+(svc?"-off":"")}
-                            style={svc?Object.assign({},inp,{background:"#F4F6FA",color:"#97A3B4",cursor:"not-allowed"}):inp}
-                            defaultValue={svc?"":(fdRef.current.capOnStock||"")} placeholder={svc?"":"e.g. 5,000"}
-                            onChange={function(e){set("capOnStock",e.target.value);}}/>
-                        </div>
-                      </div>
-                      <div style={{fontSize:12,color:left<0?"#B14A38":"#5A6C7E",marginTop:8,lineHeight:1.5}}>
-                        {left<0
-                          ?("That is "+fmt(-left)+" more than the "+fmt(tot)+" you are raising.")
-                          :(onAssets||onStock
-                             ?("Bought in month 1, so it leaves the bank then. "+fmt(left)+" is left as working capital"
-                               +(onAssets?", and the equipment depreciates from month 1":"")+".")
-                             :"Anything you do not spend stays in the bank as working capital.")}
-                        {loanPart>0&&(fdRef.current.capYears
-                          ?(" The "+fmt(loanPart)+" loan is owed from month 1, with interest, and repaid over "+fdRef.current.capYears+" year"+(parseFloat(fdRef.current.capYears)>1?"s":"")+".")
-                          :" Choose how long the loan runs and the repayments will be worked out for you.")}
-                      </div>
-                    </div>);
-                  })()}
                   {!!ncAi&&(
                     <div style={{marginTop:8,background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:6,padding:"12px 14px"}}>
                       {ncAi.error
@@ -7296,6 +7278,93 @@ function App(){
                 </div>
               </div>
             </div>
+                {(function(){
+                  // Only worth asking once there is a figure to ask about.
+                  var tot=seriesTotal(oneOffSeries(fdRef.current.needCapital));
+                  if(!tot)return null;
+                  var src=String(fdRef.current.capSource||"own");
+                  var loanPart=src==="loan"?tot:(src==="part"?seriesTotal(oneOffSeries(fdRef.current.capLoan)):0);
+                  var onAssets=seriesTotal(oneOffSeries(fdRef.current.capOnAssets));
+                  var onStock=seriesTotal(oneOffSeries(fdRef.current.capOnStock));
+                  // Whether any of it happens after month 1, so the wording
+                  // below does not insist everything lands at the start.
+                  var later=function(k){var a=oneOffSeries(fdRef.current[k]);
+                    for(var n=1;n<12;n++)if(a[n])return true;return false;};
+                  var buyLater=later("capOnAssets")||later("capOnStock");
+                  var drawLater=src==="loan"?later("needCapital"):later("capLoan");
+                  var svc=(fdRef.current.sells||"")==="services";
+                  var left=tot-onAssets-onStock;
+                  var set=function(k,v){fdRef.current[k]=v;saveToStorage();refreshLive();};
+                  var lbl={fontSize:12.5,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"};
+                  var opt=function(k,l){
+                    var on=src===k;
+                    return (<button key={k} type="button" aria-pressed={on}
+                      onClick={function(){set("capSource",k);}}
+                      style={{fontFamily:"inherit",fontSize:12.5,fontWeight:on?700:500,
+                        padding:"7px 13px",borderRadius:8,cursor:"pointer",
+                        border:"1px solid "+(on?"#01236D":"#D8E2F0"),
+                        background:on?"#01236D":"#fff",color:on?"#fff":"#29384A"}}>{l}</button>);
+                  };
+                  return (<div style={{marginTop:10,background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"12px 13px"}}>
+                    <div style={lbl}>Where is it coming from?</div>
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                      {opt("own","My own or investors\u2019 money")}
+                      {opt("loan","A loan")}
+                      {opt("part","Part loan")}
+                    </div>
+                    {src==="part"&&(
+                      <div style={{marginBottom:10}}>
+                        <div style={lbl}>How much of it is the loan?</div>
+                        {MoneyField({k:"capLoan",ph:"e.g. 15,000",style:Object.assign({},inp,{maxWidth:200}),
+                          label:"It is drawn down over several months"})}
+                      </div>
+                    )}
+                    {loanPart>0&&(
+                      <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10}}>
+                        <div style={{flex:"1 1 140px",minWidth:0}}>
+                          <div style={lbl}>Interest rate</div>
+                          <input style={inp} defaultValue={fdRef.current.capRate||""} placeholder="e.g. 9"
+                            onChange={function(e){set("capRate",e.target.value);}}/>
+                        </div>
+                        <div style={{flex:"1 1 160px",minWidth:0}}>
+                          <div style={lbl}>Repaid over</div>
+                          <select style={sel} value={fdRef.current.capYears||""}
+                            onChange={function(e){set("capYears",e.target.value);}}>
+                            <option value="">Not yet decided</option>
+                            {[1,2,3,4,5,7,10].map(function(y){return <option key={y} value={String(y)}>{y+" year"+(y>1?"s":"")}</option>;})}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                    <div style={lbl}>What will it be spent on?</div>
+                    <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                      <div style={{flex:"1 1 150px",minWidth:0}}>
+                        <span style={{fontSize:12,color:"#5A6C7E",display:"block",marginBottom:3}}>Equipment and vehicles</span>
+                        {MoneyField({k:"capOnAssets",ph:"e.g. 20,000",label:"Bought over several months"})}
+                      </div>
+                      <div style={{flex:"1 1 150px",minWidth:0}}>
+                        <span style={{fontSize:12,color:"#5A6C7E",display:"block",marginBottom:3}}>{svc?"Stock \u2014 not needed":"Stock"}</span>
+                        {svc
+                          ? <input disabled key="capStock-off"
+                              style={Object.assign({},inp,{background:"#F4F6FA",color:"#97A3B4",cursor:"not-allowed"})}
+                              defaultValue="" placeholder=""/>
+                          : MoneyField({k:"capOnStock",ph:"e.g. 5,000",label:"Bought over several months"})}
+                      </div>
+                    </div>
+                    <div style={{fontSize:12,color:left<0?"#B14A38":"#5A6C7E",marginTop:8,lineHeight:1.5}}>
+                      {left<0
+                        ?("That is "+fmt(-left)+" more than the "+fmt(tot)+" you are raising.")
+                        :(onAssets||onStock
+                           ?((buyLater?"Bought in the months you have set, so it leaves the bank then. ":"Bought in month 1, so it leaves the bank then. ")
+                             +fmt(left)+" is left as working capital"
+                             +(onAssets?(buyLater?", and the equipment depreciates from the month it is bought":", and the equipment depreciates from month 1"):"")+".")
+                           :"Anything you do not spend stays in the bank as working capital.")}
+                      {loanPart>0&&(fdRef.current.capYears
+                        ?(" The "+fmt(loanPart)+" loan is owed "+(drawLater?"as each part is drawn, with interest, and each part repaid over ":"from month 1, with interest, and repaid over ")+fdRef.current.capYears+" year"+(parseFloat(fdRef.current.capYears)>1?"s":"")+".")
+                        :" Choose how long the loan runs and the repayments will be worked out for you.")}
+                    </div>
+                  </div>);
+                })()}
             {/* The figure above is what has to be found, not what the business
                 already has. Said here because the two are easy to confuse. */}
             <div style={{display:"flex",alignItems:"flex-start",gap:9,
@@ -7838,10 +7907,10 @@ function App(){
                   // anything typed here, so say so rather than letting
                   // someone enter the same thing twice.
                   var f=fdRef.current;
-                  var tot=needOneOff(f.needCapital);
+                  var tot=seriesTotal(oneOffSeries(f.needCapital));
                   var src=String(f.capSource||"own");
-                  var loanPart=Math.min(tot,src==="loan"?tot:(src==="part"?needOneOff(f.capLoan):0));
-                  var gear=Math.min(tot,needOneOff(f.capOnAssets));
+                  var loanPart=src==="loan"?tot:(src==="part"?seriesTotal(oneOffSeries(f.capLoan)):0);
+                  var gear=seriesTotal(oneOffSeries(f.capOnAssets));
                   var msg=null;
                   if(c.id==="txLoan"&&loanPart>0){
                     var pay=Math.round(Math.abs(sumLive(function(r){return (r.txDetail&&r.txDetail.txLoan)||0;}))) ;
