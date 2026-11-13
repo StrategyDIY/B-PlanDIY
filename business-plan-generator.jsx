@@ -45,8 +45,8 @@ const expCats=[
 // also map onto a GST return: collected is Box 5, credits Box 11, and the two
 // netted is Box 15.
 const txCats=[
-  {id:"txLoan",l:"Loan transactions",ph:"e.g. 50000 loan received, -2000 monthly repayment"},
-  {id:"txAsset",l:"Asset transactions",ph:"e.g. 4000 equipment sale, -15000 vehicle purchase"},
+  {id:"txLoan",l:"Loan transactions",ph:"e.g. 50,000 borrowed (money in), -2,000 repayment (money out)"},
+  {id:"txAsset",l:"Asset transactions",ph:"e.g. -15,000 vehicle bought (money out), 4,000 equipment sold (money in)"},
   {id:"txTaxColl",l:"Tax collected on sales",lfn:function(w){return w+" collected on sales";},auto:true},
   {id:"txTaxCred",l:"Tax paid on purchases",lfn:function(w){return w+" paid on purchases";},auto:true},
   {id:"txTax",l:"Tax paid",lfn:function(w){return w+" paid";},auto:true},
@@ -73,6 +73,18 @@ function escHtml(t){
 }
 function taxWordOf(f){return String((f&&f.taxName)||"").trim()||"products/services tax";}
 function txLabel(c,w){return c.lfn?c.lfn(w||"products/services tax"):c.l;}
+// Selling below book value is a loss, and the line has to say so rather than
+// calling a negative figure a gain.
+function saleLineLabel(rows){
+  var any=false,pos=false,neg=false;
+  (rows||[]).forEach(function(r){
+    var v=r.gainOnSale||0;
+    if(v>0){any=true;pos=true;} else if(v<0){any=true;neg=true;}
+  });
+  if(!any)return "";
+  if(pos&&neg)return "Gain/(loss) on sale of assets";
+  return pos?"Gain on sale (depreciation recovered)":"Loss on sale of assets";
+}
 
 function shortMonth(m){
   if(!m)return"";
@@ -397,6 +409,23 @@ function calcCashflow(f){
   const intAuto=intAutoUser||(capLoanAmt>0&&capRate>0);
   const intRate=intAutoUser?(parseFloat(f.loanRate||0)||0):capRate;
   const capRepayM=levelPayment(capLoanAmt,intRate,capYears*12);
+
+  // Selling an asset. Two things are asked when a sale is entered: how much
+  // of the opening asset balance was this asset, and how much depreciation
+  // had already been charged on it. Cost is the two added together, and that
+  // is what decides how the proceeds split:
+  //   up to cost      - depreciation recovered, which is profit
+  //   above cost      - capital, which is cash and not profit
+  // The depreciation charged on it earlier in the forecast is reversed in the
+  // month it is sold, and none is charged on it from that month on.
+  const saleAlloc=needOneOff(f.saleAlloc);
+  const saleAccum=needOneOff(f.saleAccum);
+  const saleCost=saleAlloc+saleAccum;
+  const saleProceedsAll=(function(){
+    var a=txArr["txAsset"]||[],t=0;
+    for(var n=0;n<12;n++){ var v=Math.round(a[n]||0); if(v>0)t+=v; }
+    return t;
+  })();
   let loanBal=needOneOff(f.openLoan);
   const depnAuto=String(f.depnAuto||"")==="1";
   const depnRate=parseFloat(f.depnRate||0)||0;
@@ -487,9 +516,32 @@ function calcCashflow(f){
     // Equipment bought out of the funding is an asset transaction like any
     // other, so it rides in that row: the cash goes out, and the asset base
     // it leaves behind starts depreciating the same month.
-    const assetFlow=Math.round((txArr["txAsset"]||[])[i]||0)-(i===0?capOnAssets:0);
-    assetBase=Math.max(0,assetBase-assetFlow);
-    const autoDepn=depnAuto?Math.max(0,Math.round(assetBase*depnRate/100/12)):null;
+    const assetWanted=Math.round((txArr["txAsset"]||[])[i]||0)-(i===0?capOnAssets:0);
+    // Nothing can be sold that is not owned. A sale for more than the written
+    // down value is fine - that is a gain, and the cash is real - but with
+    // nothing on the books at all there is nothing to sell.
+    const assetOverSell=(assetWanted>0&&assetBase<=0)?assetWanted:0;
+    const assetFlow=assetWanted-assetOverSell;
+    // A sale takes the asset off the books at what it was worth there, not at
+    // what it fetched. Several sales in a year share the figures entered, in
+    // proportion to what each one brought in.
+    let gainOnSale=0, depnReversal=0;
+    if(assetFlow>0&&saleProceedsAll>0){
+      const share=assetFlow/saleProceedsAll;
+      const allocHere=Math.min(assetBase,Math.round(saleAlloc*share));
+      const costHere=Math.round(saleCost*share);
+      // Proceeds up to cost recover the depreciation already charged, and
+      // that is profit. Anything above cost is capital, so it stays in the
+      // cash rows and never reaches the profit statement.
+      gainOnSale=Math.round(Math.min(assetFlow,costHere)-allocHere);
+      // What this forecast has already charged on it comes back in the month
+      // of the sale, and nothing more is charged on it after that.
+      if(depnAuto)depnReversal=Math.round(i*allocHere*depnRate/100/12);
+      assetBase=Math.max(0,assetBase-allocHere);
+    } else if(assetFlow<0){
+      assetBase=Math.max(0,assetBase-assetFlow);
+    }
+    const autoDepn=depnAuto?Math.round(Math.max(0,assetBase*depnRate/100/12)-depnReversal):null;
 
     // Loan movements this month: a drawdown is positive, a repayment negative.
     const userLoan=Math.round((txArr["txLoan"]||[])[i]||0);
@@ -498,11 +550,18 @@ function calcCashflow(f){
     if(i===0&&capLoanAmt>0)loanBal+=capLoanAmt;
     if(userLoan>0)loanBal+=userLoan;                       // money borrowed
     const autoInt=intAuto?Math.max(0,Math.round(loanBal*intRate/100/12)):null;
-    const capRepayNow=(capRepayM>0&&i<Math.round(capYears*12))?Math.min(capRepayM,Math.max(0,Math.round(loanBal+(autoInt||0)))):0;
+    // Nothing can be repaid that is not owed. Without this a repayment typed
+    // against a loan that does not exist took the money out of the bank and
+    // left nothing behind - the forecast simply lost it.
+    const owedNow=Math.max(0,Math.round(loanBal+(autoInt||0)));
+    const capRepayNow=(capRepayM>0&&i<Math.round(capYears*12))?Math.min(capRepayM,owedNow):0;
+    const userRepayWanted=userLoan<0?-userLoan:0;
+    const userRepayTaken=Math.min(userRepayWanted,Math.max(0,owedNow-capRepayNow));
+    const loanOverRepay=userRepayWanted-userRepayTaken;
     // The worked-out repayment rides in the loan row beside anything typed
     // there, so there is one line for the loan rather than two.
-    const loanFlow=userLoan-capRepayNow;
-    const repaid=(userLoan<0?-userLoan:0)+capRepayNow;
+    const loanFlow=(userLoan>0?userLoan:-userRepayTaken)-capRepayNow;
+    const repaid=userRepayTaken+capRepayNow;
     if(repaid>0){
       // The repayment covers the interest first; whatever is left reduces what
       // is owed. A repayment smaller than the interest pays off no principal.
@@ -518,7 +577,9 @@ function calcCashflow(f){
       totalExpenses+=v;
     });
 
-    const netProfit=grossProfit-totalExpenses;
+    // The gain sits below the trading lines: it is not revenue, and it is not
+    // a cost. Profit carries it, and so does the income tax worked out on it.
+    const netProfit=grossProfit-totalExpenses+gainOnSale;
     // Taxable profit for the month, after any loss brought forward. A loss
     // adds to what is carried and is charged nothing.
     let taxableNow=netProfit-lossCarried;
@@ -687,6 +748,10 @@ function calcCashflow(f){
       depreciation:depn,
       interestNonCash:interest,
       loanBalance:Math.round(loanBal),
+      // What was typed as a repayment but had no loan behind it, and what
+      // was typed as a sale with nothing on the books to sell.
+      loanOverRepay:Math.round(loanOverRepay),
+      assetOverSell:Math.round(assetOverSell),
       assetBase:Math.round(assetBase),
       debtorsBal:debtorsBal, creditorsBal:creditorsBal, stockBal:stockBal,
       incomeTax:incomeTax, profitAfterTax:profitAfterTax,
@@ -697,6 +762,11 @@ function calcCashflow(f){
       rcDebtors:Math.round(cashSales-revenue),
       rcStockCred:Math.round(cogs-cashCogs),
       rcExpTiming:Math.round(expCash-expPaidNow-expPaidLagged),
+      // Profit carries the gain; the money for it came in through Asset
+      // transactions, so it comes back out on the way to cash from trading.
+      rcGainSale:-Math.round(gainOnSale),
+      gainOnSale:Math.round(gainOnSale),
+      depnReversal:Math.round(depnReversal),
       cashFromTrading:Math.round(cashSales-cashCogs-expPaidNow-expPaidLagged),
       txDetail,otherTx,
       netCashflow,
@@ -781,6 +851,11 @@ function CfTable({rows}){
           <tr><td style={hdr} colSpan={rows.length+2}>Expenses</td></tr>
           {expCats.map(function(cat){return (<tr key={cat.id}><td style={tdF}>{cat.l}</td>{rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.expDetail&&r.expDetail[cat.id]||0)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(expTotals[cat.id])}</td></tr>);})}
           <tr><td style={totF}>Total Expenses</td>{rows.map(function(r){return <td key={r.month} style={tot}>{fmt(r.totalExpenses)}</td>;})}<td style={Object.assign({},tot,totB)}>{fmt(totals("totalExpenses"))}</td></tr>
+          {rows.some(function(r){return (r.gainOnSale||0)!==0;})&&(
+            <tr><td style={tdF}>{saleLineLabel(rows)}</td>
+              {rows.map(function(r){return <td key={r.month} style={td}>{fmt(r.gainOnSale||0)}</td>;})}
+              <td style={Object.assign({},tot,totB)}>{fmt(totals("gainOnSale"))}</td></tr>
+          )}
           <tr><td style={hdr} colSpan={rows.length+2}>Net Profit</td></tr>
           <tr>
             <td style={totals("netProfit")<0?hlRF:hlGF}>Net Profit/(Loss)</td>
@@ -806,6 +881,7 @@ function CfTable({rows}){
           {(function(){
             var recon=[
               {k:"depreciation",l:"Add back depreciation (not paid to anyone)"},
+              {k:"rcGainSale",  l:"Take out the gain or loss on sale (the money is in Asset transactions)"},
               {k:"interestNonCash",l:"Add back interest (already in your loan repayment)"},
               {k:"rcDebtors",   l:"Timing: sales not yet collected"},
               {k:"rcStockCred", l:"Timing: stock bought and suppliers paid"},
@@ -1505,12 +1581,15 @@ export default function App(){
   // Defaults to "0", which is how the forecast has always behaved, so an
   // existing plan that never answers these keeps exactly the figures it had.
   function TermsRow(props){
+    // "In the month of the sale" is right for money coming in and wrong for
+    // money going out: what you pay a supplier in follows the purchase.
+    var word=props.event||"sale";
     return (<div style={{marginBottom:14}}>
       <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>{props.label}</div>
       {props.help&&<span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>{props.help}</span>}
       <select style={Object.assign({},sel,{maxWidth:340})} value={fdRef.current[props.k]||"0"}
         onChange={function(e){fdRef.current[props.k]=e.target.value;saveToStorage();refreshLive();}}>
-        {TERM_OPTS.map(function(o){return <option key={o.k} value={o.k}>{o.l}</option>;})}
+        {TERM_OPTS.map(function(o){return <option key={o.k} value={o.k}>{o.k==="0"?("In the month of the "+word):o.l}</option>;})}
       </select>
     </div>);
   }
@@ -1814,7 +1893,7 @@ export default function App(){
     {id:"spend",     sec:"other", core:true,  l:"What you spend",           hint:"your running costs"},
     {id:"stockterms",sec:"other", core:false, l:"Stock and supplier terms", hint:"when you pay"},
     {id:"depn",      sec:"other", core:true,  l:"Depreciation and interest",hint:"costs that are not cash"},
-    {id:"tx",        sec:"tx",    core:false, l:"Loans and other movements",hint:"money in and out"},
+    {id:"tx",        sec:"tx",    core:false, l:"Loans, Assets and Other",hint:"money in and out"},
     {id:"notes",     sec:"notes", core:true,  l:"Anything else",            hint:"optional"}
   ];
   function finFlowFor(detail){
@@ -2929,6 +3008,8 @@ export default function App(){
         if(ev.some(function(v){return v!==0;}))data.push(dr(c.l,ev));
       });
       data.push(dr("Total Expenses",cfRows.map(function(r){return r.totalExpenses||0;})));
+      if(cfRows.some(function(r){return (r.gainOnSale||0)!==0;}))
+        data.push(dr(saleLineLabel(cfRows),cfRows.map(function(r){return r.gainOnSale||0;})));
       data.push(dr("Net Profit/(Loss)",cfRows.map(function(r){return r.netProfit||0;})));
       if(cfRows.some(function(r){return (r.incomeTax||0)!==0;})){
         data.push(dr("Income tax (estimated)",cfRows.map(function(r){return -(r.incomeTax||0);})));
@@ -2937,6 +3018,7 @@ export default function App(){
       (function(){
         var recon=[
           {k:"depreciation",   l:"Add back depreciation (not paid to anyone)"},
+          {k:"rcGainSale",     l:"Take out the gain or loss on sale (the money is in Asset transactions)"},
           {k:"interestNonCash",l:"Add back interest (already in your loan repayment)"},
           {k:"rcDebtors",      l:"Timing: sales not yet collected"},
           {k:"rcStockCred",    l:"Timing: stock bought and suppliers paid"},
@@ -3445,7 +3527,10 @@ export default function App(){
         })();
         tblRows.push(mhr("Expenses"));
         expCats.forEach(function(c){var vs=cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;});if(vs.some(function(v){return v!==0;}))tblRows.push(mr(c.l,cfRows.map(function(r){return r.expDetail&&r.expDetail[c.id]||0;}),false));});
-        tblRows.push(mrk("Total Expenses","totalExpenses",true));tblRows.push(mrk("Net Profit/(Loss)","netProfit",true));
+        tblRows.push(mrk("Total Expenses","totalExpenses",true));
+        if(cfRows.some(function(r){return (r.gainOnSale||0)!==0;}))
+          tblRows.push(mrk(saleLineLabel(cfRows),"gainOnSale",false));
+        tblRows.push(mrk("Net Profit/(Loss)","netProfit",true));
         if(cfRows.some(function(r){return (r.incomeTax||0)!==0;})){
           tblRows.push(mr("Income tax (estimated)",cfRows.map(function(r){return -(r.incomeTax||0);}),false));
           tblRows.push(mrk("Profit after tax","profitAfterTax",true));
@@ -5665,7 +5750,7 @@ export default function App(){
           <div style={{fontSize:13,color:"#B14A38",lineHeight:1.6}}>No rate entered yet, so no {taxLabel()} is being calculated.</div>
         )}
         <div style={{fontSize:13,color:"#29384A",lineHeight:1.6,marginTop:10,paddingTop:10,borderTop:"1px solid #E3E8F0"}}>
-          <strong style={{color:"#01236D"}}>Please check this against your own situation.</strong> This is an estimate for forecasting, not a tax calculation. Rules on what is taxable, what can be reclaimed and when payment is due vary, and your accountant or tax authority is the authority on yours. If the figure is wrong, correct it using <strong>Tax payments other</strong> under Loans and other movements &mdash; enter the difference there as a positive number for a refund or a negative one for a payment.
+          <strong style={{color:"#01236D"}}>Please check this against your own situation.</strong> This is an estimate for forecasting, not a tax calculation. Rules on what is taxable, what can be reclaimed and when payment is due vary, and your accountant or tax authority is the authority on yours. If the figure is wrong, correct it using <strong>Tax payments other</strong> under Loans, Assets and Other &mdash; enter the difference there as a positive number for a refund or a negative one for a payment.
         </div>
       </div>
     );
@@ -6167,6 +6252,25 @@ export default function App(){
       </div>
     );
   }
+  // What the worked-out figure is actually standing on. Two things feed each
+  // of these now - what the business already owns or owes, and what the
+  // funding in step 1 buys or borrows - so clearing one of them and seeing a
+  // figure remain is otherwise a mystery.
+  function autoBasis(kind){
+    var f=fdRef.current;
+    var tot=needOneOff(f.needCapital);
+    var src=String(f.capSource||"own");
+    var fromCap=kind==="depreciation"
+      ? Math.min(tot,needOneOff(f.capOnAssets))
+      : Math.min(tot,src==="loan"?tot:(src==="part"?needOneOff(f.capLoan):0));
+    var already=kind==="depreciation"?needOneOff(f.openAssets):needOneOff(f.openLoan);
+    var what=kind==="depreciation"?"own":"owe";
+    if(!already&&!fromCap)return "Nothing to work it out on yet";
+    if(already&&fromCap)return "On the "+fmt(already)+" you already "+what+" and the "+fmt(fromCap)+" from your funding";
+    if(fromCap)return "On the "+fmt(fromCap)+" from your funding in step 1";
+    return "Worked out from what you "+what;
+  }
+
   function ExpRow(c){ return (<div key={c.id} style={{marginBottom:10}}>
               <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}</div>
               {c.id==="xDepn"&&(
@@ -6181,7 +6285,7 @@ export default function App(){
               {c.id==="xInterest"&&(
                 <div style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,lineHeight:1.5}}>
                   The interest part of your loan repayments. It reduces your profit, but it does not come out of
-                  your bank again &mdash; the whole repayment already leaves through Loan transactions under Loans and other movements.
+                  your bank again &mdash; the whole repayment already leaves through Loan transactions under Loans, Assets and Other.
                 </div>
               )}
               {c.id==="xInterest"&&(
@@ -6223,7 +6327,7 @@ export default function App(){
                       <div style={{marginTop:8,background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:6,
                         padding:"8px 11px",fontSize:12.5,color:"#7A5E18",lineHeight:1.5}}>
                         Nothing is repaying this loan, so the {fmt(bal)} and the interest on it stay flat all year.
-                        If you are making repayments, enter them under <strong>Loans and other movements</strong> as a
+                        If you are making repayments, enter them under <strong>Loans, Assets and Other</strong> as a
                         negative amount &mdash; the repayment covers the interest first, and the rest comes off what you owe.
                       </div>
                     );
@@ -6263,14 +6367,14 @@ export default function App(){
               )}
               {c.id==="xInterest"&&String(fdRef.current.intAuto||"")==="1"
                 ? (<div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12})}>
-                    <span style={{fontSize:13}}>Worked out from what you owe</span>
+                    <span style={{fontSize:13}}>{autoBasis("interest")}</span>
                     <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums",flexShrink:0}}>
                       {fmt(liveRows.reduce(function(s,r){return s+(r.interestNonCash||0);},0))} a year
                     </span>
                   </div>)
                 : c.id==="xDepn"&&String(fdRef.current.depnAuto||"")==="1"
                 ? (<div style={Object.assign({},inp,{background:"#FCFCFA",color:"#5A6C7E",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12})}>
-                    <span style={{fontSize:13}}>Worked out from what you own</span>
+                    <span style={{fontSize:13}}>{autoBasis("depreciation")}</span>
                     <span style={{fontSize:13,fontWeight:600,fontVariantNumeric:"tabular-nums",flexShrink:0}}>
                       {fmt(liveRows.reduce(function(s,r){return s+(r.depreciation||0);},0))} a year
                     </span>
@@ -7283,7 +7387,7 @@ export default function App(){
               <label htmlFor="chkTaxAside" style={{fontSize:14,color:"#29384A",cursor:"pointer",lineHeight:1.5}}>
                 <strong style={{color:"#01236D"}}>Set the tax aside each month.</strong> Moves it out of your
                 balance as it is earned, so the cash on screen is what you can actually spend. It is a reserve,
-                not a payment &mdash; when the bill falls due, enter the payment under Loans and other movements.
+                not a payment &mdash; when the bill falls due, enter the payment under Loans, Assets and Other.
               </label>
             </div>
             <div style={{fontSize:12.5,color:"#5A6C7E",lineHeight:1.5}}>
@@ -7320,7 +7424,7 @@ export default function App(){
                 </select>
               </div>);
             })()}
-            {TermsRow({k:"payLag",label:"When do you pay your suppliers?",
+            {TermsRow({k:"payLag",label:"When do you pay your suppliers?",event:"purchase",
               help:"Applies to what you buy to sell \u2014 your cost of sales."})}
             <div style={{display:"flex",alignItems:"flex-start",gap:9,marginBottom:14,
               background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"11px 13px"}}>
@@ -7381,7 +7485,7 @@ export default function App(){
             <div style={{marginBottom:14}}/>
             </>)}
 </FinSection></>)}
-            {finVisible("tx")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("tx")} onToggle={function(){finToggle("tx");}} title="6. Other transactions" hint="loans, assets, drawings">
+            {finVisible("tx")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("tx")} onToggle={function(){finToggle("tx");}} title="6. Loans, Assets and Other" hint="money in and out">
             {taxNoteHere()&&TaxExclNote("tx","Asset and Other Transactions")}
             <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Other money in and out ($)</div>
             <span style={{fontSize:13,color:"#29384A",marginBottom:6,display:"block"}}>Regular monthly or one-off</span>
@@ -7413,6 +7517,86 @@ export default function App(){
               }
               return (<div key={c.id} style={{marginBottom:10}}>
                 <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}</div>
+                {c.id==="txAsset"&&(function(){
+                  // Asked only when something is being sold, because the two
+                  // figures decide how the proceeds split between profit and
+                  // capital, and how much depreciation comes back.
+                  var sold=(liveRows||[]).reduce(function(a,r){
+                    var v=(r.txDetail&&r.txDetail.txAsset)||0; return a+(v>0?v:0);},0);
+                  if(!sold)return null;
+                  var alloc=needOneOff(fdRef.current.saleAlloc);
+                  var accum=needOneOff(fdRef.current.saleAccum);
+                  var cost=alloc+accum;
+                  var gain=(liveRows||[]).reduce(function(a,r){return a+(r.gainOnSale||0);},0);
+                  var rev=(liveRows||[]).reduce(function(a,r){return a+(r.depnReversal||0);},0);
+                  var above=Math.max(0,sold-cost);
+                  var lbl={fontSize:12.5,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"};
+                  var set=function(k,v){fdRef.current[k]=v;saveToStorage();refreshLive();};
+                  return (<div style={{marginTop:4,marginBottom:8,background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"12px 13px"}}>
+                    <div style={{fontSize:12.5,color:"#5A6C7E",marginBottom:9,lineHeight:1.5}}>
+                      You are selling {fmt(sold)} of assets. Two things decide how that is treated.
+                    </div>
+                    <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                      <div style={{flex:"1 1 200px",minWidth:0}}>
+                        <div style={lbl}>What was this asset in your opening balance?</div>
+                        <span style={{fontSize:12,color:"#5A6C7E",display:"block",marginBottom:3,lineHeight:1.45}}>
+                          The part of what you own that is being sold &mdash; 15,000 of 30,000, say. If you bought it
+                          during the year instead, what you paid for it.
+                        </span>
+                        <input style={inp} defaultValue={fdRef.current.saleAlloc||""} placeholder="e.g. 15,000"
+                          onChange={function(e){set("saleAlloc",e.target.value);}}/>
+                      </div>
+                      <div style={{flex:"1 1 200px",minWidth:0}}>
+                        <div style={lbl}>Depreciation already charged on it</div>
+                        <span style={{fontSize:12,color:"#5A6C7E",display:"block",marginBottom:3,lineHeight:1.45}}>
+                          Before this forecast started. Cost 20,000 less 5,000 of depreciation leaves the 15,000
+                          above. Leave blank if it has never been depreciated.
+                        </span>
+                        <input style={inp} defaultValue={fdRef.current.saleAccum||""} placeholder="e.g. 5,000"
+                          onChange={function(e){set("saleAccum",e.target.value);}}/>
+                      </div>
+                    </div>
+                    {alloc>0&&(
+                      <div style={{fontSize:12.5,color:"#29384A",marginTop:9,lineHeight:1.6,
+                        background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:6,padding:"9px 11px"}}>
+                        Cost {fmt(cost)}, less {fmt(accum)} already depreciated, leaves {fmt(alloc)} on the books.
+                        {gain>0?(" Selling for "+fmt(sold)+" recovers "+fmt(gain)+" of that depreciation, which goes into your profit and is taxed with it."):""}
+                        {gain<0?(" Selling for "+fmt(sold)+" is "+fmt(-gain)+" below what it stands at on your books, so a loss of "+fmt(-gain)+" goes into your profit and reduces the tax on it."):""}
+                        {above?(" The "+fmt(above)+" above cost is capital, so it stays in the cash rows and out of profit."):""}
+                        {rev?(" The "+fmt(rev)+" of depreciation charged on it earlier in the year is reversed in the month of the sale, and none is charged on it after that."):""}
+                      </div>
+                    )}
+                  </div>);
+                })()}
+                {c.id==="txAsset"&&(function(){
+                  var over=(liveRows||[]).reduce(function(a,r){return a+(r.assetOverSell||0);},0);
+                  if(!over)return null;
+                  var first=(liveRows||[]).filter(function(r){return (r.assetOverSell||0)>0;})[0];
+                  return (
+                    <div style={{background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:6,
+                      padding:"7px 10px",marginBottom:6,fontSize:12.5,color:"#7A5E18",lineHeight:1.5}}>
+                      There is nothing on the books to sell in {first?first.month:"that month"}, so {fmt(over)} of
+                      what you entered here has been left out of the forecast. Enter what the business owns under
+                      <strong> Where you are today</strong>, or buy it here first as a negative amount.
+                    </div>
+                  );
+                })()}
+                {c.id==="txLoan"&&(function(){
+                  // A repayment with no loan behind it is left out of the
+                  // forecast, so say so rather than quietly dropping it.
+                  var over=(liveRows||[]).reduce(function(a,r){return a+(r.loanOverRepay||0);},0);
+                  if(!over)return null;
+                  var first=(liveRows||[]).filter(function(r){return (r.loanOverRepay||0)>0;})[0];
+                  return (
+                    <div style={{background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:6,
+                      padding:"7px 10px",marginBottom:6,fontSize:12.5,color:"#7A5E18",lineHeight:1.5}}>
+                      There is no loan left to repay in {first?first.month:"that month"}, so {fmt(over)} of what
+                      you entered here has been left out of the forecast. A repayment only reduces a loan the
+                      plan knows about &mdash; enter the loan as a positive amount in this row, or under
+                      <strong> Where you are today</strong> if you already owe it.
+                    </div>
+                  );
+                })()}
                 {(c.id==="txLoan"||c.id==="txAsset")&&(function(){
                   // These two rows now carry worked-out amounts as well as
                   // anything typed here, so say so rather than letting
