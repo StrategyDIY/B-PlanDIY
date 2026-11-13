@@ -224,6 +224,19 @@ function needMonthly(v){
   return p.n/12;
 }
 function needOneOff(v){ var p=parseNeed(v); return p?p.n:0; }
+// parseNeed throws away anything at or below nil, which is right for a loan
+// or the money an owner needs, but not for a tax balance: that can be a
+// refund due. Accountants' brackets count as a negative too.
+function parseSigned(v){
+  var s=String(v==null?"":v).replace(/,/g,"").trim();
+  if(!s)return 0;
+  var neg=/^\(.*\)$/.test(s);
+  var m=s.match(/-?\d+(?:\.\d+)?/);
+  if(!m)return 0;
+  var n=parseFloat(m[0]);
+  if(!isFinite(n))return 0;
+  return neg?-Math.abs(n):n;
+}
 
 // How long the money takes to arrive, and to leave. Whole months, because the
 // forecast is monthly - "47 days" would promise a precision the model does not
@@ -286,7 +299,13 @@ function calcCashflow(f){
   // shipped default - was given VAT treatment and input credits it is not
   // entitled to, understating the tax it owes by around 40%.
   const salesTaxMode=/^sales\s*tax$/i.test(String(f.taxName||"").trim());
-  let accTax=0;
+  // The tax account does not start at nil for a business that is already
+  // trading: it starts wherever its last return left it. Entered as the
+  // balance owed, with a refund due entered as a negative, and it is the
+  // ONLY thing that carries tax across the start of the forecast - opening
+  // debtors and creditors are cash, nothing more. The first payment month
+  // clears it along with whatever has accrued since.
+  let accTax=taxRegistered?parseSigned(f.openGst):0;
 
   // Extra sales and costs implied by the Step 4 goals. Opt-in, because a user
   // may already have built the growth into the figures they typed. Spread evenly
@@ -368,18 +387,14 @@ function calcCashflow(f){
   const incTaxAside=String(f.incTaxAside||"")==="1";
   let lossCarried=0, taxReserve=0;
   // Already earned, or already owed, before month 1 - they settle in month 1.
-  // Entered as the amount owed, which includes the tax, so each is split:
-  // the net part is trading cash and the tax part goes to the tax rows,
-  // where every other dollar of tax is. The bank still receives exactly
-  // what was entered.
-  const openDebtorsGross=needOneOff(f.openDebtors);
-  const openCreditorsGross=needOneOff(f.openCreditors);
-  const openTaxDiv=1+(taxRate/100);
-  const openDebtors=Math.round(openDebtorsGross/openTaxDiv);
-  const openDebtorsTax=openDebtorsGross-openDebtors;
+  // Entered as the amount that will change hands, and that is all they are:
+  // the whole figure goes through the bank and none of it is split out as
+  // tax. The tax on them was dealt with in a return that was filed before
+  // the forecast starts, and whatever that left owing is the opening tax
+  // balance above. Splitting these as well would count the same tax twice.
+  const openDebtors=needOneOff(f.openDebtors);
+  const openCreditors=needOneOff(f.openCreditors);
   let debtorsBal=0, creditorsBal=0;   // set from the opening figures in month 1
-  const openCreditors=salesTaxMode?openCreditorsGross:Math.round(openCreditorsGross/openTaxDiv);
-  const openCreditorsTax=openCreditorsGross-openCreditors;
 
   for(let i=0;i<12;i++){
     // Revenue
@@ -524,10 +539,8 @@ function calcCashflow(f){
     // On a payments basis the credit is claimed when the supplier is paid, so
     // it follows the same terms. Wages carry no credit either way.
     const taxExpBase=onPayments?(expPaidNow+expPaidLagged-teamExp):(expCash-teamExp);
-    const taxOnSales=Math.round(taxSalesBase*taxRate/100)
-      +((onPayments&&i===0)?openDebtorsTax:0);
-    const taxOnInputs=salesTaxMode?0:(Math.round((taxCogsBase+taxExpBase)*taxRate/100)
-      +((onPayments&&i===0)?openCreditorsTax:0));
+    const taxOnSales=Math.round(taxSalesBase*taxRate/100);
+    const taxOnInputs=salesTaxMode?0:Math.round((taxCogsBase+taxExpBase)*taxRate/100);
     // Those two are the RETURN, and they follow the basis. What reaches the
     // bank is a different question and always follows the money: a customer
     // on 30-day terms hands over the tax with the invoice when they pay it,
@@ -535,14 +548,12 @@ function calcCashflow(f){
     // the return figure for the bank put the tax in a month before the sale
     // it belonged to was collected.
     //
-    // Opening debtors and creditors are entered as the amount actually owed,
-    // which already includes the tax, so none is added on top of them - the
-    // amount entered is split instead.
-    const taxCashSales=Math.round(cashIn(revProdHist,i,f.recvLag)*taxRate/100)
-      +(i===0?openDebtorsTax:0);
-    const taxCashInputs=(salesTaxMode?0:Math.round(
-      (cashIn(purchHist,i,f.payLag)+expPaidNow+expPaidLagged-teamExp)*taxRate/100))
-      +(i===0?openCreditorsTax:0);
+    // Opening debtors and creditors are entered as the amount that changes
+    // hands and carry no tax of their own here - the tax on them is already
+    // inside the opening tax balance.
+    const taxCashSales=Math.round(cashIn(revProdHist,i,f.recvLag)*taxRate/100);
+    const taxCashInputs=salesTaxMode?0:Math.round(
+      (cashIn(purchHist,i,f.payLag)+expPaidNow+expPaidLagged-teamExp)*taxRate/100);
     // Netted from the two rounded components, so the three rows always foot.
     const monthTax=taxOnSales-taxOnInputs;
     const isTaxPayMonth=!!f["taxPayM"+(i+1)]||!Array.from({length:12},function(_,n){return f["taxPayM"+(n+1)];}).some(Boolean);
@@ -635,6 +646,9 @@ function calcCashflow(f){
       debtorsBal:debtorsBal, creditorsBal:creditorsBal, stockBal:stockBal,
       incomeTax:incomeTax, profitAfterTax:profitAfterTax,
       lossCarried:Math.round(lossCarried), taxReserve:Math.round(taxReserve),
+      // What the tax account stands at once this month's return and any
+      // payment are in: positive is owed, negative is a refund due.
+      taxBal:Math.round(accTax),
       rcDebtors:Math.round(cashSales-revenue),
       rcStockCred:Math.round(cogs-cashCogs),
       rcExpTiming:Math.round(expCash-expPaidNow-expPaidLagged),
@@ -652,6 +666,12 @@ function calcCashflow(f){
   }
   return rows;
 }
+
+// A door for the automated checks. test-invariants.py builds hundreds of
+// plans and calls this directly rather than driving the whole screen for each
+// one, so the properties are tested against the real engine. It exposes
+// nothing a visitor could not already read off the forecast table.
+if(typeof window!=="undefined")window.__bpdCalc=calcCashflow;
 
 function CfTable({rows}){
   if(!rows||!rows.length)return <div/>;
@@ -1179,7 +1199,13 @@ function MonthGrid({keyPrefix,keyPostfix,storeKey,fdRef,onUpdate,GREEN,inp,btnSm
 // remounts its whole subtree - which wiped the month grids' internal state.
 function FinSection(props){
   var open=!!props.open;
-  var title=props.plainTitle?String(props.title).replace(/^\d+\.\s*/,""):props.title;
+  // One question at a time: the wizard header above already names the
+  // question and says what it covers, so the section banner underneath was a
+  // second heading saying the same thing. In that mode there is nothing to
+  // open or close either, so the whole strip goes and the fields sit
+  // directly under the question.
+  if(props.plainTitle)return <div style={{marginBottom:12}}>{props.children}</div>;
+  var title=props.title;
   return (
     <div style={{border:"1px solid #E3E8F0",borderRadius:12,marginBottom:12,overflow:"hidden"}}>
       <button
@@ -1246,6 +1272,8 @@ export default function App(){
   var taxNameState=useState(fdRef.current.taxName||"");var taxName=taxNameState[0];var setTaxName=taxNameState[1];
   // Falls back to the neutral term until the user names their own tax.
   function taxLabel(){ return taxName||"products/services tax"; }
+  // "GST owing" keeps its capitals; "products/services tax owing" needs one.
+  function cap1(t){ return String(t||"").charAt(0).toUpperCase()+String(t||"").slice(1); }
   // Income tax. A company and a trust have a rate of their own; a sole
   // trader or a partnership is taxed in the owner's hands at whatever their
   // marginal rate is, which depends on income this app never sees. So those
@@ -1698,8 +1726,8 @@ export default function App(){
   // for. `sec` says which section wrapper to show it in, so the chrome still
   // tells you where you are.
   var FIN_FLOW=[
-    {id:"setup",     sec:"start", core:true,  l:"Where you are starting from",hint:"currency, start date, cash in the bank"},
-    {id:"trading",   sec:"start", core:true,  l:"Already trading",          hint:"debtors, stock, what you need"},
+    {id:"setup",     sec:"start", core:true,  l:"Where you are starting from",hint:"currency, dates, what you need to start and to draw"},
+    {id:"trading",   sec:"start", core:true,  l:"Where you are today",      hint:"cash in the bank, what you are owed, what you hold"},
     {id:"tax",       sec:"tax",   core:true,  l:"Products/services tax",   hint:"registration, rate, basis and months"},
     {id:"inctax",    sec:"inctax",core:true,  l:"Income tax",              hint:"the rate on your profit"},
     {id:"sells",     sec:"sales", core:true,  l:"What you sell",            hint:"products, services or both"},
@@ -1745,6 +1773,10 @@ export default function App(){
   var acTotalState=useState("");var acTotal=acTotalState[0];var setAcTotal=acTotalState[1];
   var acAiLoadState=useState(false);var acAiLoad=acAiLoadState[0];var setAcAiLoad=acAiLoadState[1];
   var acAiState=useState(null);var acAi=acAiState[0];var setAcAi=acAiState[1];
+  // What it takes to get started, and the AI's go at working it out.
+  var ncAiLoadState=useState(false);var ncAiLoad=ncAiLoadState[0];var setNcAiLoad=ncAiLoadState[1];
+  var ncAiState=useState(null);var ncAi=ncAiState[0];var setNcAi=ncAiState[1];
+  var ncVerState=useState(0);var ncVer=ncVerState[0];var setNcVer=ncVerState[1];
   var apOpenState=useState(false);var apOpen=apOpenState[0];var setApOpen=apOpenState[1];
   var apTotalState=useState("");var apTotal=apTotalState[0];var setApTotal=apTotalState[1];
   // "Includes tax" toggles on the two helper calculators, plus the shared
@@ -2859,6 +2891,7 @@ export default function App(){
           {k:"stockBal",    l:"Stock on hand"},
           {k:"loanBalance", l:"Loan still to repay"},
           {k:"assetBase",   l:"Equipment and vehicles, cost being depreciated"},
+          {k:"taxBal",      l:taxWord+" owing (or refund due)"},
           {k:"taxReserve",  l:"Income tax set aside, running total"},
           {k:"lossCarried", l:"Tax loss carried forward"}
         ].filter(function(x){return cfRows.some(function(r){return (r[x.k]||0)!==0;});});
@@ -2873,10 +2906,7 @@ export default function App(){
         // The same caveats the screen carries, so the file still says them
         // once it has been emailed on to somebody.
         var last=cfRows[cfRows.length-1]||{};
-        var coll=0,cred=0,paid=0;
-        cfRows.forEach(function(r){var d=r.txDetail||{};
-          coll+=d.txTaxColl||0; cred+=d.txTaxCred||0; paid+=d.txTax||0;});
-        var owing=Math.round(coll+cred+paid);
+        var owing=Math.round(last.taxBal||0);
         data.push([]);
         data.push(sr("NOTES"));
         var itTot=cfRows.reduce(function(s,r){return s+(r.incomeTax||0);},0);
@@ -2890,7 +2920,7 @@ export default function App(){
           data.push(["Income tax of about "+Math.round(itTot).toLocaleString()+" is estimated at "+itRate+"% of profit, but it is not taken out of the bank in this forecast, so the closing balance makes no allowance for paying it."]);
         }
         if(last.lossCarried)data.push(["A tax loss of about "+Math.round(last.lossCarried).toLocaleString()+" is still carried forward at the end of month 12, which reduces the tax on later profits."]);
-        if(owing>0)data.push(["The closing balance still holds about "+Math.round(owing).toLocaleString()+" of "+taxWord+" collected and not yet paid."]);
+        if(owing>0)data.push(["The closing balance still holds about "+Math.round(owing).toLocaleString()+" of "+taxWord+" owing and not yet paid."]);
         if(owing<0)data.push(["About "+Math.abs(Math.round(owing)).toLocaleString()+" of "+taxWord+" is owed back to you at the end of the year."]);
         if(last.debtorsBal)data.push(["Customers still owe "+Math.round(last.debtorsBal).toLocaleString()+" excluding "+taxWord+" at the end of month 12, which is not in the closing balance."]);
         if(last.creditorsBal)data.push(["Suppliers are still owed "+Math.round(last.creditorsBal).toLocaleString()+" excluding "+taxWord+" at the end of month 12, which has to come out of it."]);
@@ -3479,6 +3509,9 @@ export default function App(){
       finBits.push("The business is already trading. Opening position on the plan date");
       if(oOwed) finBits.push("Owed to the business by customers on day one: $"+oOwed.toLocaleString());
       if(oOwing)finBits.push("Owed by the business to suppliers on day one: $"+oOwing.toLocaleString());
+      var oGst=parseSigned(f.openGst);
+      if(oGst)finBits.push((oGst>0?"Owed to the tax department on day one, from the last return: $":
+                                   "Refund due from the tax department on day one: $")+Math.abs(oGst).toLocaleString());
       if(oStock)finBits.push("Stock already held: $"+oStock.toLocaleString());
       if(oGear) finBits.push("Equipment and vehicles owned, at current value: $"+oGear.toLocaleString());
       var oLoan=needOneOff(f.openLoan);
@@ -5089,6 +5122,70 @@ export default function App(){
     setApAiLoad(false);
   }
 
+  // What it takes to open the doors. The forecast already knows the worst of
+  // the cash dip, so the AI is given that rather than being asked to guess at
+  // it: the figure that matters is the setting-up cost PLUS enough to live
+  // through the months before the business pays for itself.
+  async function suggestStartCapital(){
+    setNcAiLoad(true);
+    setNcAi(null);
+    var f=fdRef.current;
+    var rows=liveRows||[];
+    var capNow=Math.round(needOneOff(f.needCapital));
+    var dip=0, dipMonth="";
+    rows.forEach(function(r){
+      // Take the funding back out, so the dip is what happens without it.
+      var bal=Math.round((r.closingBalance||0)-capNow);
+      if(bal<dip){ dip=bal; dipMonth=r.month; }
+    });
+    var expM=rows.length?Math.round(rows.reduce(function(a,r){return a+(r.totalExpenses||0);},0)/rows.length):0;
+    var trading=!!finDetail;
+    var prompt="Suggest how much money this business needs to start or grow - the funding it has to find before it stands on its own.\n\n"+
+      "Business: "+(f.bizName||"this business")+"\n"+
+      "Industry: "+(f.industry||"not specified")+"\n"+
+      "Location(s): "+(f.locations||"New Zealand")+"\n"+
+      "What the business does: "+(f.description||f.history||"not specified")+"\n"+
+      "Stage: "+(f.stage||"not specified")+"\n"+
+      "Sells: "+(f.sells||"not specified")+"\n"+
+      "Target customer: "+(f.targetCust||"not specified")+"\n"+
+      (trading?"This business is ALREADY TRADING, so this is money to grow, not to set up from nothing.\n":
+               "This business is NOT trading yet, so this is money to set it up from nothing.\n")+
+      "Cash already in the bank: "+fmt(Math.round(needOneOff(f.openingBalance)))+"\n"+
+      (needOneOff(f.openAssets)?"Equipment and vehicles already owned: "+fmt(Math.round(needOneOff(f.openAssets)))+"\n":"")+
+      (needOneOff(f.openStock)?"Stock already held: "+fmt(Math.round(needOneOff(f.openStock)))+"\n":"")+
+      (expM?"Running costs already entered in the forecast: about "+fmt(expM)+" a month.\n":"")+
+      (dip<0?"The forecast says that WITHOUT any funding the bank goes to its lowest point of "+fmt(dip)+" in "+dipMonth+
+             ". Whatever is needed to set up, the answer must also cover that hole.\n"
+            :"The forecast says the bank stays positive across the year without any funding, so the answer is about setting up rather than covering losses.\n")+
+      "\nCount setting up: equipment, fit-out, vehicles, opening stock, bonds and deposits, registrations, insurance, a website, early marketing.\n"+
+      "Then add enough working capital to cover the months before the business pays for itself - the hole above, if there is one.\n"+
+      "Do not count money already in the bank, or equipment and stock already owned. Do not count the owner's wages beyond what is needed to live while it starts.\n"+
+      "Use amounts realistic for "+bizLocation()+" and this industry. One round figure, not a range.\n\n"+
+      "Reply in EXACTLY this format and nothing else:\n"+
+      "AMOUNT: [number only, no currency sign, no commas]\n"+
+      "ITEMS: [3 to 6 items, each as name - amount, separated by semicolons]\n"+
+      "WHY: [one or two short sentences on what it assumes]";
+    try{
+      var data=await aiFetch({max_tokens:420,messages:[{role:"user",content:prompt}]});
+      var text=(data.content||[]).map(function(x){return x.text||"";}).join("");
+      var am=text.match(/AMOUNT:\s*\$?\s*([0-9][0-9,]*\.?[0-9]*)/i);
+      var im=text.match(/ITEMS:\s*(.+)/i);
+      var wm=text.match(/WHY:\s*([\s\S]+)/i);
+      if(am){
+        setNcAi({
+          amount:Math.round(parseFloat(am[1].replace(/,/g,""))),
+          items:im?im[1].split(";").map(function(x){return x.trim();}).filter(Boolean):[],
+          why:wm?wm[1].trim():""
+        });
+      } else {
+        setNcAi({error:"Could not work out a figure just now. Please try again."});
+      }
+    }catch(e){
+      if(!/ai locked/.test(e&&e.message||""))setNcAi({error:"Could not get a suggestion just now. Please try again."});
+    }
+    setNcAiLoad(false);
+  }
+
   async function suggestAvgCost(){
     setAcAiLoad(true);
     setAcAi(null);
@@ -6607,85 +6704,133 @@ export default function App(){
                 </select>
               </div>
             </div>
-            <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
-              <div style={{flex:"1 1 260px",minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Cash in the bank on day one ($)</div>
-                <input style={inp} defaultValue={fdRef.current.openingBalance||""} placeholder="e.g. 5000 (cash in bank at start)" onChange={function(e){fdRef.current.openingBalance=e.target.value;saveToStorage();refreshLive();}}/>
+
+            {/* The money that has to be found before the business stands on
+                its own. Most people have no idea what this comes to, so the
+                AI is offered the moment the question is asked rather than
+                buried behind the forecast. */}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much do you need to start or grow the business?</div>
+              <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Setting up, equipment, stock, and enough to cover the months before it pays for itself.</span>
+              <input key={"needCap"+ncVer} style={inp} defaultValue={fdRef.current.needCapital||""} placeholder="e.g. 25,000"
+                onChange={function(e){fdRef.current.needCapital=e.target.value;saveToStorage();refreshLive();}}/>
+              <div style={{display:"flex",alignItems:"center",gap:0,marginTop:8,flexWrap:"wrap"}}>
+                <button style={ncAiLoad?suggestBtnBusy:suggestBtn} disabled={ncAiLoad}
+                  onClick={function(){suggestStartCapital();}}>
+                  {ncAiLoad?busyLabel("Working on it\u2026"):"Suggest with AI"}
+                </button>
+                <span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span>
               </div>
-              <div style={{flex:"1 1 260px",minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Money you or investors have put in</div>
-                <input style={inp} defaultValue={fdRef.current.equity||""} placeholder="e.g. $30,000 from founder Jane Smith" onChange={function(e){fdRef.current.equity=e.target.value;saveToStorage();}}/>
-              </div>
+              {!!ncAi&&(
+                <div style={{marginTop:8,background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:6,padding:"12px 14px"}}>
+                  {ncAi.error
+                    ?<div style={{fontSize:13,color:"#B14A38",lineHeight:1.55}}>{ncAi.error}</div>
+                    :(<div>
+                        <div style={{fontSize:13,color:"#29384A",lineHeight:1.6}}>
+                          Suggested <strong style={{color:"#01236D",fontSize:16}}>{fmt(ncAi.amount)}</strong> to get going
+                        </div>
+                        {!!(ncAi.items||[]).length&&(
+                          <ul style={{margin:"8px 0 0 18px",padding:0,fontSize:12.5,color:"#29384A",lineHeight:1.7}}>
+                            {ncAi.items.map(function(it,i){return <li key={i}>{it}</li>;})}
+                          </ul>
+                        )}
+                        {!!ncAi.why&&<div style={{fontSize:12.5,color:"#5A6C7E",lineHeight:1.6,marginTop:8}}>{ncAi.why}</div>}
+                        <div style={{marginTop:10}}>
+                          <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
+                            onClick={function(){
+                              fdRef.current.needCapital=String(ncAi.amount);
+                              saveToStorage();refreshLive();
+                              setNcVer(function(v){return v+1;});
+                              setNcAi(null);
+                            }}>Use this figure</button>
+                        </div>
+                      </div>)}
+                </div>
+              )}
             </div>
-            <div style={{marginBottom:14}}/>
+
+            {/* The other question the forecast gets measured against: what the
+                owner has to take out of it to live on. */}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much do you need to draw from the business?</div>
+              <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What you need to take out of the business to live on. Say whether that is a year or a month.</span>
+              <input style={inp} defaultValue={fdRef.current.needIncome||""} placeholder="e.g. 60,000 a year" onChange={function(e){fdRef.current.needIncome=e.target.value;saveToStorage();refreshLive();}}/>
+              {String(fdRef.current.needIncome||"").trim()&&(
+                <div style={{marginTop:6,background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:8,
+                  padding:"9px 11px",fontSize:12.5,color:"#7A5E18",lineHeight:1.5}}>
+                  {drawingsTaxNote()}
+                </div>
+              )}
+            </div>
             </>)}
             {fw("trading")&&(<>
             <div style={{marginBottom:14}}/>
-                        <div style={{display:"flex",alignItems:"flex-start",gap:9,marginBottom:14,
+            <div style={{display:"flex",alignItems:"flex-start",gap:9,marginBottom:14,
               background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"11px 13px"}}>
               <input type="checkbox" id="chkFinDetail" style={{width:16,height:16,cursor:"pointer",accentColor:GREEN,flexShrink:0,marginTop:2}}
                 checked={!!finDetail}
                 onChange={function(e){chooseFinDetail(e.target.checked);refreshLive();}}/>
               <label htmlFor="chkFinDetail" style={{fontSize:13,color:"#29384A",cursor:"pointer",lineHeight:1.5}}>
                 My business is already trading
-                <span style={{color:"#5A6C7E"}}> &mdash; ask me what I am owed, what I owe, the stock and equipment
-                I hold, and what I need to take out. Leave this unticked if you are starting out.</span>
+                <span style={{color:"#5A6C7E"}}> &mdash; ask me what I am owed, what I owe, where my tax account
+                stands, and the stock and equipment I hold. Leave this unticked if you are starting out.</span>
               </label>
             </div>
-                        {finDetail&&(<>
-<div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
-              <div style={{flex:"1 1 260px",minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Owed to you on day one</div>
-                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Invoices already out that have not been paid. They come in during month 1.</span>
-                <input style={inp} defaultValue={fdRef.current.openDebtors||""} placeholder="e.g. 3,000" onChange={function(e){fdRef.current.openDebtors=e.target.value;saveToStorage();refreshLive();}}/>
-              </div>
-              <div style={{flex:"1 1 260px",minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Owed by you on day one</div>
-                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Supplier bills already received and not yet paid. They go out in month 1.</span>
-                <input style={inp} defaultValue={fdRef.current.openCreditors||""} placeholder="e.g. 5,000" onChange={function(e){fdRef.current.openCreditors=e.target.value;saveToStorage();refreshLive();}}/>
-              </div>
-              <div style={{flex:"1 1 260px",minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Loans owing on day one</div>
-                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Term loan or overdraft still to repay. Interest is worked out from this under Depreciation and interest.</span>
-                <input style={inp} defaultValue={fdRef.current.openLoan||""} placeholder="e.g. 50,000"
-                  onChange={function(e){fdRef.current.openLoan=e.target.value;saveToStorage();refreshLive();setAvgSalesVer(function(v){return v+1;});}}/>
-              </div>
-              <div style={{flex:"1 1 260px",minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Stock you already hold</div>
-                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What it cost you. An established business does not have to buy its opening stock again; a new one does.</span>
-                <input style={inp} defaultValue={fdRef.current.openStock||""} placeholder="e.g. 4,000" onChange={function(e){fdRef.current.openStock=e.target.value;saveToStorage();refreshLive();}}/>
-              </div>
-              <div style={{flex:"1 1 260px",minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Equipment and vehicles you own</div>
-                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What they are worth now. Only needed if you want depreciation worked out for you.</span>
-                <input style={inp} defaultValue={fdRef.current.openAssets||""} placeholder="e.g. 30,000" onChange={function(e){fdRef.current.openAssets=e.target.value;saveToStorage();refreshLive();}}/>
-              </div>
-            </div>
-            <div style={{marginBottom:14}}/>
-            {/* The two questions the forecast is actually answering. Neither is
-                an input to the arithmetic - they are what the finished numbers
-                get measured against, which is what makes the health check able
-                to say "this does not get you there" instead of only describing
-                the figures. */}
+            {/* Laid out the way an accountant reads a balance sheet: what the
+                business has down the left, what it owes and what has been put
+                into it down the right. With the box unticked only the two
+                that apply to anybody are left, one on each side. */}
             <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
-              <div style={{flex:"1 1 260px",minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much do you need to start or grow the business?</div>
-                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Setting up, equipment, stock, and enough to cover the months before it pays for itself.</span>
-                <input style={inp} defaultValue={fdRef.current.needCapital||""} placeholder="e.g. 25,000" onChange={function(e){fdRef.current.needCapital=e.target.value;saveToStorage();refreshLive();}}/>
+              <div style={{flex:"1 1 300px",minWidth:0}}>
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Cash in the bank on day one ({curSym})</div>
+                  <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What is in the bank account the day the forecast starts.</span>
+                  <input style={inp} defaultValue={fdRef.current.openingBalance||""} placeholder="e.g. 5,000" onChange={function(e){fdRef.current.openingBalance=e.target.value;saveToStorage();refreshLive();}}/>
+                </div>
+                {finDetail&&(<>
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Owed to you on day one</div>
+                  <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Invoices already out that have not been paid. They come in during month 1.</span>
+                  <input style={inp} defaultValue={fdRef.current.openDebtors||""} placeholder="e.g. 3,000" onChange={function(e){fdRef.current.openDebtors=e.target.value;saveToStorage();refreshLive();}}/>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Equipment and vehicles you own</div>
+                  <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What they are worth now. Only needed if you want depreciation worked out for you.</span>
+                  <input style={inp} defaultValue={fdRef.current.openAssets||""} placeholder="e.g. 30,000" onChange={function(e){fdRef.current.openAssets=e.target.value;saveToStorage();refreshLive();}}/>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Stock you already hold</div>
+                  <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What it cost you. An established business does not have to buy its opening stock again; a new one does.</span>
+                  <input style={inp} defaultValue={fdRef.current.openStock||""} placeholder="e.g. 4,000" onChange={function(e){fdRef.current.openStock=e.target.value;saveToStorage();refreshLive();}}/>
+                </div>
+                </>)}
               </div>
-              <div style={{flex:"1 1 260px",minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much do you need to draw from the business?</div>
-                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What you need to take out of the business to live on. Say whether that is a year or a month.</span>
-                <input style={inp} defaultValue={fdRef.current.needIncome||""} placeholder="e.g. 60,000 a year" onChange={function(e){fdRef.current.needIncome=e.target.value;saveToStorage();refreshLive();}}/>
-                {String(fdRef.current.needIncome||"").trim()&&(
-                  <div style={{marginTop:6,background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:8,
-                    padding:"9px 11px",fontSize:12.5,color:"#7A5E18",lineHeight:1.5}}>
-                    {drawingsTaxNote()}
-                  </div>
-                )}
+              <div style={{flex:"1 1 300px",minWidth:0}}>
+                {finDetail&&(<>
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Owed by you on day one</div>
+                  <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Supplier bills already received and not yet paid. They go out in month 1.</span>
+                  <input style={inp} defaultValue={fdRef.current.openCreditors||""} placeholder="e.g. 5,000" onChange={function(e){fdRef.current.openCreditors=e.target.value;saveToStorage();refreshLive();}}/>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Loans owing on day one</div>
+                  <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Term loan or overdraft still to repay. Interest is worked out from this under Depreciation and interest.</span>
+                  <input style={inp} defaultValue={fdRef.current.openLoan||""} placeholder="e.g. 50,000"
+                    onChange={function(e){fdRef.current.openLoan=e.target.value;saveToStorage();refreshLive();setAvgSalesVer(function(v){return v+1;});}}/>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>{cap1(taxLabel())} owing on day one</div>
+                  <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What your last return left owing, if you are registered. A refund due to you goes in as a negative. This is where the forecast starts its {taxLabel()}, so nothing is taken out of what you are owed or what you owe.</span>
+                  <input style={inp} defaultValue={fdRef.current.openGst||""} placeholder="e.g. 2,400" onChange={function(e){fdRef.current.openGst=e.target.value;saveToStorage();refreshLive();}}/>
+                </div>
+                </>)}
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Money you or investors have put in</div>
+                  <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Share capital or the owner's own money already in the business.</span>
+                  <input style={inp} defaultValue={fdRef.current.equity||""} placeholder="e.g. $30,000 from founder Jane Smith" onChange={function(e){fdRef.current.equity=e.target.value;saveToStorage();}}/>
+                </div>
               </div>
             </div>
-            </>)}
             <div style={{marginBottom:14}}/>
             </>)}
 </FinSection></>)}
@@ -6897,7 +7042,9 @@ export default function App(){
                 <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:6,display:"block",lineHeight:1.5}}>
                   In New Zealand most businesses under $500,000 of sales file six-monthly and most others
                   two-monthly. Which months those fall in depends on the taxable period you are registered
-                  for, so tell us the first one and the rest follow.
+                  for, so tell us the first one and the rest follow. Pick the months the payment actually
+                  leaves your bank, not the months the period covers &mdash; a return for the first two
+                  months is usually paid in the third.
                 </span>
                 {taxSchedNow().freq==="pick"&&(
                 <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,marginTop:4}}>
@@ -7121,13 +7268,11 @@ export default function App(){
                   // yet remitted, or paid on purchases and not yet claimed back.
                   // Either way the closing cash is not all the business's own.
                   if(!taxReg)return null;
-                  var coll=0,cred=0,paid=0;
-                  (liveRows||[]).forEach(function(r){
-                    var d=r.txDetail||{};
-                    coll+=d.txTaxColl||0; cred+=d.txTaxCred||0; paid+=d.txTax||0;
-                  });
-                  var owing=Math.round(coll+cred+paid);   // credits and payments are negative
-                  if(owing>0)return <span>The closing balance also still holds about <strong style={{color:"#7A5E18"}}>{fmt(owing)}</strong> of {taxLabel()} collected and not yet paid &mdash; that is not your money.</span>;
+                  // The tax account itself, which starts at whatever was owing
+                  // on day one rather than at nil.
+                  var last=(liveRows||[])[liveRows.length-1]||{};
+                  var owing=Math.round(last.taxBal||0);
+                  if(owing>0)return <span>The closing balance also still holds about <strong style={{color:"#7A5E18"}}>{fmt(owing)}</strong> of {taxLabel()} owing and not yet paid &mdash; that is not your money.</span>;
                   if(owing<0)return <span>Your {taxLabel()} position at the end of the year is about <strong style={{color:"#7A5E18"}}>{fmt(Math.abs(owing))}</strong> owed back to you, which is in the closing balance only once it is refunded.</span>;
                   return <span>Your {taxLabel()} is paid up to the end of the year in this forecast.</span>;
                 })()}{" "}
