@@ -282,6 +282,9 @@ const expCats=[
 // netted is Box 15.
 const txCats=[
   {id:"txLoan",l:"Loan transactions",ph:"e.g. 50000 loan received, -2000 monthly repayment"},
+  // Both derived from what the funding in step 1 is, and what it buys.
+  {id:"txCapSpend",l:"Equipment and stock bought with the funding",auto:true},
+  {id:"txCapRepay",l:"Repaying the funding loan",auto:true},
   {id:"txAsset",l:"Asset transactions",ph:"e.g. 4000 equipment sale, -15000 vehicle purchase"},
   {id:"txTaxColl",l:"Tax collected on sales",lfn:function(w){return w+" collected on sales";},auto:true},
   {id:"txTaxCred",l:"Tax paid on purchases",lfn:function(w){return w+" paid on purchases";},auto:true},
@@ -460,6 +463,14 @@ function needMonthly(v){
   return p.n/12;
 }
 function needOneOff(v){ var p=parseNeed(v); return p?p.n:0; }
+// A table repayment: the same amount every month, interest first, so the loan
+// is gone at the end of the term. With no rate it is just the principal split.
+function levelPayment(principal,ratePct,months){
+  if(!(principal>0)||!(months>0))return 0;
+  var i=(ratePct||0)/100/12;
+  if(i<=0)return Math.round(principal/months);
+  return Math.round(principal*i/(1-Math.pow(1+i,-months)));
+}
 // parseNeed throws away anything at or below nil, which is right for a loan
 // or the money an owner needs, but not for a tax balance: that can be a
 // refund due. Accountants' brackets count as a negative too.
@@ -606,8 +617,25 @@ function calcCashflow(f){
   // An amortising loan: interest is this month's balance times the rate, the
   // rest of the repayment is principal, and the balance falls by it. That is
   // why the interest declines across the year rather than sitting flat.
-  const intAuto=String(f.intAuto||"")==="1";
-  const intRate=parseFloat(f.loanRate||0)||0;
+  // The money needed to start or grow, and what becomes of it. It arrives in
+  // month 1 as funding either way; being a loan is what decides whether it is
+  // owed back, and what it buys is what decides whether it is still in the
+  // bank at the end of the month.
+  const capTotal=needOneOff(f.needCapital);
+  const capSource=String(f.capSource||"own");
+  const capLoanAmt=Math.min(capTotal,
+    capSource==="loan"?capTotal:(capSource==="part"?needOneOff(f.capLoan):0));
+  const capOnAssets=Math.min(capTotal,needOneOff(f.capOnAssets));
+  const capOnStock=Math.min(Math.max(0,capTotal-capOnAssets),needOneOff(f.capOnStock));
+  const capRate=parseFloat(f.capRate||0)||0;
+  const capYears=parseFloat(f.capYears||0)||0;
+  // A rate given for the funding loan turns the interest calculation on for a
+  // business that had no loan before. One rate serves the whole balance, so an
+  // existing loan keeps the rate already set for it.
+  const intAutoUser=String(f.intAuto||"")==="1";
+  const intAuto=intAutoUser||(capLoanAmt>0&&capRate>0);
+  const intRate=intAutoUser?(parseFloat(f.loanRate||0)||0):capRate;
+  const capRepayM=levelPayment(capLoanAmt,intRate,capYears*12);
   let loanBal=needOneOff(f.openLoan);
   const depnAuto=String(f.depnAuto||"")==="1";
   const depnRate=parseFloat(f.depnRate||0)||0;
@@ -677,7 +705,7 @@ function calcCashflow(f){
     // forecast had the business re-buying stock it was already holding.
     // Carrying the balance runs the surplus down over as many months as it
     // takes, which is what actually happens.
-    if(i===0)stockBal=openStock;
+    if(i===0)stockBal=openStock+capOnStock;
     const target=Math.round(stockMonths*cogs);
     const purch=Math.max(0,target-stockBal+cogs);
     const stockBuild=purch-cogs;
@@ -692,16 +720,24 @@ function calcCashflow(f){
     // Assets bought this month start depreciating this month; assets sold
     // stop. Done before the expense loop so the figure is current.
     assetBase=Math.max(0,assetBase-Math.round((txArr["txAsset"]||[])[i]||0));
+    // Gear bought out of the funding is owned from month 1, so it depreciates
+    // from month 1 like anything else the business owns.
+    if(i===0&&capOnAssets>0)assetBase+=capOnAssets;
     const autoDepn=depnAuto?Math.max(0,Math.round(assetBase*depnRate/100/12)):null;
 
     // Loan movements this month: a drawdown is positive, a repayment negative.
     const loanFlow=Math.round((txArr["txLoan"]||[])[i]||0);
+    // Funding taken as a loan is owed from the month it arrives. The cash is
+    // already in the bank through the funding row, so only the balance moves.
+    if(i===0&&capLoanAmt>0)loanBal+=capLoanAmt;
     if(loanFlow>0)loanBal+=loanFlow;                       // money borrowed
     const autoInt=intAuto?Math.max(0,Math.round(loanBal*intRate/100/12)):null;
-    if(loanFlow<0){
+    const capRepayNow=(capRepayM>0&&i<Math.round(capYears*12))?Math.min(capRepayM,Math.max(0,Math.round(loanBal+(autoInt||0)))):0;
+    const repaid=(loanFlow<0?-loanFlow:0)+capRepayNow;
+    if(repaid>0){
       // The repayment covers the interest first; whatever is left reduces what
       // is owed. A repayment smaller than the interest pays off no principal.
-      const principal=Math.max(0,(-loanFlow)-(autoInt||0));
+      const principal=Math.max(0,repaid-(autoInt||0));
       loanBal=Math.max(0,loanBal-principal);
     }
 
@@ -815,6 +851,12 @@ function calcCashflow(f){
         // What they said they need to start or grow, treated as funding put
         // in at the start. Month one only - it is capital, not income.
         v=i===0?Math.round(needOneOff(f.needCapital)):0;
+      } else if(c.id==="txCapSpend"){
+        // Paid out of the funding in month 1 - the money came in, and this is
+        // it going straight back out on gear and stock.
+        v=i===0?-(capOnAssets+capOnStock):0;
+      } else if(c.id==="txCapRepay"){
+        v=-capRepayNow;
       } else if(c.id==="txTaxAside"){
         // Not a payment - the money has not gone to anyone. It is moved out
         // of the balance so the figure on screen is what the business can
@@ -1864,10 +1906,30 @@ function App(){
   // that is already trading - what it is owed, what it owes, stock and gear on
   // hand, and what the owner needs out of it. A startup answering them gets
   // twelve questions where it needed six.
+  // Step 1 already asked what stage the business is at, so a business that
+  // said Early stage or Established should not have to say it again here -
+  // the box starts ticked for them. Once the box itself is touched that
+  // answer is kept, and the stage stops overriding it.
+  function stageIsTrading(v){ return /^(Early stage|Established)/.test(String(v||"")); }
+  function finDetailChosen(){
+    try{ return localStorage.getItem("bpd_fin_detail"); }catch(e){ return null; }
+  }
   var finDetailState=useState(function(){
-    try{ return localStorage.getItem("bpd_fin_detail")==="1"; }catch(e){ return false; }
+    var v=finDetailChosen();
+    if(v==="1")return true;
+    if(v!==null&&v!==undefined)return false;
+    return stageIsTrading((savedData||{}).stage);
   });
   var finDetail=finDetailState[0];var setFinDetail=finDetailState[1];
+  // Called when the stage answer changes in step 1. It only moves the box
+  // while the box has never been touched.
+  function syncTradingFromStage(){
+    if(finDetailChosen()!==null&&finDetailChosen()!==undefined)return;
+    var want=stageIsTrading(fdRef.current.stage);
+    setFinDetail(function(cur){ return cur===want?cur:want; });
+    refreshLive();
+  }
+
   function chooseFinDetail(v){
     setFinDetail(v);
     try{ localStorage.setItem("bpd_fin_detail",v?"1":""); }catch(e){}
@@ -1973,11 +2035,10 @@ function App(){
   // for. `sec` says which section wrapper to show it in, so the chrome still
   // tells you where you are.
   var FIN_FLOW=[
-    {id:"setup",     sec:"start", core:true,  l:"Where you are starting from",hint:"currency, dates, what you need to start and to draw"},
+    {id:"setup",     sec:"start", core:true,  l:"Where you are starting from",hint:"what you sell, currency, dates, what you need"},
     {id:"trading",   sec:"start", core:true,  l:"Where you are today",      hint:"cash in the bank, what you are owed, what you hold"},
     {id:"tax",       sec:"tax",   core:true,  l:"Products/services tax",   hint:"registration, rate, basis and months"},
     {id:"inctax",    sec:"inctax",core:true,  l:"Income tax",              hint:"the rate on your profit"},
-    {id:"sells",     sec:"sales", core:true,  l:"What you sell",            hint:"products, services or both"},
     {id:"volume",    sec:"sales", core:true,  l:"How much you sell",        hint:"and how fast it grows"},
     {id:"price",     sec:"sales", core:true,  l:"What you charge",          hint:"your average price"},
     {id:"cost",      sec:"sales", core:true,  l:"What it costs you",        hint:"the direct cost of a sale"},
@@ -2446,7 +2507,7 @@ function App(){
     return <input key={id} aria-label={fieldLabel(id,label)} autoComplete="off" autoCorrect="off" autoCapitalize="off" name={id} id={"field-"+id} style={inp} defaultValue={fdRef.current[id]||""} placeholder={ph} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}/>;
   }
   function RS(id,opts,label){
-    return <select aria-label={fieldLabel(id,label)} id={"field-"+id} name={id} style={sel} defaultValue={fdRef.current[id]||opts[0]} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();}}>
+    return <select aria-label={fieldLabel(id,label)} id={"field-"+id} name={id} style={sel} defaultValue={fdRef.current[id]||opts[0]} onChange={function(e){fdRef.current[id]=e.target.value;saveToStorage();if(id==="stage")syncTradingFromStage();}}>
       {opts.map(function(o){return <option key={o} value={o}>{o}</option>;})}</select>;
   }
 
@@ -6924,94 +6985,208 @@ function App(){
           {(finMode!=="guided"||["setup","volume","price","cost"].indexOf(finNow().id)>=0)&&StartingFigures()}
             {finVisible("start")&&(<><FinSection plainTitle={finMode==="guided"} open={finIsOpen("start")} onToggle={function(){finToggle("start");}} title="1. Starting position" hint="where you are today">
             {fw("setup")&&(<>
-            {/* Two columns, like the question after it: the screen was a
-                column of full-width boxes with nothing beside them. */}
+            {/* What the business sells decides the words used from here on,
+                and whether stock is asked about at all, so it is the first
+                thing on the first screen. */}
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:6,display:"block"}}>What does the business sell?</div>
+              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                {SELLS_OPTS.map(function(o){
+                  var on=(fdRef.current.sells||"")===o.k;
+                  return (<button key={o.k} type="button"
+                    aria-pressed={on}
+                    onClick={function(){
+                      fdRef.current.sells=on?"":o.k;
+                      // A services business holds no opening stock, so the
+                      // question is closed off in the next screen - and any
+                      // figure already entered there is cleared, rather than
+                      // sitting out of sight and still being counted.
+                      if(fdRef.current.sells==="services"){fdRef.current.openStock="";fdRef.current.stockMonths="0";}
+                      saveToStorage();refreshLive();
+                      setAvgSalesVer(function(v){return v+1;});
+                    }}
+                    style={{fontFamily:"inherit",fontSize:13.5,fontWeight:on?700:500,
+                      padding:"9px 16px",borderRadius:8,cursor:"pointer",
+                      border:"1px solid "+(on?"#01236D":"#D8E2F0"),
+                      background:on?"#01236D":"#fff",color:on?"#fff":"#29384A"}}>{o.l}</button>);
+                })}
+              </div>
+            </div>
+            {/* Two columns, two rows, so the second question on each side
+                starts at the same height whatever the first one above it
+                happens to be. One column on a phone. */}
+            <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap",marginBottom:4}}>
+              <div style={{flex:"1 1 320px",minWidth:0}}>
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Currency</div>
+                  <select style={sel} value={curSym}
+                    onChange={function(e){
+                      var v=e.target.value;
+                      setCurrency(v);setCurSym(v);
+                      fdRef.current.currencySym=v;
+                      saveToStorage();refreshLive();
+                    }}>
+                    {CURRENCIES.map(function(c){return <option key={c.code} value={c.sym}>{c.label}</option>;})}
+                  </select>
+                  <div style={{fontSize:12.5,color:"#5A6C7E",marginTop:5,lineHeight:1.5}}>Used for every figure in your forecast, and in the Word and Excel exports.</div>
+                </div>
+              </div>
+              <div style={{flex:"1 1 320px",minWidth:0}}>
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Cashflow start date (Month 1)</div>
+                  <div style={{display:"flex",gap:8}}>
+                    <select style={{...sel,flex:1}} value={(cfStart||"").split("-")[1]||""} onChange={function(e){var parts=(cfStart||"----").split("-");parts[1]=e.target.value;var newVal=(parts[0]||String(new Date().getFullYear()))+"-"+parts[1];fdRef.current.cfStartDate=newVal;setCfStart(newVal);saveToStorage();refreshLive();}}>
+                      <option value="">Month</option>
+                      {["01","02","03","04","05","06","07","08","09","10","11","12"].map(function(m,i){return <option key={m} value={m}>{["January","February","March","April","May","June","July","August","September","October","November","December"][i]}</option>;})}
+                    </select>
+                    <select style={{...sel,flex:1}} value={(cfStart||"").split("-")[0]||""} onChange={function(e){var parts=(cfStart||"----").split("-");parts[0]=e.target.value;var newVal=parts[0]+"-"+(parts[1]||"01");fdRef.current.cfStartDate=newVal;setCfStart(newVal);saveToStorage();refreshLive();}}>
+                      <option value="">Year</option>
+                      {Array.from({length:10},function(_,i){var y=new Date().getFullYear()-2+i;return <option key={y} value={String(y)}>{y}</option>;})}
+                    </select>
+                  </div>
+                  <div style={{fontSize:12.5,color:"#5A6C7E",marginTop:5,lineHeight:1.5}}>The first month of the 12-month forecast.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* The two questions the forecast gets measured against: what it
+                takes to get going, and what the owner has to live on. Most
+                people have no idea what the first one comes to, so the AI is
+                offered right beside it. */}
             <div style={{display:"flex",gap:12,alignItems:"flex-start",flexWrap:"wrap"}}>
               <div style={{flex:"1 1 320px",minWidth:0}}>
-              <div style={{marginBottom:14}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Currency</div>
-                <select style={sel} value={curSym}
-                  onChange={function(e){
-                    var v=e.target.value;
-                    setCurrency(v);setCurSym(v);
-                    fdRef.current.currencySym=v;
-                    saveToStorage();refreshLive();
-                  }}>
-                  {CURRENCIES.map(function(c){return <option key={c.code} value={c.sym}>{c.label}</option>;})}
-                </select>
-                <div style={{fontSize:13,color:"#5A6C7E",marginTop:5,lineHeight:1.5}}>Used for every figure in your forecast, and in the Word and Excel exports.</div>
-              </div>
-              {/* The money that has to be found before the business stands on
-                  its own. Most people have no idea what this comes to, so the
-                  AI is offered the moment the question is asked rather than
-                  buried behind the forecast. */}
-              <div style={{marginBottom:14}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much do you need to start or grow the business?</div>
-                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>Setting up, equipment, stock, and enough to cover the months before it pays for itself.</span>
-                <input key={"needCap"+ncVer} style={inp} defaultValue={fdRef.current.needCapital||""} placeholder="e.g. 25,000"
-                  onChange={function(e){fdRef.current.needCapital=e.target.value;saveToStorage();refreshLive();}}/>
-                <div style={{display:"flex",alignItems:"center",gap:0,marginTop:8,flexWrap:"wrap"}}>
-                  <button style={ncAiLoad?suggestBtnBusy:suggestBtn} disabled={ncAiLoad}
-                    onClick={function(){suggestStartCapital();}}>
-                    {ncAiLoad?busyLabel("Working on it\u2026"):"Suggest with AI"}
-                  </button>
-                  <span style={{fontSize:11,color:"#29384A",marginLeft:8,fontStyle:"italic"}}>Remember to fact check AI suggestions and add any other relevant information.</span>
-                </div>
-                {!!ncAi&&(
-                  <div style={{marginTop:8,background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:6,padding:"12px 14px"}}>
-                    {ncAi.error
-                      ?<div style={{fontSize:13,color:"#B14A38",lineHeight:1.55}}>{ncAi.error}</div>
-                      :(<div>
-                          <div style={{fontSize:13,color:"#29384A",lineHeight:1.6}}>
-                            Suggested <strong style={{color:"#01236D",fontSize:16}}>{fmt(ncAi.amount)}</strong> to get going
-                          </div>
-                          {!!(ncAi.items||[]).length&&(
-                            <ul style={{margin:"8px 0 0 18px",padding:0,fontSize:12.5,color:"#29384A",lineHeight:1.7}}>
-                              {ncAi.items.map(function(it,i){return <li key={i}>{it}</li>;})}
-                            </ul>
-                          )}
-                          {!!ncAi.why&&<div style={{fontSize:12.5,color:"#5A6C7E",lineHeight:1.6,marginTop:8}}>{ncAi.why}</div>}
-                          <div style={{marginTop:10}}>
-                            <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
-                              onClick={function(){
-                                fdRef.current.needCapital=String(ncAi.amount);
-                                saveToStorage();refreshLive();
-                                setNcVer(function(v){return v+1;});
-                                setNcAi(null);
-                              }}>Use this figure</button>
-                          </div>
-                        </div>)}
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much do you need to start or grow the business?</div>
+                  <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5,minHeight:38}}>Setting up, equipment, stock, and enough to cover the months before it pays for itself.</span>
+                  <input key={"needCap"+ncVer} style={inp} defaultValue={fdRef.current.needCapital||""} placeholder="e.g. 25,000"
+                    onChange={function(e){fdRef.current.needCapital=e.target.value;saveToStorage();refreshLive();}}/>
+                  <div style={{display:"flex",alignItems:"center",gap:8,marginTop:8,flexWrap:"wrap"}}>
+                    <button style={ncAiLoad?suggestBtnBusy:suggestBtn} disabled={ncAiLoad}
+                      onClick={function(){suggestStartCapital();}}>
+                      {ncAiLoad?busyLabel("Working on it\u2026"):"Suggest with AI"}
+                    </button>
+                    <span style={{fontSize:11,color:"#29384A",fontStyle:"italic",flex:"1 1 160px",minWidth:0,lineHeight:1.5}}>Remember to fact check AI suggestions and add any other relevant information.</span>
                   </div>
-                )}
-              </div>
+                  {(function(){
+                    // Only worth asking once there is a figure to ask about.
+                    var tot=needOneOff(fdRef.current.needCapital);
+                    if(!tot)return null;
+                    var src=String(fdRef.current.capSource||"own");
+                    var loanPart=src==="loan"?tot:(src==="part"?needOneOff(fdRef.current.capLoan):0);
+                    var onAssets=needOneOff(fdRef.current.capOnAssets);
+                    var onStock=needOneOff(fdRef.current.capOnStock);
+                    var svc=(fdRef.current.sells||"")==="services";
+                    var left=tot-onAssets-onStock;
+                    var set=function(k,v){fdRef.current[k]=v;saveToStorage();refreshLive();};
+                    var lbl={fontSize:12.5,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"};
+                    var opt=function(k,l){
+                      var on=src===k;
+                      return (<button key={k} type="button" aria-pressed={on}
+                        onClick={function(){set("capSource",k);}}
+                        style={{fontFamily:"inherit",fontSize:12.5,fontWeight:on?700:500,
+                          padding:"7px 13px",borderRadius:8,cursor:"pointer",
+                          border:"1px solid "+(on?"#01236D":"#D8E2F0"),
+                          background:on?"#01236D":"#fff",color:on?"#fff":"#29384A"}}>{l}</button>);
+                    };
+                    return (<div style={{marginTop:10,background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"12px 13px"}}>
+                      <div style={lbl}>Where is it coming from?</div>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:10}}>
+                        {opt("own","My own or investors\u2019 money")}
+                        {opt("loan","A loan")}
+                        {opt("part","Part loan")}
+                      </div>
+                      {src==="part"&&(
+                        <div style={{marginBottom:10}}>
+                          <div style={lbl}>How much of it is the loan?</div>
+                          <input style={Object.assign({},inp,{maxWidth:200})} defaultValue={fdRef.current.capLoan||""} placeholder="e.g. 15,000"
+                            onChange={function(e){set("capLoan",e.target.value);}}/>
+                        </div>
+                      )}
+                      {loanPart>0&&(
+                        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:10}}>
+                          <div style={{flex:"1 1 140px",minWidth:0}}>
+                            <div style={lbl}>Interest rate</div>
+                            <input style={inp} defaultValue={fdRef.current.capRate||""} placeholder="e.g. 9"
+                              onChange={function(e){set("capRate",e.target.value);}}/>
+                          </div>
+                          <div style={{flex:"1 1 160px",minWidth:0}}>
+                            <div style={lbl}>Repaid over</div>
+                            <select style={sel} value={fdRef.current.capYears||""}
+                              onChange={function(e){set("capYears",e.target.value);}}>
+                              <option value="">Not yet decided</option>
+                              {[1,2,3,4,5,7,10].map(function(y){return <option key={y} value={String(y)}>{y+" year"+(y>1?"s":"")}</option>;})}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+                      <div style={lbl}>What will it be spent on?</div>
+                      <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                        <div style={{flex:"1 1 150px",minWidth:0}}>
+                          <span style={{fontSize:12,color:"#5A6C7E",display:"block",marginBottom:3}}>Equipment and vehicles</span>
+                          <input style={inp} defaultValue={fdRef.current.capOnAssets||""} placeholder="e.g. 20,000"
+                            onChange={function(e){set("capOnAssets",e.target.value);}}/>
+                        </div>
+                        <div style={{flex:"1 1 150px",minWidth:0}}>
+                          <span style={{fontSize:12,color:"#5A6C7E",display:"block",marginBottom:3}}>{svc?"Stock \u2014 not needed":"Stock"}</span>
+                          <input disabled={svc} key={"capStock"+(svc?"-off":"")}
+                            style={svc?Object.assign({},inp,{background:"#F4F6FA",color:"#97A3B4",cursor:"not-allowed"}):inp}
+                            defaultValue={svc?"":(fdRef.current.capOnStock||"")} placeholder={svc?"":"e.g. 5,000"}
+                            onChange={function(e){set("capOnStock",e.target.value);}}/>
+                        </div>
+                      </div>
+                      <div style={{fontSize:12,color:left<0?"#B14A38":"#5A6C7E",marginTop:8,lineHeight:1.5}}>
+                        {left<0
+                          ?("That is "+fmt(-left)+" more than the "+fmt(tot)+" you are raising.")
+                          :(onAssets||onStock
+                             ?("Bought in month 1, so it leaves the bank then. "+fmt(left)+" is left as working capital"
+                               +(onAssets?", and the equipment depreciates from month 1":"")+".")
+                             :"Anything you do not spend stays in the bank as working capital.")}
+                        {loanPart>0&&(fdRef.current.capYears
+                          ?(" The "+fmt(loanPart)+" loan is owed from month 1, with interest, and repaid over "+fdRef.current.capYears+" year"+(parseFloat(fdRef.current.capYears)>1?"s":"")+".")
+                          :" Choose how long the loan runs and the repayments will be worked out for you.")}
+                      </div>
+                    </div>);
+                  })()}
+                  {!!ncAi&&(
+                    <div style={{marginTop:8,background:"#EAF0F9",border:"1px solid #E3E8F0",borderRadius:6,padding:"12px 14px"}}>
+                      {ncAi.error
+                        ?<div style={{fontSize:13,color:"#B14A38",lineHeight:1.55}}>{ncAi.error}</div>
+                        :(<div>
+                            <div style={{fontSize:13,color:"#29384A",lineHeight:1.6}}>
+                              Suggested <strong style={{color:"#01236D",fontSize:16}}>{fmt(ncAi.amount)}</strong> to get going
+                            </div>
+                            {!!(ncAi.items||[]).length&&(
+                              <ul style={{margin:"8px 0 0 18px",padding:0,fontSize:12.5,color:"#29384A",lineHeight:1.7}}>
+                                {ncAi.items.map(function(it,i){return <li key={i}>{it}</li>;})}
+                              </ul>
+                            )}
+                            {!!ncAi.why&&<div style={{fontSize:12.5,color:"#5A6C7E",lineHeight:1.6,marginTop:8}}>{ncAi.why}</div>}
+                            <div style={{marginTop:10}}>
+                              <button style={Object.assign({},suggestBtn,{background:"#01236D"})}
+                                onClick={function(){
+                                  fdRef.current.needCapital=String(ncAi.amount);
+                                  saveToStorage();refreshLive();
+                                  setNcVer(function(v){return v+1;});
+                                  setNcAi(null);
+                                }}>Use this figure</button>
+                            </div>
+                          </div>)}
+                    </div>
+                  )}
+                </div>
               </div>
               <div style={{flex:"1 1 320px",minWidth:0}}>
-              <div style={{marginBottom:14}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Cashflow start date (Month 1)</div>
-                <div style={{display:"flex",gap:8}}>
-                  <select style={{...sel,flex:1}} value={(cfStart||"").split("-")[1]||""} onChange={function(e){var parts=(cfStart||"----").split("-");parts[1]=e.target.value;var newVal=(parts[0]||String(new Date().getFullYear()))+"-"+parts[1];fdRef.current.cfStartDate=newVal;setCfStart(newVal);saveToStorage();refreshLive();}}>
-                    <option value="">Month</option>
-                    {["01","02","03","04","05","06","07","08","09","10","11","12"].map(function(m,i){return <option key={m} value={m}>{["January","February","March","April","May","June","July","August","September","October","November","December"][i]}</option>;})}
-                  </select>
-                  <select style={{...sel,flex:1}} value={(cfStart||"").split("-")[0]||""} onChange={function(e){var parts=(cfStart||"----").split("-");parts[0]=e.target.value;var newVal=parts[0]+"-"+(parts[1]||"01");fdRef.current.cfStartDate=newVal;setCfStart(newVal);saveToStorage();refreshLive();}}>
-                    <option value="">Year</option>
-                    {Array.from({length:10},function(_,i){var y=new Date().getFullYear()-2+i;return <option key={y} value={String(y)}>{y}</option>;})}
-                  </select>
+                <div style={{marginBottom:14}}>
+                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much do you need to draw from the business?</div>
+                  <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5,minHeight:38}}>What you need to live on. Say whether that is a year or a month.</span>
+                  <input style={inp} defaultValue={fdRef.current.needIncome||""} placeholder="e.g. 60,000 a year" onChange={function(e){fdRef.current.needIncome=e.target.value;saveToStorage();refreshLive();}}/>
+                  {String(fdRef.current.needIncome||"").trim()&&(
+                    <div style={{marginTop:8,background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:8,
+                      padding:"9px 11px",fontSize:12.5,color:"#7A5E18",lineHeight:1.5}}>
+                      {drawingsTaxNote()}
+                    </div>
+                  )}
                 </div>
-              </div>
-              {/* The other question the forecast gets measured against: what the
-                  owner has to take out of it to live on. */}
-              <div style={{marginBottom:14}}>
-                <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much do you need to draw from the business?</div>
-                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What you need to take out of the business to live on. Say whether that is a year or a month.</span>
-                <input style={inp} defaultValue={fdRef.current.needIncome||""} placeholder="e.g. 60,000 a year" onChange={function(e){fdRef.current.needIncome=e.target.value;saveToStorage();refreshLive();}}/>
-                {String(fdRef.current.needIncome||"").trim()&&(
-                  <div style={{marginTop:6,background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:8,
-                    padding:"9px 11px",fontSize:12.5,color:"#7A5E18",lineHeight:1.5}}>
-                    {drawingsTaxNote()}
-                  </div>
-                )}
-              </div>
               </div>
             </div>
             </>)}
@@ -7050,11 +7225,18 @@ function App(){
                   <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What they are worth now. Only needed if you want depreciation worked out for you.</span>
                   <input style={inp} defaultValue={fdRef.current.openAssets||""} placeholder="e.g. 30,000" onChange={function(e){fdRef.current.openAssets=e.target.value;saveToStorage();refreshLive();}}/>
                 </div>
-                <div style={{marginBottom:14}}>
-                  <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>Stock you already hold</div>
-                  <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>What it cost you. An established business does not have to buy its opening stock again; a new one does.</span>
-                  <input style={inp} defaultValue={fdRef.current.openStock||""} placeholder="e.g. 4,000" onChange={function(e){fdRef.current.openStock=e.target.value;saveToStorage();refreshLive();}}/>
-                </div>
+                {(function(){
+                  var svc=(fdRef.current.sells||"")==="services";
+                  return (<div style={{marginBottom:14}}>
+                    <div style={{fontSize:13,fontWeight:500,color:svc?"#97A3B4":"#01236D",marginBottom:4,display:"block"}}>Stock you already hold</div>
+                    <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>
+                      {svc?"Not needed \u2014 you said the business sells services.":"What it cost you. An established business does not have to buy its opening stock again; a new one does."}</span>
+                    <input key={"openStock"+(svc?"-off":"")} disabled={svc}
+                      style={svc?Object.assign({},inp,{background:"#F4F6FA",color:"#97A3B4",cursor:"not-allowed"}):inp}
+                      defaultValue={svc?"":(fdRef.current.openStock||"")} placeholder={svc?"":"e.g. 4,000"}
+                      onChange={function(e){fdRef.current.openStock=e.target.value;saveToStorage();refreshLive();}}/>
+                  </div>);
+                })()}
                 </>)}
               </div>
               <div style={{flex:"1 1 300px",minWidth:0}}>
@@ -7094,27 +7276,6 @@ function App(){
                 have a cost of sales - a plumber buys parts, an agency
                 subcontracts - and a template that hid the cost field would be
                 wrong for exactly those people. */}
-            {fw("sells")&&(<>
-            <div style={{marginBottom:14}}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:6,display:"block"}}>What does the business sell?</div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {SELLS_OPTS.map(function(o){
-                  var on=(fdRef.current.sells||"")===o.k;
-                  return (<button key={o.k} type="button"
-                    aria-pressed={on}
-                    onClick={function(){
-                      fdRef.current.sells=on?"":o.k;
-                      saveToStorage();refreshLive();
-                      setAvgSalesVer(function(v){return v+1;});
-                    }}
-                    style={{fontFamily:"inherit",fontSize:13.5,fontWeight:on?700:500,
-                      padding:"9px 16px",borderRadius:8,cursor:"pointer",
-                      border:"1px solid "+(on?"#01236D":"#D8E2F0"),
-                      background:on?"#01236D":"#fff",color:on?"#fff":"#29384A"}}>{o.l}</button>);
-                })}
-              </div>
-            </div>
-            </>)}
             {fw("terms")&&(<>
             {TermsRow({k:"recvLag",label:"When do your customers pay you?",
               help:"Paid on the spot, or invoiced? This is the single biggest thing that separates a profitable business from one that runs out of money."})}
@@ -7359,21 +7520,28 @@ function App(){
             {taxNoteHere()&&TaxExclNote("other")}
             <div style={{marginBottom:14}}/>
             {fw("stockterms")&&(<>
-            <div style={{marginBottom:14}}>
-              <div style={{fontSize:13,fontWeight:500,color:"#01236D",marginBottom:4,display:"block"}}>How much stock do you hold?</div>
-              <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>
-                Stock is paid for before it is sold, so holding it ties up cash. Leave it at none if you buy only
-                what you have already sold, or if you sell your time.
-              </span>
-              <select style={Object.assign({},sel,{maxWidth:340})} value={fdRef.current.stockMonths||"0"}
-                onChange={function(e){fdRef.current.stockMonths=e.target.value;saveToStorage();refreshLive();}}>
-                <option value="0">None &mdash; I buy what I sell</option>
-                <option value="0.5">About two weeks of sales</option>
-                <option value="1">About a month of sales</option>
-                <option value="2">About two months of sales</option>
-                <option value="3">About three months of sales</option>
-              </select>
-            </div>
+            {/* Only the stock half closes off for a services business: who it
+                buys from and when it pays them still matters. */}
+            {(function(){
+              var svc=(fdRef.current.sells||"")==="services";
+              return (<div style={{marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:500,color:svc?"#97A3B4":"#01236D",marginBottom:4,display:"block"}}>How much stock do you hold?</div>
+                <span style={{fontSize:12.5,color:"#5A6C7E",marginBottom:5,display:"block",lineHeight:1.5}}>
+                  {svc?"Not needed \u2014 you said the business sells services. What you pay suppliers is asked below.":
+                       "Stock is paid for before it is sold, so holding it ties up cash. Leave it at none if you buy only what you have already sold, or if you sell your time."}
+                </span>
+                <select disabled={svc}
+                  style={Object.assign({},sel,{maxWidth:340},svc?{background:"#F4F6FA",color:"#97A3B4",cursor:"not-allowed"}:{})}
+                  value={svc?"0":(fdRef.current.stockMonths||"0")}
+                  onChange={function(e){fdRef.current.stockMonths=e.target.value;saveToStorage();refreshLive();}}>
+                  <option value="0">None &mdash; I buy what I sell</option>
+                  <option value="0.5">About two weeks of sales</option>
+                  <option value="1">About a month of sales</option>
+                  <option value="2">About two months of sales</option>
+                  <option value="3">About three months of sales</option>
+                </select>
+              </div>);
+            })()}
             {TermsRow({k:"payLag",label:"When do you pay your suppliers?",
               help:"Applies to what you buy to sell \u2014 your cost of sales."})}
             <div style={{display:"flex",alignItems:"flex-start",gap:9,marginBottom:14,
@@ -7455,6 +7623,8 @@ function App(){
                 var how=c.id==="txTaxColl"?"Charged to customers on your tax-exclusive prices — held until your return is filed"
                        :c.id==="txTaxCred"?"Paid to suppliers on your tax-exclusive costs — claimed back through your return"
                        :c.id==="txNeedCap"?"From what you said you need to start or grow, put in as funding in month 1"
+                       :c.id==="txCapSpend"?"From what you said the funding buys \u2014 equipment and stock, paid for in month 1"
+                       :c.id==="txCapRepay"?"From the funding loan, its rate and how long it runs"
                        :c.id==="txDraw"?"From what you said you need to draw, taken out every month. Not an expense, so profit and the tax on it are unchanged"
                        :"From the Tax rate and payment months above";
                 return (<div key={c.id} style={{marginBottom:10}}>
