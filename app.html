@@ -282,9 +282,6 @@ const expCats=[
 // netted is Box 15.
 const txCats=[
   {id:"txLoan",l:"Loan transactions",ph:"e.g. 50000 loan received, -2000 monthly repayment"},
-  // Both derived from what the funding in step 1 is, and what it buys.
-  {id:"txCapSpend",l:"Equipment and stock bought with the funding",auto:true},
-  {id:"txCapRepay",l:"Repaying the funding loan",auto:true},
   {id:"txAsset",l:"Asset transactions",ph:"e.g. 4000 equipment sale, -15000 vehicle purchase"},
   {id:"txTaxColl",l:"Tax collected on sales",lfn:function(w){return w+" collected on sales";},auto:true},
   {id:"txTaxCred",l:"Tax paid on purchases",lfn:function(w){return w+" paid on purchases";},auto:true},
@@ -705,9 +702,13 @@ function calcCashflow(f){
     // forecast had the business re-buying stock it was already holding.
     // Carrying the balance runs the surplus down over as many months as it
     // takes, which is what actually happens.
-    if(i===0)stockBal=openStock+capOnStock;
+    if(i===0)stockBal=openStock;
     const target=Math.round(stockMonths*cogs);
-    const purch=Math.max(0,target-stockBal+cogs);
+    // Stock bought out of the funding is bought in month 1 and counts towards
+    // the cover being held, so it runs through the ordinary stock lines
+    // rather than a row of its own.
+    const capStockBuy=(i===0?capOnStock:0);
+    const purch=Math.max(0,target-stockBal-capStockBuy+cogs)+capStockBuy;
     const stockBuild=purch-cogs;
     stockBal=Math.max(0,stockBal-cogs+purch);
     purchHist.push(purch);
@@ -719,21 +720,25 @@ function calcCashflow(f){
     let totalExpenses=0;
     // Assets bought this month start depreciating this month; assets sold
     // stop. Done before the expense loop so the figure is current.
-    assetBase=Math.max(0,assetBase-Math.round((txArr["txAsset"]||[])[i]||0));
-    // Gear bought out of the funding is owned from month 1, so it depreciates
-    // from month 1 like anything else the business owns.
-    if(i===0&&capOnAssets>0)assetBase+=capOnAssets;
+    // Equipment bought out of the funding is an asset transaction like any
+    // other, so it rides in that row: the cash goes out, and the asset base
+    // it leaves behind starts depreciating the same month.
+    const assetFlow=Math.round((txArr["txAsset"]||[])[i]||0)-(i===0?capOnAssets:0);
+    assetBase=Math.max(0,assetBase-assetFlow);
     const autoDepn=depnAuto?Math.max(0,Math.round(assetBase*depnRate/100/12)):null;
 
     // Loan movements this month: a drawdown is positive, a repayment negative.
-    const loanFlow=Math.round((txArr["txLoan"]||[])[i]||0);
+    const userLoan=Math.round((txArr["txLoan"]||[])[i]||0);
     // Funding taken as a loan is owed from the month it arrives. The cash is
     // already in the bank through the funding row, so only the balance moves.
     if(i===0&&capLoanAmt>0)loanBal+=capLoanAmt;
-    if(loanFlow>0)loanBal+=loanFlow;                       // money borrowed
+    if(userLoan>0)loanBal+=userLoan;                       // money borrowed
     const autoInt=intAuto?Math.max(0,Math.round(loanBal*intRate/100/12)):null;
     const capRepayNow=(capRepayM>0&&i<Math.round(capYears*12))?Math.min(capRepayM,Math.max(0,Math.round(loanBal+(autoInt||0)))):0;
-    const repaid=(loanFlow<0?-loanFlow:0)+capRepayNow;
+    // The worked-out repayment rides in the loan row beside anything typed
+    // there, so there is one line for the loan rather than two.
+    const loanFlow=userLoan-capRepayNow;
+    const repaid=(userLoan<0?-userLoan:0)+capRepayNow;
     if(repaid>0){
       // The repayment covers the interest first; whatever is left reduces what
       // is owed. A repayment smaller than the interest pays off no principal.
@@ -851,12 +856,10 @@ function calcCashflow(f){
         // What they said they need to start or grow, treated as funding put
         // in at the start. Month one only - it is capital, not income.
         v=i===0?Math.round(needOneOff(f.needCapital)):0;
-      } else if(c.id==="txCapSpend"){
-        // Paid out of the funding in month 1 - the money came in, and this is
-        // it going straight back out on gear and stock.
-        v=i===0?-(capOnAssets+capOnStock):0;
-      } else if(c.id==="txCapRepay"){
-        v=-capRepayNow;
+      } else if(c.id==="txLoan"){
+        v=loanFlow;
+      } else if(c.id==="txAsset"){
+        v=assetFlow;
       } else if(c.id==="txTaxAside"){
         // Not a payment - the money has not gone to anyone. It is moved out
         // of the balance so the figure on screen is what the business can
@@ -7189,6 +7192,17 @@ function App(){
                 </div>
               </div>
             </div>
+            {/* The figure above is what has to be found, not what the business
+                already has. Said here because the two are easy to confuse. */}
+            <div style={{display:"flex",alignItems:"flex-start",gap:9,
+              background:"#FCFCFA",border:"1px solid #E3E8F0",borderRadius:10,padding:"11px 13px",marginBottom:4}}>
+              <span style={{fontSize:14,lineHeight:1.4,color:"#5A6C7E",flexShrink:0}}>&#9432;</span>
+              <span style={{fontSize:12.5,color:"#29384A",lineHeight:1.55}}>
+                <strong style={{color:"#01236D"}}>Already trading?</strong> This screen is about what you need to
+                find. What the business already has &mdash; cash in the bank, what you are owed and what you owe,
+                stock, equipment and loans &mdash; is asked next, under Where you are today.
+              </span>
+            </div>
             </>)}
             {fw("trading")&&(<>
             <div style={{marginBottom:14}}/>
@@ -7623,8 +7637,6 @@ function App(){
                 var how=c.id==="txTaxColl"?"Charged to customers on your tax-exclusive prices — held until your return is filed"
                        :c.id==="txTaxCred"?"Paid to suppliers on your tax-exclusive costs — claimed back through your return"
                        :c.id==="txNeedCap"?"From what you said you need to start or grow, put in as funding in month 1"
-                       :c.id==="txCapSpend"?"From what you said the funding buys \u2014 equipment and stock, paid for in month 1"
-                       :c.id==="txCapRepay"?"From the funding loan, its rate and how long it runs"
                        :c.id==="txDraw"?"From what you said you need to draw, taken out every month. Not an expense, so profit and the tax on it are unchanged"
                        :"From the Tax rate and payment months above";
                 return (<div key={c.id} style={{marginBottom:10}}>
@@ -7637,6 +7649,31 @@ function App(){
               }
               return (<div key={c.id} style={{marginBottom:10}}>
                 <div style={{fontSize:13,color:"#29384A",marginBottom:4,fontWeight:500}}>{c.l}</div>
+                {(c.id==="txLoan"||c.id==="txAsset")&&(function(){
+                  // These two rows now carry worked-out amounts as well as
+                  // anything typed here, so say so rather than letting
+                  // someone enter the same thing twice.
+                  var f=fdRef.current;
+                  var tot=needOneOff(f.needCapital);
+                  var src=String(f.capSource||"own");
+                  var loanPart=Math.min(tot,src==="loan"?tot:(src==="part"?needOneOff(f.capLoan):0));
+                  var gear=Math.min(tot,needOneOff(f.capOnAssets));
+                  var msg=null;
+                  if(c.id==="txLoan"&&loanPart>0){
+                    var pay=Math.round(Math.abs(sumLive(function(r){return (r.txDetail&&r.txDetail.txLoan)||0;}))) ;
+                    msg=f.capYears
+                      ? "The repayment on your "+fmt(loanPart)+" funding loan is already in this row, worked out from the rate and term you gave. Add only other loans here."
+                      : "Your "+fmt(loanPart)+" funding loan is already counted as money in. Set how long it runs back in step 1 and the repayment appears here on its own.";
+                  }
+                  if(c.id==="txAsset"&&gear>0){
+                    msg="The "+fmt(gear)+" of equipment bought with your funding is already in this row, going out in month 1. Add only other purchases and sales here.";
+                  }
+                  if(!msg)return null;
+                  return (
+                    <div style={{background:"#FBF4E6",border:"1px solid #E8D6AC",borderRadius:6,
+                      padding:"7px 10px",marginBottom:6,fontSize:12.5,color:"#7A5E18",lineHeight:1.5}}>{msg}</div>
+                  );
+                })()}
                 {c.id==="txOther"&&(function(){
                   var already=[];
                   var dr=Math.round(needMonthly(fdRef.current.needIncome));
